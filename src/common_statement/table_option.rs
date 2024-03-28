@@ -348,7 +348,7 @@ fn encryption(i: &[u8]) -> IResult<&[u8], TableOption> {
             multispace0,
             opt(tag("=")),
             multispace0,
-            alt((map(tag("0"), |_| true), map(tag("1"), |_| false))),
+            alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
             multispace0,
         )),
         |x| TableOption::Encryption(x.4),

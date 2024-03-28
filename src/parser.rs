@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 
+use data_definition_statement::alter_database::{alter_database_parser, AlterDatabaseStatement};
 use data_definition_statement::alter_table::AlterTableStatement;
 use data_definition_statement::create_table::CreateTableStatement;
 use data_definition_statement::drop_database::{drop_database_parser, DropDatabaseStatement};
@@ -21,6 +22,7 @@ use zz_update::{updating, UpdateStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum SQLStatement {
+    AlterDatabase(AlterDatabaseStatement),
     AlterTable(AlterTableStatement),
     CreateTable(CreateTableStatement),
     DropDatabase(DropDatabaseStatement),
@@ -57,6 +59,8 @@ impl fmt::Display for SQLStatement {
 
 pub fn parse_sql(i: &[u8]) -> IResult<&[u8], SQLStatement> {
     alt((
+        // ALTER DATABASE
+        map(alter_database_parser, |ad| SQLStatement::AlterDatabase(ad)),
         // ALTER TABLE
         map(alter_table_parser, |at| SQLStatement::AlterTable(at)),
         // CREATE TABLE

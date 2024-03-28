@@ -6,19 +6,18 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{anychar, digit1, multispace0, multispace1};
 use nom::combinator::{map, map_res, opt, recognize};
-use nom::error::{Error, ErrorKind, ParseError};
+use nom::error::{Error, ParseError};
+use nom::IResult;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::IResult;
 
+use {Literal, SqlDataType};
 use common::column::{Column, ColumnConstraint, ColumnSpecification, MySQLColumnPosition};
 use common_parsers::{
     column_identifier_without_alias, parse_comment, sql_identifier, type_identifier, ws_sep_comma,
 };
 use common_statement::index_option::{index_option, IndexOption};
-use common_statement::table_option::table_option;
 use Real;
-use {Literal, SqlDataType};
 
 pub mod index_option;
 pub mod table_option;
@@ -60,6 +59,17 @@ pub enum DefaultOrZeroOrOne {
     Default,
     Zero,
     One,
+}
+
+impl fmt::Display for DefaultOrZeroOrOne {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DefaultOrZeroOrOne::Default => write!(f, "DEFAULT")?,
+            DefaultOrZeroOrOne::Zero => write!(f, "1")?,
+            DefaultOrZeroOrOne::One => write!(f, "0")?,
+        }
+        Ok(())
+    }
 }
 
 /// STORAGE {DISK | MEMORY}
