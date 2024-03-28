@@ -224,7 +224,7 @@ pub enum AlterTableOption {
     Lock(LockType),
 
     /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
-    ModifyColumn(String, ColumnSpecification),
+    ModifyColumn(ColumnSpecification),
 
     /// ORDER BY col_name [, col_name] ...
     OrderBy(Vec<String>),
@@ -317,219 +317,167 @@ fn opt_constraint_with_opt_symbol_and_operation(i: &[u8]) -> IResult<&[u8], Opti
 ///        [FIRST | AFTER col_name]
 ///  | ADD [COLUMN] (col_name column_definition,...)
 fn add_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("ADD"), multispace1)),
-        alt((
-            map(
-                tuple((
-                    tag_no_case("COLUMN"),
-                    multispace1,
-                    single_column_definition,
-                    multispace0,
-                    statement_terminator,
-                )),
-                |x| (true, vec![x.2]),
-            ),
-            map(
-                tuple((
-                    tag_no_case("COLUMN"),
-                    multispace0,
-                    tag("("),
-                    multispace0,
-                    many1(single_column_definition),
-                    multispace0,
-                    tag(")"),
-                )),
-                |x| (true, x.4),
-            ),
-            map((single_column_definition), |x| (false, vec![x])),
-            map(
-                tuple((
-                    tag("("),
-                    multispace0,
-                    many1(single_column_definition),
-                    multispace0,
-                    tag(")"),
-                )),
-                |x| (false, x.2),
-            ),
+    map(
+        tuple((
+            tuple((tag_no_case("ADD"), multispace1)),
+            alt((
+                map(
+                    tuple((
+                        tag_no_case("COLUMN"),
+                        multispace1,
+                        single_column_definition,
+                        multispace0,
+                        statement_terminator,
+                    )),
+                    |x| (true, vec![x.2]),
+                ),
+                map(
+                    tuple((
+                        tag_no_case("COLUMN"),
+                        multispace0,
+                        tag("("),
+                        multispace0,
+                        many1(single_column_definition),
+                        multispace0,
+                        tag(")"),
+                    )),
+                    |x| (true, x.4),
+                ),
+                map((single_column_definition), |x| (false, vec![x])),
+                map(
+                    tuple((
+                        tag("("),
+                        multispace0,
+                        many1(single_column_definition),
+                        multispace0,
+                        tag(")"),
+                    )),
+                    |x| (false, x.2),
+                ),
+            )),
         )),
-    ));
-    match parser(i) {
-        Ok((remaining_input, (_, tuple))) => Ok((
-            remaining_input,
-            AlterTableOption::AddColumn(tuple.0, tuple.1),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_column: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(_, tuple)| AlterTableOption::AddColumn(tuple.0, tuple.1),
+    )(i)
 }
 
 /// ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
 fn add_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("ADD"), multispace1)),
-        // {INDEX | KEY}
-        index_or_key_type,
-        // [index_name]
-        opt_index_name,
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((
-            input,
-            (_, index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option),
-        )) => Ok((
-            input,
+    map(
+        tuple((
+            tuple((tag_no_case("ADD"), multispace1)),
+            // {INDEX | KEY}
+            index_or_key_type,
+            // [index_name]
+            opt_index_name,
+            // [index_type]
+            opt_index_type,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
+        )),
+        |(_, index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option)| {
             AlterTableOption::AddIndexOrKey(
                 index_or_key,
                 opt_index_name,
                 opt_index_type,
                 key_part,
                 opt_index_option,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_index_or_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// | ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
 fn add_fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("ADD"), multispace1)),
-        // {FULLTEXT | SPATIAL}
-        fulltext_or_spatial_type,
-        // [INDEX | KEY]
-        preceded(multispace1, opt(index_or_key_type)),
-        // [index_name]
-        opt_index_name,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((
-            input,
-            (_, fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option),
-        )) => Ok((
-            input,
+    map(
+        tuple((
+            tuple((tag_no_case("ADD"), multispace1)),
+            // {FULLTEXT | SPATIAL}
+            fulltext_or_spatial_type,
+            // [INDEX | KEY]
+            preceded(multispace1, opt(index_or_key_type)),
+            // [index_name]
+            opt_index_name,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
+        )),
+        |(_, fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
             AlterTableOption::AddFulltextOrSpatial(
                 fulltext_or_spatial,
                 index_or_key,
                 index_name,
                 key_part,
                 opt_index_option,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_fulltext_or_spatial: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// | ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
 fn add_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol_and_operation,
-        // PRIMARY KEY
+    map(
         tuple((
-            multispace0,
-            tag_no_case("PRIMARY"),
-            multispace1,
-            tag_no_case("KEY"),
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol_and_operation,
+            // PRIMARY KEY
+            tuple((
+                multispace0,
+                tag_no_case("PRIMARY"),
+                multispace1,
+                tag_no_case("KEY"),
+            )),
+            // [index_type]
+            opt_index_type,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
         )),
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((remaining_input, (opt_symbol, _, opt_index_type, key_part, opt_index_option))) => Ok((
-            remaining_input,
-            AlterTableOption::AddPrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_primary_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
+            AlterTableOption::AddPrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option)
+        },
+    )(i)
 }
 
 /// | ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
 fn add_unique(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol_and_operation,
-        // UNIQUE [INDEX | KEY]
-        map(
-            tuple((
-                multispace0,
-                tag_no_case("UNIQUE"),
-                multispace1,
-                opt(alt((
-                    map(tag_no_case("INDEX"), |_| IndexOrKeyType::INDEX),
-                    map(tag_no_case("KEY"), |_| IndexOrKeyType::KEY),
-                ))),
-            )),
-            |(_, _, _, value)| value,
-        ),
-        // [index_name]
-        opt_index_name,
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((
-            input,
-            (
-                opt_symbol,
-                opt_index_or_key,
-                opt_index_name,
-                opt_index_type,
-                key_part,
-                opt_index_option,
+    map(
+        tuple((
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol_and_operation,
+            // UNIQUE [INDEX | KEY]
+            map(
+                tuple((
+                    multispace0,
+                    tag_no_case("UNIQUE"),
+                    multispace1,
+                    opt(alt((
+                        map(tag_no_case("INDEX"), |_| IndexOrKeyType::INDEX),
+                        map(tag_no_case("KEY"), |_| IndexOrKeyType::KEY),
+                    ))),
+                )),
+                |(_, _, _, value)| value,
             ),
-        )) => Ok((
-            input,
+            // [index_name]
+            opt_index_name,
+            // [index_type]
+            opt_index_type,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
+        )),
+        |(
+            opt_symbol,
+            opt_index_or_key,
+            opt_index_name,
+            opt_index_type,
+            key_part,
+            opt_index_option,
+        )| {
             AlterTableOption::AddUnique(
                 opt_symbol,
                 opt_index_or_key,
@@ -537,141 +485,106 @@ fn add_unique(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                 opt_index_type,
                 key_part,
                 opt_index_option,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as ---{}---: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                "add_unique",
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// ADD [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
 fn add_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol_and_operation,
-        // FOREIGN KEY
+    map(
         tuple((
-            multispace0,
-            tag_no_case("FOREIGN"),
-            multispace1,
-            tag_no_case("KEY"),
-        )),
-        // [index_name]
-        opt_index_name,
-        // (col_name,...)
-        map(
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol_and_operation,
+            // FOREIGN KEY
             tuple((
                 multispace0,
-                delimited(
-                    tag("("),
-                    delimited(multispace0, index_col_list, multispace0),
-                    tag(")"),
-                ),
+                tag_no_case("FOREIGN"),
+                multispace1,
+                tag_no_case("KEY"),
             )),
-            |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
-        ),
-        // reference_definition
-        map(rest, |value: &[u8]| {
-            String::from_utf8(value.to_vec()).unwrap()
-        }),
-    ));
-
-    match parser(i) {
-        Ok((input, (opt_symbol, _, opt_index_name, columns, reference_definition))) => Ok((
-            input,
+            // [index_name]
+            opt_index_name,
+            // (col_name,...)
+            map(
+                tuple((
+                    multispace0,
+                    delimited(
+                        tag("("),
+                        delimited(multispace0, index_col_list, multispace0),
+                        tag(")"),
+                    ),
+                )),
+                |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
+            ),
+            // reference_definition
+            map(rest, |value: &[u8]| {
+                String::from_utf8(value.to_vec()).unwrap()
+            }),
+        )),
+        |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
             AlterTableOption::AddForeignKey(
                 opt_symbol,
                 opt_index_name,
                 columns,
                 reference_definition,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_foreign_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// | ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
 fn add_check(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol_and_operation,
-        // CHECK
-        tuple((multispace1, tag_no_case("CHECK"), multispace0)),
-        // (expr)
-        delimited(tag("("), take_until(")"), tag(")")),
-        // [[NOT] ENFORCED]
-        opt(tuple((
-            multispace0,
-            opt(tag_no_case("NOT")),
-            multispace1,
-            tag_no_case("ENFORCED"),
-            multispace0,
-        ))),
-    ));
-
-    match parser(i) {
-        Ok((input, (symbol, _, expr, opt_whether_enforced))) => {
-            let expr = String::from_utf8(expr.to_vec()).unwrap();
-            let enforced =
-                opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
-            Ok((
-                input,
-                AlterTableOption::AddCheck(CheckConstraintDefinition {
-                    symbol,
-                    expr,
-                    enforced,
-                }),
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_check: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol_and_operation,
+            // CHECK
+            tuple((multispace1, tag_no_case("CHECK"), multispace0)),
+            // (expr)
+            map(
+                delimited(tag("("), take_until(")"), tag(")")),
+                |expr: &[u8]| String::from_utf8(expr.to_vec()).unwrap(),
+            ),
+            // [[NOT] ENFORCED]
+            map(
+                opt(tuple((
+                    multispace0,
+                    opt(tag_no_case("NOT")),
+                    multispace1,
+                    tag_no_case("ENFORCED"),
+                    multispace0,
+                ))),
+                |x| x.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none()),
+            ),
+        )),
+        |(symbol, _, expr, enforced)| {
+            AlterTableOption::AddCheck(CheckConstraintDefinition {
+                symbol,
+                expr,
+                enforced,
+            })
+        },
+    )(i)
 }
 
 /// DROP {CHECK | CONSTRAINT} symbol
 fn drop_check_or_constraint(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("DROP"), multispace1)),
-        // {CHECK | CONSTRAINT}
-        check_or_constraint,
-        // symbol
-        map(
-            tuple((multispace1, sql_identifier, multispace0)),
-            |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
-        ),
-    ));
-
-    match parser(i) {
-        Ok((input, (_, check_or_constraint, symbol))) => Ok((
-            input,
-            AlterTableOption::DropCheckOrConstraint(check_or_constraint, symbol),
+    map(
+        tuple((
+            tuple((tag_no_case("DROP"), multispace1)),
+            // {CHECK | CONSTRAINT}
+            check_or_constraint,
+            // symbol
+            map(
+                tuple((multispace1, sql_identifier, multispace0)),
+                |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
+            ),
         )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "drop_check_or_constraint".to_string(),
-            err,
-        )),
-    }
+        |(_, check_or_constraint, symbol)| {
+            AlterTableOption::DropCheckOrConstraint(check_or_constraint, symbol)
+        },
+    )(i)
 }
 
 /// {CHECK | CONSTRAINT}
@@ -686,64 +599,49 @@ fn check_or_constraint(i: &[u8]) -> IResult<&[u8], CheckOrConstraintType> {
 
 /// ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED
 fn alter_check_or_constraint_enforced(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("ALTER"), multispace1)),
-        // {CHECK | CONSTRAINT}
-        check_or_constraint,
-        // symbol
-        map(
-            tuple((multispace1, sql_identifier, multispace1)),
-            |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
-        ),
-        opt(tag_no_case("NOT ")),
-        tuple((multispace0, tag_no_case("ENFORCED"))),
-    ));
-
-    match parser(i) {
-        Ok((input, (_, check_or_constraint, symbol, opt_not, _))) => Ok((
-            input,
+    map(
+        tuple((
+            tuple((tag_no_case("ALTER"), multispace1)),
+            // {CHECK | CONSTRAINT}
+            check_or_constraint,
+            // symbol
+            map(
+                tuple((multispace1, sql_identifier, multispace1)),
+                |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
+            ),
+            opt(tag_no_case("NOT ")),
+            tuple((multispace0, tag_no_case("ENFORCED"))),
+        )),
+        |(_, check_or_constraint, symbol, opt_not, _)| {
             AlterTableOption::AlterCheckOrConstraintEnforced(
                 check_or_constraint,
                 symbol,
                 opt_not.is_none(),
-            ),
-        )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "alter_check_or_constraint_enforced".to_string(),
-            err,
-        )),
-    }
+            )
+        },
+    )(i)
 }
 
 /// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
 fn algorithm_equal_default_or_instant_or_inplace_or_copy(
     i: &[u8],
 ) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("ALGORITHM "),
-        multispace0,
-        opt(tag("= ")),
-        multispace0,
-        alt((
-            map(tag_no_case("DEFAULT"), |_| AlgorithmType::DEFAULT),
-            map(tag_no_case("INSTANT"), |_| AlgorithmType::INSTANT),
-            map(tag_no_case("INPLACE"), |_| AlgorithmType::INPLACE),
-            map(tag_no_case("COPY"), |_| AlgorithmType::COPY),
+    map(
+        tuple((
+            tag_no_case("ALGORITHM "),
+            multispace0,
+            opt(tag("= ")),
+            multispace0,
+            alt((
+                map(tag_no_case("DEFAULT"), |_| AlgorithmType::DEFAULT),
+                map(tag_no_case("INSTANT"), |_| AlgorithmType::INSTANT),
+                map(tag_no_case("INPLACE"), |_| AlgorithmType::INPLACE),
+                map(tag_no_case("COPY"), |_| AlgorithmType::COPY),
+            )),
+            multispace0,
         )),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, _, algorithm, _))) => {
-            Ok((input, AlterTableOption::Algorithm(algorithm)))
-        }
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "algorithm_equal_default_or_instant_or_inplace_or_copy".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, _, algorithm, _)| AlterTableOption::Algorithm(algorithm),
+    )(i)
 }
 
 /// { SET DEFAULT {literal | (expr)} | SET {VISIBLE | INVISIBLE} | DROP DEFAULT }
@@ -761,315 +659,256 @@ pub enum AlertColumnOperation {
 ///   | DROP DEFAULT
 /// }
 fn alter_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("ALTER "),
-        multispace0,
-        opt(tag_no_case("COLUMN ")),
-        // col_name
-        map(
-            tuple((multispace0, sql_identifier, multispace1)),
-            |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
-        ),
-        alt((
+    map(
+        tuple((
+            tag_no_case("ALTER "),
+            multispace0,
+            opt(tag_no_case("COLUMN ")),
+            // col_name
             map(
-                tuple((
-                    tag_no_case("SET"),
-                    multispace1,
-                    tag_no_case("DEFAULT"),
-                    multispace1,
-                    alt((
-                        map(
-                            alt((recognize(tuple((opt(tag("-")), digit1))), alphanumeric1)),
-                            |x: &[u8]| {
-                                AlertColumnOperation::SetDefaultLiteral(
-                                    String::from_utf8(x.to_vec()).unwrap(),
-                                )
-                            },
-                        ),
-                        map(
-                            delimited(tag("("), recognize(many1(anychar)), tag(")")),
-                            |x: &[u8]| {
-                                AlertColumnOperation::SetDefaultExpr(
-                                    String::from_utf8(x.to_vec()).unwrap(),
-                                )
-                            },
-                        ),
+                tuple((multispace0, sql_identifier, multispace1)),
+                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+            ),
+            alt((
+                map(
+                    tuple((
+                        tag_no_case("SET"),
+                        multispace1,
+                        tag_no_case("DEFAULT"),
+                        multispace1,
+                        alt((
+                            map(
+                                alt((recognize(tuple((opt(tag("-")), digit1))), alphanumeric1)),
+                                |x: &[u8]| {
+                                    AlertColumnOperation::SetDefaultLiteral(
+                                        String::from_utf8(x.to_vec()).unwrap(),
+                                    )
+                                },
+                            ),
+                            map(
+                                delimited(tag("("), recognize(many1(anychar)), tag(")")),
+                                |x: &[u8]| {
+                                    AlertColumnOperation::SetDefaultExpr(
+                                        String::from_utf8(x.to_vec()).unwrap(),
+                                    )
+                                },
+                            ),
+                        )),
+                        multispace0,
                     )),
-                    multispace0,
-                )),
-                |x| x.4,
-            ),
-            map(
-                tuple((
-                    tag_no_case("SET"),
-                    multispace1,
-                    visible_or_invisible,
-                    multispace0,
-                )),
-                |x| AlertColumnOperation::SetVisible(x.2),
-            ),
-            map(
-                tuple((
-                    tag_no_case("DROP"),
-                    multispace1,
-                    tag_no_case("DEFAULT"),
-                    multispace0,
-                )),
-                |_| AlertColumnOperation::DropDefault,
-            ),
+                    |x| x.4,
+                ),
+                map(
+                    tuple((
+                        tag_no_case("SET"),
+                        multispace1,
+                        visible_or_invisible,
+                        multispace0,
+                    )),
+                    |x| AlertColumnOperation::SetVisible(x.2),
+                ),
+                map(
+                    tuple((
+                        tag_no_case("DROP"),
+                        multispace1,
+                        tag_no_case("DEFAULT"),
+                        multispace0,
+                    )),
+                    |_| AlertColumnOperation::DropDefault,
+                ),
+            )),
+            multispace0,
         )),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, col_name, col_operation, _))) => Ok((
-            input,
-            AlterTableOption::AlterColumn(col_name, col_operation),
-        )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "alter_column".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, col_name, col_operation, _)| {
+            AlterTableOption::AlterColumn(col_name, col_operation)
+        },
+    )(i)
 }
 
 /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
 fn alter_index_visibility(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("ALTER "),
-        multispace0,
-        opt(tag_no_case("INDEX ")),
-        // index_name
-        map(
-            tuple((multispace0, sql_identifier, multispace1)),
-            |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
-        ),
-        visible_or_invisible,
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, index_name, visible_type, _))) => Ok((
-            input,
-            AlterTableOption::AlterIndexVisibility(index_name, visible_type),
+    map(
+        tuple((
+            tag_no_case("ALTER "),
+            multispace0,
+            opt(tag_no_case("INDEX ")),
+            // index_name
+            map(
+                tuple((multispace0, sql_identifier, multispace1)),
+                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+            ),
+            visible_or_invisible,
+            multispace0,
         )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "alter_index_visibility".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, index_name, visible_type, _)| {
+            AlterTableOption::AlterIndexVisibility(index_name, visible_type)
+        },
+    )(i)
 }
 
 /// CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]
 fn change_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("CHANGE "),
-        multispace0,
-        opt(tag_no_case("COLUMN ")),
-        multispace0,
-        // old_col_name
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-        multispace1,
-        single_column_definition,
-        multispace0,
-    ));
-    match parser(i) {
-        Ok((input, (_, _, _, _, old_col_name, _, column_definition, _))) => Ok((
-            input,
+    map(
+        tuple((
+            tag_no_case("CHANGE "),
+            multispace0,
+            opt(tag_no_case("COLUMN ")),
+            multispace0,
+            // old_col_name
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace1,
+            single_column_definition,
+            multispace0,
+        )),
+        |(_, _, _, _, old_col_name, _, column_definition, _)| {
             AlterTableOption::ChangeColumn(
                 old_col_name,
                 column_definition.column.name.clone(),
                 column_definition,
-            ),
-        )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "change_column".to_string(),
-            err,
-        )),
-    }
+            )
+        },
+    )(i)
 }
 
 /// [DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]
 fn default_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        opt(tag_no_case("DEFAULT ")),
-        multispace0,
+    map(
         tuple((
+            opt(tag_no_case("DEFAULT ")),
             multispace0,
-            tag_no_case("CHARACTER"),
-            multispace1,
-            tag_no_case("SET"),
-            multispace0,
-            opt(tag("=")),
-            multispace0,
-        )),
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-        multispace0,
-        opt(map(
             tuple((
                 multispace0,
-                tag_no_case("COLLATE"),
+                tag_no_case("CHARACTER"),
                 multispace1,
-                sql_identifier,
+                tag_no_case("SET"),
+                multispace0,
+                opt(tag("=")),
+                multispace0,
             )),
-            |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace0,
+            opt(map(
+                tuple((
+                    multispace0,
+                    tag_no_case("COLLATE"),
+                    multispace1,
+                    sql_identifier,
+                )),
+                |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
+            )),
         )),
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, charset_name, _, collation_name))) => Ok((
-            input,
-            AlterTableOption::DefaultCharacterSet(charset_name, collation_name),
-        )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "default_character_set".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, charset_name, _, collation_name)| {
+            AlterTableOption::DefaultCharacterSet(charset_name, collation_name)
+        },
+    )(i)
 }
 
 /// CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
 fn convert_to_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // CONVERT TO CHARACTER SET
-        tuple((
-            tag_no_case("CONVERT"),
-            multispace1,
-            tag_no_case("TO"),
-            multispace1,
-            tag_no_case("CHARACTER"),
-            multispace1,
-            tag_no_case("SET"),
-            multispace1,
-        )),
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-        multispace0,
-        opt(map(
-            tuple((
-                multispace0,
-                tag_no_case("COLLATE"),
-                multispace1,
-                sql_identifier,
-            )),
-            |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
-        )),
+    let prefix = tuple((
+        tag_no_case("CONVERT"),
+        multispace1,
+        tag_no_case("TO"),
+        multispace1,
+        tag_no_case("CHARACTER"),
+        multispace1,
+        tag_no_case("SET"),
+        multispace1,
     ));
-
-    match parser(i) {
-        Ok((input, (_, charset_name, _, collation_name))) => Ok((
-            input,
-            AlterTableOption::ConvertToCharacterSet(charset_name, collation_name),
+    map(
+        tuple((
+            // CONVERT TO CHARACTER SET
+            prefix,
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace0,
+            opt(map(
+                tuple((
+                    multispace0,
+                    tag_no_case("COLLATE"),
+                    multispace1,
+                    sql_identifier,
+                )),
+                |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
+            )),
         )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "convert_to_character_set".to_string(),
-            err,
-        )),
-    }
+        |(_, charset_name, _, collation_name)| {
+            AlterTableOption::ConvertToCharacterSet(charset_name, collation_name)
+        },
+    )(i)
 }
 
 /// {DISCARD | IMPORT} TABLESPACE
 fn disable_or_enable_keys(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        alt((
-            map(tag_no_case("DISABLE"), |_| AlterTableOption::DisableKeys),
-            map(tag_no_case("ENABLE"), |_| AlterTableOption::EnableKeys),
+    map(
+        tuple((
+            alt((
+                map(tag_no_case("DISABLE"), |_| AlterTableOption::DisableKeys),
+                map(tag_no_case("ENABLE"), |_| AlterTableOption::EnableKeys),
+            )),
+            multispace1,
+            tag_no_case("KEYS"),
+            multispace0,
         )),
-        multispace1,
-        tag_no_case("KEYS"),
-        multispace0,
-    ));
-    match parser(i) {
-        Ok((input, (operation, _, _, _))) => Ok((input, operation)),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "disable_or_enable_keys".to_string(),
-            err,
-        )),
-    }
+        |(operation, _, _, _)| operation,
+    )(i)
 }
 
 /// {DISCARD | IMPORT} TABLESPACE
 fn discard_or_import_tablespace(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        alt((
-            map(tag_no_case("DISCARD"), |_| {
-                AlterTableOption::DiscardTablespace
-            }),
-            map(tag_no_case("IMPORT"), |_| {
-                AlterTableOption::ImportTablespace
-            }),
+    map(
+        tuple((
+            alt((
+                map(tag_no_case("DISCARD"), |_| {
+                    AlterTableOption::DiscardTablespace
+                }),
+                map(tag_no_case("IMPORT"), |_| {
+                    AlterTableOption::ImportTablespace
+                }),
+            )),
+            multispace1,
+            tag_no_case("TABLESPACE"),
+            multispace0,
         )),
-        multispace1,
-        tag_no_case("TABLESPACE"),
-        multispace0,
-    ));
-    match parser(i) {
-        Ok((input, (operation, _, _, _))) => Ok((input, operation)),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "discard_or_import_tablespace".to_string(),
-            err,
-        )),
-    }
+        |(operation, _, _, _)| operation,
+    )(i)
 }
 
 /// DROP [COLUMN] col_name
 fn drop_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("DROP "),
-        multispace0,
-        opt(tag_no_case("COLUMN ")),
-        // col_name
-        map(
-            tuple((multispace0, sql_identifier, multispace0)),
-            |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
-        ),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, col_name, _))) => Ok((input, AlterTableOption::DropColumn(col_name))),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "drop_column".to_string(),
-            err,
+    map(
+        tuple((
+            tag_no_case("DROP "),
+            multispace0,
+            opt(tag_no_case("COLUMN ")),
+            // col_name
+            map(
+                tuple((multispace0, sql_identifier, multispace0)),
+                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+            ),
+            multispace0,
         )),
-    }
+        |(_, _, _, col_name, _)| AlterTableOption::DropColumn(col_name),
+    )(i)
 }
 
 /// DROP {INDEX | KEY} index_name
 fn drop_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("DROP"), multispace1)),
-        // {INDEX | KEY}
-        index_or_key_type,
-        // [index_name]
-        map(
-            tuple((multispace1, sql_identifier, multispace0)),
-            |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
-        ),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, index_or_key, index_name, _))) => Ok((
-            input,
-            AlterTableOption::DropIndexOrKey(index_or_key, index_name),
+    map(
+        tuple((
+            tuple((tag_no_case("DROP"), multispace1)),
+            // {INDEX | KEY}
+            index_or_key_type,
+            // [index_name]
+            map(
+                tuple((multispace1, sql_identifier, multispace0)),
+                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+            ),
+            multispace0,
         )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as drop_index_or_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(_, index_or_key, index_name, _)| {
+            AlterTableOption::DropIndexOrKey(index_or_key, index_name)
+        },
+    )(i)
 }
 
 /// DROP PRIMARY KEY
@@ -1089,7 +928,7 @@ fn drop_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 
 /// DROP FOREIGN KEY fk_symbol
 fn drop_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = map(
+    map(
         tuple((
             tag_no_case("DROP"),
             multispace1,
@@ -1100,171 +939,117 @@ fn drop_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             sql_identifier,
             multispace0,
         )),
-        |x| String::from_utf8(x.7.to_vec()).unwrap(),
-    );
-
-    match parser(i) {
-        Ok((input, fk_symbol)) => Ok((input, AlterTableOption::DropForeignKey(fk_symbol))),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "drop_foreign_key".to_string(),
-            err,
-        )),
-    }
+        |x| AlterTableOption::DropForeignKey(String::from_utf8(x.7.to_vec()).unwrap()),
+    )(i)
 }
 
 /// FORCE
 fn force(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((tag_no_case("FORCE"), multispace0));
-    match parser(i) {
-        Ok((input, (_, _))) => Ok((input, AlterTableOption::Force)),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "force".to_string(),
-            err,
-        )),
-    }
+    map(tuple((tag_no_case("FORCE"), multispace0)), |_| {
+        AlterTableOption::Force
+    })(i)
 }
 
 // LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
 fn lock(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("LOCK "),
-        multispace0,
-        opt(tag("= ")),
-        multispace0,
-        alt((
-            map(tag_no_case("DEFAULT"), |_| LockType::DEFAULT),
-            map(tag_no_case("NONE"), |_| LockType::NONE),
-            map(tag_no_case("SHARED"), |_| LockType::SHARED),
-            map(tag_no_case("EXCLUSIVE"), |_| LockType::EXCLUSIVE),
+    map(
+        tuple((
+            tag_no_case("LOCK "),
+            multispace0,
+            opt(tag("= ")),
+            multispace0,
+            alt((
+                map(tag_no_case("DEFAULT"), |_| LockType::DEFAULT),
+                map(tag_no_case("NONE"), |_| LockType::NONE),
+                map(tag_no_case("SHARED"), |_| LockType::SHARED),
+                map(tag_no_case("EXCLUSIVE"), |_| LockType::EXCLUSIVE),
+            )),
+            multispace0,
         )),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, _, lock_type, _))) => Ok((input, AlterTableOption::Lock(lock_type))),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "lock".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, _, lock_type, _)| AlterTableOption::Lock(lock_type),
+    )(i)
 }
 
 /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
 fn modify_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("MODIFY "),
-        multispace0,
-        opt(tag_no_case("COLUMN ")),
-        multispace0,
-        single_column_definition,
-        multispace0,
-    ));
-    match parser(i) {
-        Ok((input, (_, _, _, _, column_definition, _))) => Ok((
-            input,
-            AlterTableOption::ModifyColumn(
-                column_definition.column.name.clone(),
-                column_definition,
-            ),
+    map(
+        tuple((
+            tag_no_case("MODIFY "),
+            multispace0,
+            opt(tag_no_case("COLUMN ")),
+            multispace0,
+            single_column_definition,
+            multispace0,
         )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "modify_column".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, _, column_definition, _)| AlterTableOption::ModifyColumn(column_definition),
+    )(i)
 }
 
 /// ORDER BY col_name [, col_name] ...
 fn order_by(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("ORDER"),
-        multispace1,
-        tag_no_case("BY"),
-        multispace1,
-        many0(map(
-            terminated(column_identifier_without_alias, opt(ws_sep_comma)),
-            |e| e.name,
+    map(
+        tuple((
+            tag_no_case("ORDER"),
+            multispace1,
+            tag_no_case("BY"),
+            multispace1,
+            many0(map(
+                terminated(column_identifier_without_alias, opt(ws_sep_comma)),
+                |e| e.name,
+            )),
+            multispace0,
         )),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, _, columns, _))) => Ok((input, AlterTableOption::OrderBy(columns))),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "order_by".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, _, columns, _)| AlterTableOption::OrderBy(columns),
+    )(i)
 }
 
 /// RENAME COLUMN old_col_name TO new_col_name
 fn rename_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tag_no_case("RENAME "),
-        multispace0,
-        opt(tag_no_case("COLUMN ")),
-        multispace0,
-        // old_col_name
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-        multispace1,
-        tag_no_case("TO"),
-        multispace1,
-        // new_col_name
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-        multispace0,
-    ));
-    match parser(i) {
-        Ok((input, (_, _, _, _, old_col_name, _, _, _, new_col_name, _))) => Ok((
-            input,
-            AlterTableOption::RenameColumn(old_col_name, new_col_name),
+    map(
+        tuple((
+            tag_no_case("RENAME "),
+            multispace0,
+            opt(tag_no_case("COLUMN ")),
+            multispace0,
+            // old_col_name
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace1,
+            tag_no_case("TO"),
+            multispace1,
+            // new_col_name
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace0,
         )),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "rename_column".to_string(),
-            err,
-        )),
-    }
+        |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| {
+            AlterTableOption::RenameColumn(old_col_name, new_col_name)
+        },
+    )(i)
 }
 
 /// RENAME {INDEX | KEY} old_index_name TO new_index_name
 fn rename_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("RENAME"), multispace1)),
-        // {INDEX | KEY}
-        index_or_key_type,
-        // old_index_name
-        map(
-            tuple((multispace1, sql_identifier, multispace1)),
-            |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
-        ),
-        tuple((multispace1, tag_no_case("TO"))),
-        // new_index_name
-        map(
-            tuple((multispace1, sql_identifier, multispace1)),
-            |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
-        ),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, index_or_key, old_index_name, _, new_index_name, _))) => Ok((
-            input,
-            AlterTableOption::RenameIndexOrKey(index_or_key, old_index_name, new_index_name),
+    map(
+        tuple((
+            tuple((tag_no_case("RENAME"), multispace1)),
+            // {INDEX | KEY}
+            index_or_key_type,
+            // old_index_name
+            map(
+                tuple((multispace1, sql_identifier, multispace1)),
+                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+            ),
+            tuple((multispace1, tag_no_case("TO"))),
+            // new_index_name
+            map(
+                tuple((multispace1, sql_identifier, multispace1)),
+                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+            ),
+            multispace0,
         )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as rename_index_or_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(_, index_or_key, old_index_name, _, new_index_name, _)| {
+            AlterTableOption::RenameIndexOrKey(index_or_key, old_index_name, new_index_name)
+        },
+    )(i)
 }
 
 /// RENAME [TO | AS] new_tbl_name
