@@ -407,28 +407,28 @@ pub fn handle_error_with_debug(
 
 fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     let not_null = map(
-        delimited(multispace0, tag_no_case("not null"), multispace0),
+        delimited(multispace0, tag_no_case("NOT NULL"), multispace0),
         |_| Some(ColumnConstraint::NotNull),
     );
     let null = map(
-        delimited(multispace0, tag_no_case("null"), multispace0),
-        |_| None,
+        delimited(multispace0, tag_no_case("NULL"), multispace0),
+        |_| Some(ColumnConstraint::Null),
     );
     let auto_increment = map(
-        delimited(multispace0, tag_no_case("auto_increment"), multispace0),
+        delimited(multispace0, tag_no_case("AUTO_INCREMENT"), multispace0),
         |_| Some(ColumnConstraint::AutoIncrement),
     );
     let primary_key = map(
-        delimited(multispace0, tag_no_case("primary key"), multispace0),
+        delimited(multispace0, tag_no_case("PRIMARY KEY"), multispace0),
         |_| Some(ColumnConstraint::PrimaryKey),
     );
     let unique = map(
-        delimited(multispace0, tag_no_case("unique"), multispace0),
+        delimited(multispace0, tag_no_case("UNIQUE"), multispace0),
         |_| Some(ColumnConstraint::Unique),
     );
     let character_set = map(
         preceded(
-            delimited(multispace0, tag_no_case("character set"), multispace1),
+            delimited(multispace0, tag_no_case("CHARACTER SET"), multispace1),
             sql_identifier,
         ),
         |cs| {
@@ -438,7 +438,7 @@ fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     );
     let collate = map(
         preceded(
-            delimited(multispace0, tag_no_case("collate"), multispace1),
+            delimited(multispace0, tag_no_case("COLLATE"), multispace1),
             sql_identifier,
         ),
         |c| {
@@ -462,7 +462,7 @@ fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
 fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     let (remaining_input, (_, _, _, def, _)) = tuple((
         multispace0,
-        tag_no_case("default"),
+        tag_no_case("DEFAULT"),
         multispace1,
         alt((
             map(
@@ -475,8 +475,8 @@ fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
                 Literal::Integer(d_i64)
             }),
             map(tag("''"), |_| Literal::String(String::from(""))),
-            map(tag_no_case("null"), |_| Literal::Null),
-            map(tag_no_case("current_timestamp"), |_| {
+            map(tag_no_case("NULL"), |_| Literal::Null),
+            map(tag_no_case("CURRENT_TIMESTAMP"), |_| {
                 Literal::CurrentTimestamp
             }),
         )),

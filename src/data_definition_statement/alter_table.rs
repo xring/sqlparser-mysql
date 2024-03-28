@@ -103,7 +103,6 @@ pub enum LockType {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterTableOption {
-    Debug,
     /// table_options
     TableOptions(TableOptions),
 
@@ -1270,55 +1269,37 @@ fn rename_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 
 /// RENAME [TO | AS] new_tbl_name
 fn rename_table(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        tuple((tag_no_case("RENAME"), multispace1)),
-        // {INDEX | KEY}
-        alt((tag_no_case("TO"), tag_no_case("AS"))),
-        // new_tbl_name
-        map(
-            tuple((multispace1, sql_identifier, multispace0)),
-            |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
-        ),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, tbl_name, _))) => Ok((input, AlterTableOption::RenameTable(tbl_name))),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as rename_table: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            tuple((tag_no_case("RENAME"), multispace1)),
+            // {INDEX | KEY}
+            alt((tag_no_case("TO"), tag_no_case("AS"))),
+            // new_tbl_name
+            map(
+                tuple((multispace1, sql_identifier, multispace0)),
+                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+            ),
+            multispace0,
+        )),
+        |x| AlterTableOption::RenameTable(x.2),
+    )(i)
 }
 
 /// {WITHOUT | WITH} VALIDATION
 fn without_or_with_validation(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    let mut parser = tuple((
-        // {WITHOUT | WITH}
-        alt((
-            map(tag_no_case("WITHOUT"), |_| false),
-            map(tag_no_case("WITH"), |_| true),
+    map(
+        tuple((
+            // {WITHOUT | WITH}
+            alt((
+                map(tag_no_case("WITHOUT"), |_| false),
+                map(tag_no_case("WITH"), |_| true),
+            )),
+            multispace1,
+            tag_no_case("VALIDATION"),
+            multispace0,
         )),
-        multispace1,
-        tag_no_case("VALIDATION"),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (validation))) => Ok((input, AlterTableOption::Validation(validation.0))),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as validation: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |x| AlterTableOption::Validation(x.0),
+    )(i)
 }
 
 ////////////// TODO support alter partition parser
@@ -1349,12 +1330,13 @@ pub fn alter_table_partition_option(i: &[u8]) -> IResult<&[u8], AlterPartitionOp
 
 #[cfg(test)]
 mod test {
-    use common::column::MySQLColumnPosition;
+    use common::column::{ColumnConstraint, MySQLColumnPosition};
+    use common::Literal;
     use common_statement::index_option::index_option;
     use common_statement::{parse_position, single_column_definition};
     use data_definition_statement::alter_table::{
         add_check, add_column, add_fulltext_or_spatial, add_index_or_key, add_primary_key,
-        add_unique, alter_table_parser, convert_to_character_set, modify_column,
+        add_unique, alter_table_parser, convert_to_character_set, modify_column, AlterTableOption,
     };
 
     #[test]
@@ -1388,8 +1370,22 @@ mod test {
             println!("{}/{}", i + 1, parts.len());
             let res = add_column(parts[i].as_bytes());
             // // res.unwrap();
-            // println!("{:?}", res.unwrap().1)
-            assert!(res.is_ok())
+            assert!(res.is_ok());
+            println!("{:?}", res.unwrap().1);
+        }
+
+        let sql = "ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age";
+        let res = add_column(sql.as_bytes());
+        assert!(res.is_ok());
+        if let (_, AlterTableOption::AddColumn(bl, cols)) = res.unwrap() {
+            assert_eq!(cols.len(), 1);
+            assert_eq!(
+                cols[0].constraints,
+                vec![
+                    ColumnConstraint::Null,
+                    ColumnConstraint::DefaultValue(Literal::Null)
+                ]
+            );
         }
     }
 
@@ -1625,7 +1621,8 @@ mod test {
             "ALTER TABLE tbl_order ADD PRIMARY KEY (col_name49)",
             "ALTER TABLE tbl_order DROP PRIMARY KEY",
             "ALTER TABLE tbl_customer ADD FOREIGN KEY (col_name74) REFERENCES tbl_order(order_id)",
-            "ALTER TABLE tbl_inventory DROP FOREIGN KEY fk_name46"
+            "ALTER TABLE tbl_inventory DROP FOREIGN KEY fk_name46",
+            "ALTER TABLE demo ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age"
         ];
 
         for i in 0..alter_sqls.len() {
