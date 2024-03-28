@@ -25,9 +25,6 @@ use common_statement::{
     single_column_definition, visible_or_invisible, CheckConstraintDefinition,
     FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, PartitionDefinition, VisibleType,
 };
-use SqlDataType;
-use TableKey;
-use {Literal, Real};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {

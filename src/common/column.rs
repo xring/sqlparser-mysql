@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Display};
 use std::str;
+use CaseWhenExpression;
 
-use common_parsers::{Literal, SqlDataType};
+use common::{Literal, SqlDataType};
 use keywords::escape_if_keyword;
-use zz_case::CaseWhenExpression;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FunctionExpression {

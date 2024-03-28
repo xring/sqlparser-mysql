@@ -11,13 +11,12 @@ use nom::IResult;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 
-use {Literal, SqlDataType};
 use common::column::{Column, ColumnConstraint, ColumnSpecification, MySQLColumnPosition};
+use common::{Literal, Real, SqlDataType};
 use common_parsers::{
     column_identifier_without_alias, parse_comment, sql_identifier, type_identifier, ws_sep_comma,
 };
 use common_statement::index_option::{index_option, IndexOption};
-use Real;
 
 pub mod index_option;
 pub mod table_option;

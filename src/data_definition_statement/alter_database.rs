@@ -12,8 +12,18 @@ use nom::IResult;
 use common_parsers::sql_identifier;
 use common_statement::DefaultOrZeroOrOne;
 
+/// ALTER {DATABASE | SCHEMA} [db_name]
+///     alter_option ...
+///
+/// alter_option: {
+///     [DEFAULT] CHARACTER SET [=] charset_name
+///   | [DEFAULT] COLLATE [=] collation_name
+///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
+///   | READ ONLY [=] {DEFAULT | 0 | 1}
+/// }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterDatabaseStatement {
+    // we parse SQL, db_name is needed
     pub name: String,
     pub alter_options: Vec<AlterDatabaseOption>,
 }
@@ -48,6 +58,12 @@ pub fn alter_database_parser(i: &[u8]) -> IResult<&[u8], AlterDatabaseStatement>
     )(i)
 }
 
+/// alter_option: {
+///     [DEFAULT] CHARACTER SET [=] charset_name
+///   | [DEFAULT] COLLATE [=] collation_name
+///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
+///   | READ ONLY [=] {DEFAULT | 0 | 1}
+/// }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterDatabaseOption {
     CharacterSet(String),
@@ -75,6 +91,7 @@ impl fmt::Display for AlterDatabaseOption {
 }
 
 fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
+    // [DEFAULT] CHARACTER SET [=] charset_name
     let character = map(
         tuple((
             opt(tag_no_case("DEFAULT")),
@@ -93,6 +110,7 @@ fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
         |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
     );
 
+    // [DEFAULT] COLLATE [=] collation_name
     let collate = map(
         tuple((
             opt(tag_no_case("DEFAULT")),
@@ -115,6 +133,7 @@ fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
         |(_, _, collation_name, _)| AlterDatabaseOption::Collate(collation_name),
     );
 
+    // [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
     let encryption = map(
         tuple((
             opt(tag_no_case("DEFAULT")),
@@ -129,6 +148,7 @@ fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
         |x| AlterDatabaseOption::Encryption(x.6),
     );
 
+    // READ ONLY [=] {DEFAULT | 0 | 1}
     let read_only = map(
         tuple((
             opt(tag_no_case("READ")),
@@ -156,9 +176,9 @@ mod test {
     #[test]
     fn test_alter_database() {
         let sqls = vec![
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 DEFAULT COLLATE = utf8mb4_unicode_ci;",
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 DEFAULT COLLATE = utf8mb4_unicode_ci DEFAULT ENCRYPTION = 'Y' READ ONLY = 1;",
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4",
+            "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE = utf8mb4_unicode_ci;",
+            "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci DEFAULT ENCRYPTION = 'Y' READ ONLY = 1;",
+            "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4",
             "ALTER DATABASE test_db DEFAULT COLLATE = utf8mb4_unicode_ci;",
             "ALTER DATABASE test_db DEFAULT ENCRYPTION = 'Y';",
             "ALTER DATABASE test_db READ ONLY = 1;",
