@@ -1,0 +1,20 @@
+[package]
+name = "sqlparser-mysql"
+version = "0.1.0"
+authors = ["xring <xringxie@gmail.com>"]
+
+documentation = "https://docs.rs/sqlparser-mysql"
+homepage = "https://github.com/xring/sqlparser-mysql"
+repository = "https://github.com/xring/sqlparser-mysql.git"
+
+description = "A SQL parser for MySQL with nom."
+
+license = "Apache-2.0"
+
+[dependencies]
+serde = "1"
+serde_derive = "1"
+nom = "7"
+
+[dev-dependencies]
+pretty_assertions = "0.5.1"
