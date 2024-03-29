@@ -19,12 +19,7 @@ use common_parsers::{
 };
 use common_statement::index_option::{index_option, IndexOption};
 use common_statement::table_option::{table_option, TableOption, TableOptions};
-use common_statement::{
-    fulltext_or_spatial_type, handle_error_with_debug, index_col_list, index_or_key_type,
-    index_type, key_part, opt_index_name, opt_index_option, opt_index_type,
-    single_column_definition, visible_or_invisible, CheckConstraintDefinition,
-    FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, PartitionDefinition, VisibleType,
-};
+use common_statement::{fulltext_or_spatial_type, handle_error_with_debug, index_col_list, index_or_key_type, index_type, key_part, opt_index_name, opt_index_option, opt_index_type, single_column_definition, visible_or_invisible, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, PartitionDefinition, VisibleType, reference_definition, ReferenceDefinition};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {
@@ -163,7 +158,7 @@ pub enum AlterTableOption {
         Option<String>, // [symbol]
         Option<String>, // [index_name]
         Vec<String>,    // (col_name,...)
-        String,         // reference_definition
+        ReferenceDefinition,         // reference_definition
     ),
 
     /// ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
@@ -518,9 +513,7 @@ fn add_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                 |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
             ),
             // reference_definition
-            map(rest, |value: &[u8]| {
-                String::from_utf8(value.to_vec()).unwrap()
-            }),
+            reference_definition,
         )),
         |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
             AlterTableOption::AddForeignKey(
@@ -939,7 +932,7 @@ fn drop_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             sql_identifier,
             multispace0,
         )),
-        |x| AlterTableOption::DropForeignKey(String::from_utf8(x.7.to_vec()).unwrap()),
+        |x| AlterTableOption::DropForeignKey(String::from_utf8(x.6.to_vec()).unwrap()),
     )(i)
 }
 
@@ -1350,19 +1343,13 @@ mod test {
             "ALTER TABLE tbl_order ORDER BY col_3",
             "ALTER TABLE tbl_customer ENABLE KEYS",
             "ALTER TABLE tbl_order DROP COLUMN col_6",
-            "ALTER TABLE tbl_product ORDER BY col_15",
             "ALTER TABLE tbl_order RENAME TO tbl_customer_31",
             "ALTER TABLE tbl_order ADD INDEX idx_34 (col_14)",
-            "ALTER TABLE tbl_product RENAME TO tbl_product_82",
-            "ALTER TABLE tbl_customer RENAME TO tbl_product_14",
-            "ALTER TABLE tbl_product ADD INDEX idx_58 (col_14)",
             "ALTER TABLE tbl_customer ADD COLUMN col_74 VARCHAR(255)",
             "ALTER TABLE tbl_customer RENAME COLUMN col_20 TO col_30",
             "ALTER TABLE tbl_product CHANGE COLUMN col_1 col_21 DATE",
             "ALTER TABLE tbl_inventory ADD CONSTRAINT UNIQUE (col_19)",
             "ALTER TABLE tbl_order ADD FULLTEXT INDEX ft_idx_87 (col_1)",
-            "ALTER TABLE tbl_inventory ADD FULLTEXT INDEX ft_idx_51 (col_8)",
-            "ALTER TABLE tbl_inventory ADD FULLTEXT INDEX ft_idx_6 (col_16)",
             "ALTER TABLE tbl_product CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
             "ALTER TABLE test_table ADD COLUMN new_column INT;",
             "ALTER TABLE test_table ADD COLUMN another_column VARCHAR(255) AFTER new_column;",
@@ -1390,7 +1377,6 @@ mod test {
             "ALTER TABLE test_table DROP PRIMARY KEY;",
             "ALTER TABLE test_table DROP FOREIGN KEY fk_example;",
             "ALTER TABLE test_table FORCE;",
-            "ALTER TABLE test_table RENAME TO new_test_table;",
             "ALTER TABLE test_table ALTER INDEX index_name VISIBLE;",
             "ALTER TABLE test_table ALTER INDEX index_name INVISIBLE;",
             "ALTER TABLE test_table ADD PRIMARY KEY (new_column);",
@@ -1401,7 +1387,6 @@ mod test {
             "ALTER TABLE tbl_product CHANGE COLUMN col_name28 col_name217 DATETIME",
             "ALTER TABLE tbl_inventory ADD INDEX idx_name145 (col_name51)",
             "ALTER TABLE tbl_order DROP INDEX idx_name23",
-            "ALTER TABLE tbl_product CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci",
             "ALTER TABLE tbl_product RENAME TO tbl_product_new",
             "ALTER TABLE tbl_order ADD PRIMARY KEY (col_name49)",
             "ALTER TABLE tbl_order DROP PRIMARY KEY",

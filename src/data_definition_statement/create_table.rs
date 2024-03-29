@@ -3,14 +3,10 @@ use std::fmt::Formatter;
 
 use common::column::ColumnSpecification;
 use common::table::Table;
-use common_parsers::{sql_identifier, ws_sep_comma};
+use common_parsers::{schema_table_reference, sql_identifier, statement_terminator, ws_sep_comma};
 use common_statement::index_option::{index_option, IndexOption};
 use common_statement::table_option::{table_option, TableOptions};
-use common_statement::{
-    fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part,
-    opt_index_name, opt_index_option, opt_index_type, single_column_definition,
-    CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart,
-};
+use common_statement::{fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part, opt_index_name, opt_index_option, opt_index_type, single_column_definition, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, ReferenceDefinition, reference_definition};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{multispace0, multispace1};
@@ -53,7 +49,7 @@ impl fmt::Display for CreateTableStatement {
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
 pub fn create_table_parser(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
-    alt((create_simple, create_as_query, create_like_old_table))(i)
+    alt((create_simple, create_like_old_table, create_as_query))(i)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -90,7 +86,7 @@ pub enum CreateTableType {
 
     /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-    LikeOldTable(String),
+    LikeOldTable(Table),
 }
 
 fn create_table_options(i: &[u8]) -> IResult<&[u8], TableOptions> {
@@ -100,7 +96,16 @@ fn create_table_options(i: &[u8]) -> IResult<&[u8], TableOptions> {
 fn create_definition_list(i: &[u8]) -> IResult<&[u8], Vec<CreateDefinition>> {
     delimited(
         tag("("),
-        many1(terminated(create_definition, opt(ws_sep_comma))),
+        many1(map(
+            tuple((
+                multispace0,
+                create_definition,
+                multispace0,
+                opt(ws_sep_comma),
+                multispace0,
+            )),
+            |x| x.1,
+        )),
         tag(")"),
     )(i)
 }
@@ -122,12 +127,12 @@ fn create_simple(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
             multispace0,
             // [partition_options]
             opt(create_table_partition_option),
-            multispace0,
+            statement_terminator,
         )),
         |(x)| {
             let temporary = x.0 .0;
             let if_not_exists = x.0 .1;
-            let table = Table::from(x.0 .2.as_str());
+            let table = x.0 .2;
             let create_type = CreateTableType::Simple(x.2, x.4, x.6);
             CreateTableStatement {
                 table,
@@ -167,10 +172,10 @@ fn create_as_query(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
             opt(tag_no_case("AS")),
             multispace0,
             map(rest, |x: &[u8]| String::from_utf8(x.to_vec()).unwrap()),
-            multispace0,
+            statement_terminator,
         )),
         |(x)| {
-            let table = Table::from(x.0 .2.as_str());
+            let table = x.0 .2;
             let if_not_exists = x.0 .1;
             let temporary = x.0 .0;
             let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.12);
@@ -195,20 +200,17 @@ fn create_like_old_table(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
             map(
                 alt((
                     map(
-                        tuple((tag_no_case("LIKE"), multispace1, sql_identifier)),
-                        |x| String::from_utf8(x.2.to_vec()).unwrap(),
+                        tuple((tag_no_case("LIKE"), multispace1, schema_table_reference)),
+                        |x| x.2,
                     ),
-                    map(
-                        delimited(tag("("), take_until(")"), tag(")")),
-                        |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-                    ),
+                    map(delimited(tag("("), schema_table_reference, tag(")")), |x| x),
                 )),
                 |x| CreateTableType::LikeOldTable(x),
             ),
-            multispace0,
+            statement_terminator,
         )),
         |(x, _, create_type, _)| {
-            let table = Table::from(x.2.as_str());
+            let table = x.2;
             let if_not_exists = x.1;
             let temporary = x.0;
             CreateTableStatement {
@@ -222,7 +224,7 @@ fn create_like_old_table(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, String)> {
+fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, Table)> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
@@ -233,7 +235,7 @@ fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, String)> {
             if_not_exists,
             multispace0,
             // tbl_name
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            schema_table_reference,
         )),
         |x| (x.1.is_some(), x.4, x.6),
     )(i)
@@ -475,8 +477,9 @@ fn foreign_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
                         delimited(multispace0, index_col_list, multispace0),
                         tag(")"),
                     ),
+                    multispace0,
                 )),
-                |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
+                |(_, value, _)| value.iter().map(|x| x.name.clone()).collect(),
             ),
             // reference_definition
             reference_definition,
@@ -531,125 +534,6 @@ fn opt_constraint_with_opt_symbol(i: &[u8]) -> IResult<&[u8], Option<String>> {
     )(i)
 }
 
-/// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum MatchType {
-    Full,
-    Partial,
-    Simple,
-}
-
-/// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-fn match_type(i: &[u8]) -> IResult<&[u8], MatchType> {
-    map(
-        tuple((
-            tag_no_case("MATCH"),
-            multispace1,
-            alt((
-                map(tag_no_case("FULL"), |_| MatchType::Full),
-                map(tag_no_case("PARTIAL"), |_| MatchType::Partial),
-                map(tag_no_case("SIMPLE"), |_| MatchType::Simple),
-            )),
-        )),
-        |x| x.2,
-    )(i)
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct ReferenceDefinition {
-    tbl_name: String,
-    key_part: Vec<KeyPart>,
-    match_type: Option<MatchType>,
-    on_delete: Option<ReferenceOption>,
-    on_update: Option<ReferenceOption>,
-}
-
-/// reference_option:
-///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum ReferenceOption {
-    Restrict,
-    Cascade,
-    SetNull,
-    NoAction,
-    SetDefault,
-}
-
-/// reference_definition:
-///     REFERENCES tbl_name (key_part,...)
-///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-///       [ON DELETE reference_option]
-///       [ON UPDATE reference_option]
-fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
-    let opt_on_delete = opt(map(
-        tuple((
-            tag_no_case("ON"),
-            multispace1,
-            tag_no_case("DELETE"),
-            multispace1,
-            reference_option,
-        )),
-        |x| x.4,
-    ));
-    let opt_on_update = opt(map(
-        tuple((
-            tag_no_case("ON"),
-            multispace1,
-            tag_no_case("UPDATE"),
-            multispace1,
-            reference_option,
-        )),
-        |x| x.4,
-    ));
-    map(
-        tuple((
-            tuple((tag_no_case("REFERENCES"), multispace1)),
-            // tbl_name
-            map(tuple((sql_identifier, multispace1)), |x| {
-                String::from_utf8(x.1.to_vec()).unwrap()
-            }),
-            key_part, // (key_part,...)
-            multispace0,
-            opt(match_type), // [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-            multispace0,
-            opt_on_delete,
-            multispace0,
-            opt_on_update,
-            multispace0,
-        )),
-        |(_, tbl_name, key_part, _, match_type, _, on_delete, _, on_update, _)| {
-            ReferenceDefinition {
-                tbl_name,
-                key_part,
-                match_type,
-                on_delete,
-                on_update,
-            }
-        },
-    )(i)
-}
-
-/// reference_option:
-///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
-fn reference_option(i: &[u8]) -> IResult<&[u8], ReferenceOption> {
-    alt((
-        map(tag_no_case("RESTRICT"), |_| ReferenceOption::Restrict),
-        map(tag_no_case("CASCADE"), |_| ReferenceOption::Cascade),
-        map(
-            tuple((tag_no_case("SET"), multispace1, tag_no_case("NULL"))),
-            |_| ReferenceOption::SetNull,
-        ),
-        map(
-            tuple((tag_no_case("NO"), multispace1, tag_no_case("ACTION"))),
-            |_| ReferenceOption::NoAction,
-        ),
-        map(
-            tuple((tag_no_case("SET"), multispace1, tag_no_case("DEFAULT"))),
-            |_| ReferenceOption::SetDefault,
-        ),
-    ))(i)
-}
-
 ///////////////////// TODO support create partition parser
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -665,12 +549,12 @@ pub fn create_table_partition_option(i: &[u8]) -> IResult<&[u8], CreatePartition
 
 #[cfg(test)]
 mod test {
-    use data_definition_statement::create_table::create_table_parser;
+    use data_definition_statement::create_table::{create_definition_list, create_table_parser};
 
     #[test]
     fn test_create_table() {
         let create_sqls = vec![
-            "CREATE TABLE order_items (order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))",
+            "CREATE TABLE foo.order_items (order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product (id))",
             "CREATE TABLE employee (id INT, name VARCHAR(100), department_id INT, PRIMARY KEY(id), FOREIGN KEY (department_id) REFERENCES department(id))",
             "CREATE TABLE my_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT)",
             "CREATE TEMPORARY TABLE temp_table (id INT, score DECIMAL(5, 2))",
@@ -686,17 +570,16 @@ mod test {
             "CREATE TABLE IF NOT EXISTS my_table_copy LIKE my_table",
             "CREATE TEMPORARY TABLE temp_table_copy LIKE temp_table;",
             "CREATE TABLE department_copy LIKE department",
-            "CREATE TABLE product_structure LIKE product;",
             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_table_copy LIKE my_table",
             "CREATE TABLE my_table_filtered AS SELECT * FROM my_table WHERE age < 30;",
             "CREATE TABLE employee_dept_10 AS SELECT * FROM employee WHERE department_id = 10",
             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_dept_20 AS SELECT * FROM department WHERE id = 20",
             "CREATE TABLE active_products AS SELECT * FROM product WHERE price > 0",
-            "CREATE TABLE IF NOT EXISTS employee_archives LIKE employee",
             "CREATE TABLE sales_by_product AS SELECT product_id, SUM(quantity) AS total_sales FROM order_items GROUP BY product_id",
             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_order_summary AS SELECT order_id, SUM(quantity) AS total_items FROM order_items GROUP BY order_id",
             "CREATE TABLE employee_names AS SELECT name FROM employee",
-            "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100"
+            "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100",
+            "CREATE TABLE IF NOT EXISTS bar.employee_archives LIKE foo.employee",
         ];
 
         for i in 0..create_sqls.len() {
@@ -705,7 +588,14 @@ mod test {
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
-            println!("{:?}", res);
+            println!("{:#?}", res.unwrap().1);
         }
+    }
+
+    #[test]
+    fn test_create_definition_list() {
+        let part = "(order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))";
+        let res = create_definition_list(part.as_bytes());
+        assert!(res.is_ok());
     }
 }

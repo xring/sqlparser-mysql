@@ -25,6 +25,124 @@ pub mod table_option;
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct PartitionDefinition {}
 
+/// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub enum MatchType {
+    Full,
+    Partial,
+    Simple,
+}
+
+/// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
+fn match_type(i: &[u8]) -> IResult<&[u8], MatchType> {
+    map(
+        tuple((
+            tag_no_case("MATCH"),
+            multispace1,
+            alt((
+                map(tag_no_case("FULL"), |_| MatchType::Full),
+                map(tag_no_case("PARTIAL"), |_| MatchType::Partial),
+                map(tag_no_case("SIMPLE"), |_| MatchType::Simple),
+            )),
+        )),
+        |x| x.2,
+    )(i)
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct ReferenceDefinition {
+    tbl_name: String,
+    key_part: Vec<KeyPart>,
+    match_type: Option<MatchType>,
+    on_delete: Option<ReferenceOption>,
+    on_update: Option<ReferenceOption>,
+}
+
+/// reference_option:
+///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub enum ReferenceOption {
+    Restrict,
+    Cascade,
+    SetNull,
+    NoAction,
+    SetDefault,
+}
+
+/// reference_definition:
+///     REFERENCES tbl_name (key_part,...)
+///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
+///       [ON DELETE reference_option]
+///       [ON UPDATE reference_option]
+pub fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
+    let opt_on_delete = opt(map(
+        tuple((
+            tag_no_case("ON"),
+            multispace1,
+            tag_no_case("DELETE"),
+            multispace1,
+            reference_option,
+        )),
+        |x| x.4,
+    ));
+    let opt_on_update = opt(map(
+        tuple((
+            tag_no_case("ON"),
+            multispace1,
+            tag_no_case("UPDATE"),
+            multispace1,
+            reference_option,
+        )),
+        |x| x.4,
+    ));
+    map(
+        tuple((
+            tuple((multispace0, tag_no_case("REFERENCES"), multispace1)),
+            // tbl_name
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            multispace0,
+            key_part, // (key_part,...)
+            multispace0,
+            opt(match_type), // [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
+            multispace0,
+            opt_on_delete,
+            multispace0,
+            opt_on_update,
+            multispace0,
+        )),
+        |(_, tbl_name, _, key_part, _, match_type, _, on_delete, _, on_update, _)| {
+            ReferenceDefinition {
+                tbl_name,
+                key_part,
+                match_type,
+                on_delete,
+                on_update,
+            }
+        },
+    )(i)
+}
+
+/// reference_option:
+///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
+pub fn reference_option(i: &[u8]) -> IResult<&[u8], ReferenceOption> {
+    alt((
+        map(tag_no_case("RESTRICT"), |_| ReferenceOption::Restrict),
+        map(tag_no_case("CASCADE"), |_| ReferenceOption::Cascade),
+        map(
+            tuple((tag_no_case("SET"), multispace1, tag_no_case("NULL"))),
+            |_| ReferenceOption::SetNull,
+        ),
+        map(
+            tuple((tag_no_case("NO"), multispace1, tag_no_case("ACTION"))),
+            |_| ReferenceOption::NoAction,
+        ),
+        map(
+            tuple((tag_no_case("SET"), multispace1, tag_no_case("DEFAULT"))),
+            |_| ReferenceOption::SetDefault,
+        ),
+    ))(i)
+}
+
 /// {'ZLIB' | 'LZ4' | 'NONE'}
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CompressionType {
