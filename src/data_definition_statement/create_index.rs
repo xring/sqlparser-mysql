@@ -50,7 +50,7 @@ pub struct CreateIndexStatement {
 ///
 /// lock_option:
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-fn create_index(i: &[u8]) -> IResult<&[u8], CreateIndexStatement> {
+pub fn create_index_parser(i: &[u8]) -> IResult<&[u8], CreateIndexStatement> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
@@ -113,7 +113,6 @@ fn index(i: &[u8]) -> IResult<&[u8], Index> {
 
 #[cfg(test)]
 mod test {
-    use data_definition_statement::create_index::create_index;
     use data_definition_statement::drop_index::drop_index_parser;
 
     #[test]
@@ -125,7 +124,7 @@ mod test {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = create_index(sqls[i].as_bytes());
+            let res = drop_index_parser(sqls[i].as_bytes());
             assert!(res.is_ok());
             println!("{:?}", res);
         }

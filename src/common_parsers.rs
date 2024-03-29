@@ -21,6 +21,7 @@ use common::{
 };
 use common::column::{Column, FunctionArgument, FunctionArguments, FunctionExpression};
 use common::table::Table;
+use common::trigger::Trigger;
 use keywords::sql_keyword;
 use zz_arithmetic::arithmetic_expression;
 use zz_case::case_when_column;
@@ -761,6 +762,19 @@ pub fn schema_table_name_without_alias(i: &[u8]) -> IResult<&[u8], Table> {
         |tup| Table {
             name: String::from(str::from_utf8(tup.1).unwrap()),
             alias: None,
+            schema: match tup.0 {
+                Some((schema, _)) => Some(String::from(str::from_utf8(schema).unwrap())),
+                None => None,
+            },
+        },
+    )(i)
+}
+
+pub fn schema_trigger_name(i: &[u8]) -> IResult<&[u8], Trigger> {
+    map(
+        tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
+        |tup| Trigger {
+            name: String::from(str::from_utf8(tup.1).unwrap()),
             schema: match tup.0 {
                 Some((schema, _)) => Some(String::from(str::from_utf8(schema).unwrap())),
                 None => None,

@@ -7,6 +7,8 @@ use keywords::escape_if_keyword;
 pub mod table;
 pub mod column;
 
+pub mod trigger;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum SqlDataType {
     Bool,
