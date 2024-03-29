@@ -7,9 +7,9 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{anychar, digit1, multispace0, multispace1};
 use nom::combinator::{map, map_res, opt, recognize};
 use nom::error::{Error, ParseError};
-use nom::IResult;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::IResult;
 
 use common::column::{Column, ColumnConstraint, ColumnSpecification, MySQLColumnPosition};
 use common::{Literal, Real, SqlDataType};
@@ -262,32 +262,26 @@ pub fn key_part_item(i: &[u8]) -> IResult<&[u8], KeyPart> {
         delimited(tag("("), recognize(many1(anychar)), tag(")")),
     );
 
-    let mut parser = tuple((
-        alt((
-            map(col_with_length, |(_, col_name, _, length)| {
-                KeyPartType::ColumnNameWithLength(
-                    String::from_utf8(col_name.to_vec()).unwrap(),
-                    length,
-                )
-            }),
-            map(expr, |expr: &[u8]| {
-                KeyPartType::Expr(String::from_utf8(expr.to_vec()).unwrap())
-            }),
+    map(
+        tuple((
+            alt((
+                map(col_with_length, |(_, col_name, _, length)| {
+                    KeyPartType::ColumnNameWithLength(
+                        String::from_utf8(col_name.to_vec()).unwrap(),
+                        length,
+                    )
+                }),
+                map(expr, |expr: &[u8]| {
+                    KeyPartType::Expr(String::from_utf8(expr.to_vec()).unwrap())
+                }),
+            )),
+            opt(map(
+                tuple((multispace1, order_type, multispace0)),
+                |(_, order, _)| order,
+            )),
         )),
-        opt(map(
-            tuple((multispace1, order_type, multispace0)),
-            |(_, order, _)| order,
-        )),
-    ));
-
-    match parser(i) {
-        Ok((input, (r#type, order))) => Ok((input, KeyPart { r#type, order })),
-        Err(err) => Err(handle_error_with_debug(
-            String::from_utf8(i.to_vec()).unwrap(),
-            "key_part".to_string(),
-            err,
-        )),
-    }
+        |(r#type, order)| KeyPart { r#type, order },
+    )(i)
 }
 
 /// {INDEX | KEY}
@@ -357,40 +351,29 @@ pub fn parse_position(i: &[u8]) -> IResult<&[u8], MySQLColumnPosition> {
 }
 
 pub fn single_column_definition(i: &[u8]) -> IResult<&[u8], ColumnSpecification> {
-    let mut parser = tuple((
-        column_identifier_without_alias,
-        opt(delimited(multispace1, type_identifier, multispace0)),
-        many0(column_constraint),
-        opt(parse_comment),
-        opt(parse_position),
-        opt(ws_sep_comma),
-    ));
-
-    match parser(i) {
-        Ok((remaining_input, (column, field_type, constraints, comment, position, _))) => {
+    map(
+        tuple((
+            column_identifier_without_alias,
+            opt(delimited(multispace1, type_identifier, multispace0)),
+            many0(column_constraint),
+            opt(parse_comment),
+            opt(parse_position),
+            opt(ws_sep_comma),
+        )),
+        |(column, field_type, constraints, comment, position, _)| {
             let sql_type = match field_type {
                 None => SqlDataType::Text,
                 Some(ref t) => t.clone(),
             };
-            Ok((
-                remaining_input,
-                ColumnSpecification {
-                    column,
-                    sql_type,
-                    constraints: constraints.into_iter().filter_map(|m| m).collect(),
-                    comment,
-                    position,
-                },
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as single_column_definition",
-                String::from(std::str::from_utf8(i).unwrap())
-            );
-            Err(err)
-        }
-    }
+            ColumnSpecification {
+                column,
+                sql_type,
+                constraints: constraints.into_iter().filter_map(|m| m).collect(),
+                comment,
+                position,
+            }
+        },
+    )(i)
 }
 
 pub fn handle_error_with_debug(

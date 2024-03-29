@@ -37,7 +37,7 @@ pub enum IndexOption {
 ///   | {VISIBLE | INVISIBLE}
 /// }
 pub fn index_option(i: &[u8]) -> IResult<&[u8], IndexOption> {
-    let mut parser = alt((
+    alt((
         map(key_block_size, |x| IndexOption::KeyBlockSize(x)),
         map(index_type, |x| IndexOption::IndexType(x)),
         map(with_parser, |x| IndexOption::WithParser(x)),
@@ -47,84 +47,43 @@ pub fn index_option(i: &[u8]) -> IResult<&[u8], IndexOption> {
         map(secondary_engine_attribute, |x| {
             IndexOption::SecondaryEngineAttribute(x)
         }),
-    ));
-
-    match parser(i) {
-        Ok(res) => Ok(res),
-        Err(err) => {
-            let template = r###"
-            KEY_BLOCK_SIZE [=] value
-            | index_type
-            | WITH PARSER parser_name
-            | COMMENT 'string'
-            | {VISIBLE | INVISIBLE}
-            "###;
-            println!(
-                "failed to parse ---{}--- to '{}': {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                template,
-                err
-            );
-            Err(err)
-        }
-    }
+    ))(i)
 }
 
 /// KEY_BLOCK_SIZE [=] value
 fn key_block_size(i: &[u8]) -> IResult<&[u8], u64> {
-    let mut parser = tuple((
-        multispace0,
-        tag_no_case("KEY_BLOCK_SIZE"),
-        multispace0,
-        opt(tag("=")),
-        multispace0,
-        complete::u64,
-    ));
-
-    match parser(i) {
-        Ok((input, (_, _, _, _, _, size))) => Ok((input, size)),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- to 'KEY_BLOCK_SIZE [=] value': {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            multispace0,
+            tag_no_case("KEY_BLOCK_SIZE"),
+            multispace0,
+            opt(tag("=")),
+            multispace0,
+            complete::u64,
+        )),
+        |(_, _, _, _, _, size)| size,
+    )(i)
 }
 
 /// WITH PARSER parser_name
 fn with_parser(i: &[u8]) -> IResult<&[u8], String> {
-    let mut parser = tuple((
-        multispace0,
-        tag_no_case("WITH"),
-        multispace1,
-        tag_no_case("PARSER"),
-        multispace1,
-        sql_identifier,
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((remaining_input, (_, _, _, _, _, parser_name, _))) => {
-            let parser_name = String::from(std::str::from_utf8(parser_name).unwrap());
-            Ok((remaining_input, parser_name))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- to 'WITH PARSER parser_name': {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            multispace0,
+            tag_no_case("WITH"),
+            multispace1,
+            tag_no_case("PARSER"),
+            multispace1,
+            sql_identifier,
+            multispace0,
+        )),
+        |(_, _, _, _, _, parser_name, _)| String::from(std::str::from_utf8(parser_name).unwrap()),
+    )(i)
 }
 
 /// ENGINE_ATTRIBUTE [=] value
 fn engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
-    let mut parser = map(
+    map(
         tuple((
             tag_no_case("ENGINE_ATTRIBUTE "),
             multispace0,
@@ -136,24 +95,12 @@ fn engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
             multispace0,
         )),
         |(_, _, _, engine, _)| engine,
-    );
-
-    match parser(i) {
-        Ok((input, (engine))) => Ok((input, engine)),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- to 'ENGINE_ATTRIBUTE [=] value': {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    )(i)
 }
 
 /// SECONDARY_ENGINE_ATTRIBUTE [=] value
 fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
-    let mut parser = map(
+    map(
         tuple((
             tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
             multispace0,
@@ -165,17 +112,5 @@ fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
             multispace0,
         )),
         |(_, _, _, engine, _)| engine,
-    );
-
-    match parser(i) {
-        Ok((input, (engine))) => Ok((input, engine)),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- to 'SECONDARY_ENGINE_ATTRIBUTE [=] value': {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    )(i)
 }

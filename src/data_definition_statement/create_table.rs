@@ -110,45 +110,33 @@ fn create_definition_list(i: &[u8]) -> IResult<&[u8], Vec<CreateDefinition>> {
 ///     [table_options]
 ///     [partition_options]
 fn create_simple(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
-    let mut parser = tuple((
-        create_table_with_name,
-        multispace0,
-        // (create_definition,...)
-        create_definition_list,
-        multispace0,
-        // [table_options]
-        opt(create_table_options),
-        multispace0,
-        // [partition_options]
-        opt(create_table_partition_option),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (x))) => {
+    map(
+        tuple((
+            create_table_with_name,
+            multispace0,
+            // (create_definition,...)
+            create_definition_list,
+            multispace0,
+            // [table_options]
+            opt(create_table_options),
+            multispace0,
+            // [partition_options]
+            opt(create_table_partition_option),
+            multispace0,
+        )),
+        |(x)| {
             let temporary = x.0 .0;
             let if_not_exists = x.0 .1;
             let table = Table::from(x.0 .2.as_str());
             let create_type = CreateTableType::Simple(x.2, x.4, x.6);
-            Ok((
-                input,
-                CreateTableStatement {
-                    table,
-                    temporary,
-                    if_not_exists,
-                    create_type,
-                },
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as create_simple: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            CreateTableStatement {
+                table,
+                temporary,
+                if_not_exists,
+                create_type,
+            }
+        },
+    )(i)
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
@@ -158,129 +146,97 @@ fn create_simple(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 ///     [IGNORE | REPLACE]
 ///     [AS] query_expression
 fn create_as_query(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
-    let mut parser = tuple((
-        create_table_with_name,
-        multispace0,
-        // [(create_definition,...)]
-        opt(create_definition_list),
-        multispace0,
-        // [table_options]
-        opt(create_table_options),
-        multispace0,
-        // [partition_options]
-        opt(create_table_partition_option),
-        multispace0,
-        opt(alt((
-            map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
-            map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
-        ))),
-        multispace0,
-        opt(tag_no_case("AS")),
-        multispace0,
-        map(rest, |x: &[u8]| String::from_utf8(x.to_vec()).unwrap()),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (x))) => {
+    map(
+        tuple((
+            create_table_with_name,
+            multispace0,
+            // [(create_definition,...)]
+            opt(create_definition_list),
+            multispace0,
+            // [table_options]
+            opt(create_table_options),
+            multispace0,
+            // [partition_options]
+            opt(create_table_partition_option),
+            multispace0,
+            opt(alt((
+                map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
+                map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
+            ))),
+            multispace0,
+            opt(tag_no_case("AS")),
+            multispace0,
+            map(rest, |x: &[u8]| String::from_utf8(x.to_vec()).unwrap()),
+            multispace0,
+        )),
+        |(x)| {
             let table = Table::from(x.0 .2.as_str());
             let if_not_exists = x.0 .1;
             let temporary = x.0 .0;
             let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.12);
-            Ok((
-                input,
-                CreateTableStatement {
-                    table,
-                    temporary,
-                    if_not_exists,
-                    create_type,
-                },
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as create_as_query: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            CreateTableStatement {
+                table,
+                temporary,
+                if_not_exists,
+                create_type,
+            }
+        },
+    )(i)
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
 fn create_like_old_table(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
-    let mut parser = tuple((
-        create_table_with_name,
-        multispace0,
-        // { LIKE old_tbl_name | (LIKE old_tbl_name) }
-        map(
-            alt((
-                map(
-                    tuple((tag_no_case("LIKE"), multispace1, sql_identifier)),
-                    |x| String::from_utf8(x.2.to_vec()).unwrap(),
-                ),
-                map(
-                    delimited(tag("("), take_until(")"), tag(")")),
-                    |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-                ),
-            )),
-            |x| CreateTableType::LikeOldTable(x),
-        ),
-        multispace0,
-    ));
-
-    match parser(i) {
-        Ok((input, (x, _, create_type, _))) => {
+    map(
+        tuple((
+            create_table_with_name,
+            multispace0,
+            // { LIKE old_tbl_name | (LIKE old_tbl_name) }
+            map(
+                alt((
+                    map(
+                        tuple((tag_no_case("LIKE"), multispace1, sql_identifier)),
+                        |x| String::from_utf8(x.2.to_vec()).unwrap(),
+                    ),
+                    map(
+                        delimited(tag("("), take_until(")"), tag(")")),
+                        |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
+                    ),
+                )),
+                |x| CreateTableType::LikeOldTable(x),
+            ),
+            multispace0,
+        )),
+        |(x, _, create_type, _)| {
             let table = Table::from(x.2.as_str());
             let if_not_exists = x.1;
             let temporary = x.0;
-            Ok((
-                input,
-                CreateTableStatement {
-                    table,
-                    temporary,
-                    if_not_exists,
-                    create_type,
-                },
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as create_like_old_table: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            CreateTableStatement {
+                table,
+                temporary,
+                if_not_exists,
+                create_type,
+            }
+        },
+    )(i)
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, String)> {
-    let mut parser = tuple((
-        tuple((tag_no_case("CREATE"), multispace1)),
-        opt(tag_no_case("TEMPORARY")),
-        multispace0,
-        tuple((tag_no_case("TABLE"), multispace1)),
-        // [IF NOT EXISTS]
-        if_not_exists,
-        multispace0,
-        // tbl_name
-        map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
-    ));
-    match parser(i) {
-        Ok((input, x)) => Ok((input, (x.1.is_some(), x.4, x.6))),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as create_table_with_name: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            tuple((tag_no_case("CREATE"), multispace1)),
+            opt(tag_no_case("TEMPORARY")),
+            multispace0,
+            tuple((tag_no_case("TABLE"), multispace1)),
+            // [IF NOT EXISTS]
+            if_not_exists,
+            multispace0,
+            // tbl_name
+            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+        )),
+        |x| (x.1.is_some(), x.4, x.6),
+    )(i)
 }
 
 /// [IF NOT EXISTS]
@@ -383,157 +339,106 @@ pub enum CreateDefinition {
 
 /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
 fn index_or_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // {INDEX | KEY}
-        index_or_key_type,
-        // [index_name]
-        opt_index_name,
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((input, (index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option))) => {
-            Ok((
-                input,
-                CreateDefinition::IndexOrKey(
-                    index_or_key,
-                    opt_index_name,
-                    opt_index_type,
-                    key_part,
-                    opt_index_option,
-                ),
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_index_or_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+    map(
+        tuple((
+            // {INDEX | KEY}
+            index_or_key_type,
+            // [index_name]
+            opt_index_name,
+            // [index_type]
+            opt_index_type,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
+        )),
+        |(index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option)| {
+            CreateDefinition::IndexOrKey(
+                index_or_key,
+                opt_index_name,
+                opt_index_type,
+                key_part,
+                opt_index_option,
+            )
+        },
+    )(i)
 }
 
 /// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
 fn fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // {FULLTEXT | SPATIAL}
-        fulltext_or_spatial_type,
-        // [INDEX | KEY]
-        preceded(multispace1, opt(index_or_key_type)),
-        // [index_name]
-        opt_index_name,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((
-            input,
-            (fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option),
-        )) => Ok((
-            input,
+    map(
+        tuple((
+            // {FULLTEXT | SPATIAL}
+            fulltext_or_spatial_type,
+            // [INDEX | KEY]
+            preceded(multispace1, opt(index_or_key_type)),
+            // [index_name]
+            opt_index_name,
+            // (key_part,...)
+            key_part,
+            // [index_option]
+            opt_index_option,
+        )),
+        |(fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
             CreateDefinition::FulltextOrSpatial(
                 fulltext_or_spatial,
                 index_or_key,
                 index_name,
                 key_part,
                 opt_index_option,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_fulltext_or_spatial: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
 fn primary_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol,
-        // PRIMARY KEY
+    map(
         tuple((
-            multispace0,
-            tag_no_case("PRIMARY"),
-            multispace1,
-            tag_no_case("KEY"),
+            opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
+            tuple((
+                multispace0,
+                tag_no_case("PRIMARY"),
+                multispace1,
+                tag_no_case("KEY"),
+            )), // PRIMARY KEY
+            opt_index_type,                 // [index_type]
+            key_part,                       // (key_part,...)
+            opt_index_option,               // [index_option]
         )),
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((remaining_input, (opt_symbol, _, opt_index_type, key_part, opt_index_option))) => Ok((
-            remaining_input,
-            CreateDefinition::PrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_primary_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
+            CreateDefinition::PrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option)
+        },
+    )(i)
 }
 
 /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
 fn unique(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol,
-        // UNIQUE [INDEX | KEY]
-        map(
-            tuple((
-                multispace0,
-                tag_no_case("UNIQUE"),
-                multispace1,
-                opt(index_or_key_type),
-            )),
-            |(_, _, _, value)| value,
-        ),
-        // [index_name]
-        opt_index_name,
-        // [index_type]
-        opt_index_type,
-        // (key_part,...)
-        key_part,
-        // [index_option]
-        opt_index_option,
-    ));
-
-    match parser(i) {
-        Ok((
-            input,
-            (
-                opt_symbol,
-                opt_index_or_key,
-                opt_index_name,
-                opt_index_type,
-                key_part,
-                opt_index_option,
-            ),
-        )) => Ok((
-            input,
+    map(
+        tuple((
+            opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
+            map(
+                tuple((
+                    multispace0,
+                    tag_no_case("UNIQUE"),
+                    multispace1,
+                    opt(index_or_key_type),
+                )),
+                |(_, _, _, value)| value,
+            ), // UNIQUE [INDEX | KEY]
+            opt_index_name,                 // [index_name]
+            opt_index_type,                 // [index_type]
+            key_part,                       // (key_part,...)
+            opt_index_option,               // [index_option]
+        )),
+        |(
+            opt_symbol,
+            opt_index_or_key,
+            opt_index_name,
+            opt_index_type,
+            key_part,
+            opt_index_option,
+        )| {
             CreateDefinition::Unique(
                 opt_symbol,
                 opt_index_or_key,
@@ -541,109 +446,78 @@ fn unique(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
                 opt_index_type,
                 key_part,
                 opt_index_option,
-            ),
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as ---{}---: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                "add_unique",
-                err
-            );
-            Err(err)
-        }
-    }
+            )
+        },
+    )(i)
 }
 
 /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
 fn foreign_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol,
-        // FOREIGN KEY
+    map(
         tuple((
-            multispace0,
-            tag_no_case("FOREIGN"),
-            multispace1,
-            tag_no_case("KEY"),
-        )),
-        // [index_name]
-        opt_index_name,
-        // (col_name,...)
-        map(
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol,
+            // FOREIGN KEY
             tuple((
                 multispace0,
-                delimited(
-                    tag("("),
-                    delimited(multispace0, index_col_list, multispace0),
-                    tag(")"),
-                ),
+                tag_no_case("FOREIGN"),
+                multispace1,
+                tag_no_case("KEY"),
             )),
-            |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
-        ),
-        // reference_definition
-        reference_definition,
-    ));
-
-    match parser(i) {
-        Ok((input, (opt_symbol, _, opt_index_name, columns, reference_definition))) => Ok((
-            input,
-            CreateDefinition::ForeignKey(opt_symbol, opt_index_name, columns, reference_definition),
+            // [index_name]
+            opt_index_name,
+            // (col_name,...)
+            map(
+                tuple((
+                    multispace0,
+                    delimited(
+                        tag("("),
+                        delimited(multispace0, index_col_list, multispace0),
+                        tag(")"),
+                    ),
+                )),
+                |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
+            ),
+            // reference_definition
+            reference_definition,
         )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_foreign_key: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+        |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
+            CreateDefinition::ForeignKey(opt_symbol, opt_index_name, columns, reference_definition)
+        },
+    )(i)
 }
 
 /// check_constraint_definition
 /// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
 fn check_constraint_definition(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
-    let mut parser = tuple((
-        // [CONSTRAINT [symbol]]
-        opt_constraint_with_opt_symbol,
-        // CHECK
-        tuple((multispace1, tag_no_case("CHECK"), multispace0)),
-        // (expr)
-        delimited(tag("("), take_until(")"), tag(")")),
-        // [[NOT] ENFORCED]
-        opt(tuple((
-            multispace0,
-            opt(tag_no_case("NOT")),
-            multispace1,
-            tag_no_case("ENFORCED"),
-            multispace0,
-        ))),
-    ));
-
-    match parser(i) {
-        Ok((input, (symbol, _, expr, opt_whether_enforced))) => {
+    map(
+        tuple((
+            // [CONSTRAINT [symbol]]
+            opt_constraint_with_opt_symbol,
+            // CHECK
+            tuple((multispace1, tag_no_case("CHECK"), multispace0)),
+            // (expr)
+            delimited(tag("("), take_until(")"), tag(")")),
+            // [[NOT] ENFORCED]
+            opt(tuple((
+                multispace0,
+                opt(tag_no_case("NOT")),
+                multispace1,
+                tag_no_case("ENFORCED"),
+                multispace0,
+            ))),
+        )),
+        |(symbol, _, expr, opt_whether_enforced)| {
             let expr = String::from_utf8(expr.to_vec()).unwrap();
             let enforced =
                 opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
-            Ok((
-                input,
-                CreateDefinition::Check(CheckConstraintDefinition {
-                    symbol,
-                    expr,
-                    enforced,
-                }),
-            ))
-        }
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as add_check: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            CreateDefinition::Check(CheckConstraintDefinition {
+                symbol,
+                expr,
+                enforced,
+            })
+        },
+    )(i)
 }
 
 /// [CONSTRAINT [symbol]]
@@ -707,61 +581,52 @@ pub enum ReferenceOption {
 ///       [ON DELETE reference_option]
 ///       [ON UPDATE reference_option]
 fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
-    let mut parser = tuple((
-        tuple((tag_no_case("REFERENCES"), multispace1)),
-        // tbl_name
-        map(tuple((sql_identifier, multispace1)), |x| {
-            String::from_utf8(x.1.to_vec()).unwrap()
-        }),
-        // (key_part,...)
-        key_part,
-        multispace0,
-        opt(match_type),
-        multispace0,
-        opt(map(
-            tuple((
-                tag_no_case("ON"),
-                multispace1,
-                tag_no_case("DELETE"),
-                multispace1,
-                reference_option,
-            )),
-            |x| x.4,
+    let opt_on_delete = opt(map(
+        tuple((
+            tag_no_case("ON"),
+            multispace1,
+            tag_no_case("DELETE"),
+            multispace1,
+            reference_option,
         )),
-        multispace0,
-        opt(map(
-            tuple((
-                tag_no_case("ON"),
-                multispace1,
-                tag_no_case("UPDATE"),
-                multispace1,
-                reference_option,
-            )),
-            |x| x.4,
-        )),
-        multispace0,
+        |x| x.4,
     ));
-
-    match parser(i) {
-        Ok((input, (_, tbl_name, key_part, _, match_type, _, on_delete, _, on_update, _))) => Ok((
-            input,
+    let opt_on_update = opt(map(
+        tuple((
+            tag_no_case("ON"),
+            multispace1,
+            tag_no_case("UPDATE"),
+            multispace1,
+            reference_option,
+        )),
+        |x| x.4,
+    ));
+    map(
+        tuple((
+            tuple((tag_no_case("REFERENCES"), multispace1)),
+            // tbl_name
+            map(tuple((sql_identifier, multispace1)), |x| {
+                String::from_utf8(x.1.to_vec()).unwrap()
+            }),
+            key_part, // (key_part,...)
+            multispace0,
+            opt(match_type), // [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
+            multispace0,
+            opt_on_delete,
+            multispace0,
+            opt_on_update,
+            multispace0,
+        )),
+        |(_, tbl_name, key_part, _, match_type, _, on_delete, _, on_update, _)| {
             ReferenceDefinition {
                 tbl_name,
                 key_part,
                 match_type,
                 on_delete,
                 on_update,
-            },
-        )),
-        Err(err) => {
-            println!(
-                "failed to parse ---{}--- as reference_definition: {}",
-                String::from(std::str::from_utf8(i).unwrap()),
-                err
-            );
-            Err(err)
-        }
-    }
+            }
+        },
+    )(i)
 }
 
 /// reference_option:
