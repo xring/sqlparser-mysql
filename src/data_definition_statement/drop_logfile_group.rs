@@ -30,7 +30,7 @@ impl fmt::Display for DropLogfileGroupStatement {
 
 /// DROP LOGFILE GROUP logfile_group
 ///     ENGINE [=] engine_name
-pub fn drop_logfile_group_parser(i: &[u8]) -> IResult<&[u8], DropLogfileGroupStatement> {
+pub fn drop_logfile_group_parser(i: &str) -> IResult<&str, DropLogfileGroupStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -39,7 +39,7 @@ pub fn drop_logfile_group_parser(i: &[u8]) -> IResult<&[u8], DropLogfileGroupSta
         tag_no_case("GROUP"),
         multispace0,
         map(sql_identifier, |logfile_group| {
-            String::from_utf8(logfile_group.to_vec()).unwrap()
+            String::from(logfile_group)
         }),
         multispace0,
         map(
@@ -51,7 +51,7 @@ pub fn drop_logfile_group_parser(i: &[u8]) -> IResult<&[u8], DropLogfileGroupSta
                 sql_identifier,
                 multispace0,
             )),
-            |(_, _, _, _, engine, _)| String::from_utf8(engine.to_vec()).unwrap(),
+            |(_, _, _, _, engine, _)| String::from(engine),
         ),
         multispace0,
         statement_terminator,
@@ -77,7 +77,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_logfile_group_parser(sqls[i].as_bytes());
+            let res = drop_logfile_group_parser(sqls[i]);
             println!("{:?}", res);
             assert!(res.is_ok());
         }

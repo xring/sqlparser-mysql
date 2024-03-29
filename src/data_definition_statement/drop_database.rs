@@ -29,7 +29,7 @@ impl fmt::Display for DropDatabaseStatement {
     }
 }
 
-pub fn drop_database_parser(i: &[u8]) -> IResult<&[u8], DropDatabaseStatement> {
+pub fn drop_database_parser(i: &str) -> IResult<&str, DropDatabaseStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -41,7 +41,7 @@ pub fn drop_database_parser(i: &[u8]) -> IResult<&[u8], DropDatabaseStatement> {
     ));
     let (remaining_input, (_, _, _, opt_if_exists, _, database, _)) = parser(i)?;
 
-    let name = String::from_utf8(database.to_vec()).unwrap();
+    let name = String::from(database);
 
     Ok((
         remaining_input,
@@ -98,7 +98,7 @@ mod tests {
 
         for i in 0..good_sqls.len() {
             assert_eq!(
-                drop_database_parser(good_sqls[i].as_bytes()).unwrap().1,
+                drop_database_parser(good_sqls[i]).unwrap().1,
                 good_statements[i]
             );
         }
@@ -115,7 +115,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(drop_database_parser(bad_sqls[i].as_bytes()).is_err())
+            assert!(drop_database_parser(bad_sqls[i]).is_err())
         }
     }
 }

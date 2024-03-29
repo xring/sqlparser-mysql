@@ -9,7 +9,7 @@ use nom::IResult;
 // which is implemented for tuples sizes up to 21. Because of this constraint
 // on maximum tuple sizes, keywords are aggregated into groups of 20
 
-fn keyword_follow_char(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_follow_char(i: &str) -> IResult<&str, &str> {
     peek(alt((
         tag(" "),
         tag("\n"),
@@ -23,7 +23,7 @@ fn keyword_follow_char(i: &[u8]) -> IResult<&[u8], &[u8]> {
     )))(i)
 }
 
-fn keyword_a_to_c(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_a_to_c(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("ABORT"), keyword_follow_char),
         terminated(tag_no_case("ACTION"), keyword_follow_char),
@@ -49,7 +49,7 @@ fn keyword_a_to_c(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_c_to_e(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_c_to_e(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("COLUMN"), keyword_follow_char),
         terminated(tag_no_case("COMMIT"), keyword_follow_char),
@@ -75,7 +75,7 @@ fn keyword_c_to_e(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_e_to_i(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_e_to_i(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("ESCAPE"), keyword_follow_char),
         terminated(tag_no_case("EXCEPT"), keyword_follow_char),
@@ -101,7 +101,7 @@ fn keyword_e_to_i(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_i_to_o(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_i_to_o(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("INNER"), keyword_follow_char),
         terminated(tag_no_case("INSERT"), keyword_follow_char),
@@ -127,7 +127,7 @@ fn keyword_i_to_o(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_o_to_s(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_o_to_s(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("ON"), keyword_follow_char),
         terminated(tag_no_case("OR"), keyword_follow_char),
@@ -153,7 +153,7 @@ fn keyword_o_to_s(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_s_to_z(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_s_to_z(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("SET"), keyword_follow_char),
         terminated(tag_no_case("TABLE"), keyword_follow_char),
@@ -178,14 +178,14 @@ fn keyword_s_to_z(i: &[u8]) -> IResult<&[u8], &[u8]> {
     ))(i)
 }
 
-fn keyword_other(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn keyword_other(i: &str) -> IResult<&str, &str> {
     alt((
         terminated(tag_no_case("SPATIAL"), keyword_follow_char),
     ))(i)
 }
 
 // Matches any SQL reserved keyword
-pub fn sql_keyword(i: &[u8]) -> IResult<&[u8], &[u8]> {
+pub fn sql_keyword(i: &str) -> IResult<&str, &str> {
     alt((
         keyword_a_to_c,
         keyword_c_to_e,
@@ -198,7 +198,7 @@ pub fn sql_keyword(i: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 pub fn escape_if_keyword(s: &str) -> String {
-    if sql_keyword(s.as_bytes()).is_ok() {
+    if sql_keyword(s).is_ok() {
         format!("`{}`", s)
     } else {
         s.to_owned()

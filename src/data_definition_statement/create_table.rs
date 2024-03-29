@@ -48,7 +48,7 @@ impl fmt::Display for CreateTableStatement {
 ///
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-pub fn create_table_parser(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
+pub fn create_table_parser(i: &str) -> IResult<&str, CreateTableStatement> {
     alt((create_simple, create_like_old_table, create_as_query))(i)
 }
 
@@ -89,11 +89,11 @@ pub enum CreateTableType {
     LikeOldTable(Table),
 }
 
-fn create_table_options(i: &[u8]) -> IResult<&[u8], TableOptions> {
+fn create_table_options(i: &str) -> IResult<&str, TableOptions> {
     map(many1(terminated(table_option, opt(ws_sep_comma))), |x| x)(i)
 }
 
-fn create_definition_list(i: &[u8]) -> IResult<&[u8], Vec<CreateDefinition>> {
+fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>> {
     delimited(
         tag("("),
         many1(map(
@@ -114,7 +114,7 @@ fn create_definition_list(i: &[u8]) -> IResult<&[u8], Vec<CreateDefinition>> {
 ///     (create_definition,...)
 ///     [table_options]
 ///     [partition_options]
-fn create_simple(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
+fn create_simple(i: &str) -> IResult<&str, CreateTableStatement> {
     map(
         tuple((
             create_table_with_name,
@@ -150,7 +150,7 @@ fn create_simple(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 ///     [partition_options]
 ///     [IGNORE | REPLACE]
 ///     [AS] query_expression
-fn create_as_query(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
+fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement> {
     map(
         tuple((
             create_table_with_name,
@@ -171,7 +171,7 @@ fn create_as_query(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
             multispace0,
             opt(tag_no_case("AS")),
             multispace0,
-            map(rest, |x: &[u8]| String::from_utf8(x.to_vec()).unwrap()),
+            map(rest, |x| String::from(x)),
             statement_terminator,
         )),
         |(x)| {
@@ -191,7 +191,7 @@ fn create_as_query(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-fn create_like_old_table(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
+fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement> {
     map(
         tuple((
             create_table_with_name,
@@ -224,7 +224,7 @@ fn create_like_old_table(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, Table)> {
+fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table)> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
@@ -242,7 +242,7 @@ fn create_table_with_name(i: &[u8]) -> IResult<&[u8], (bool, bool, Table)> {
 }
 
 /// [IF NOT EXISTS]
-fn if_not_exists(i: &[u8]) -> IResult<&[u8], bool> {
+fn if_not_exists(i: &str) -> IResult<&str, bool> {
     map(
         opt(tuple((
             tag_no_case("IF"),
@@ -272,7 +272,7 @@ fn if_not_exists(i: &[u8]) -> IResult<&[u8], bool> {
 ///       reference_definition
 ///   | check_constraint_definition
 /// }
-pub fn create_definition(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+pub fn create_definition(i: &str) -> IResult<&str, CreateDefinition> {
     alt((
         map(single_column_definition, |x| {
             CreateDefinition::ColumnDefinition(x)
@@ -340,7 +340,7 @@ pub enum CreateDefinition {
 }
 
 /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
-fn index_or_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn index_or_key(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             // {INDEX | KEY}
@@ -367,7 +367,7 @@ fn index_or_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 }
 
 /// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
-fn fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             // {FULLTEXT | SPATIAL}
@@ -394,7 +394,7 @@ fn fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 }
 
 /// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
-fn primary_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn primary_key(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
@@ -415,7 +415,7 @@ fn primary_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
-fn unique(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn unique(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
@@ -454,7 +454,7 @@ fn unique(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
-fn foreign_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn foreign_key(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -492,7 +492,7 @@ fn foreign_key(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 
 /// check_constraint_definition
 /// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-fn check_constraint_definition(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
+fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -511,7 +511,7 @@ fn check_constraint_definition(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
             ))),
         )),
         |(symbol, _, expr, opt_whether_enforced)| {
-            let expr = String::from_utf8(expr.to_vec()).unwrap();
+            let expr = String::from(expr);
             let enforced =
                 opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
             CreateDefinition::Check(CheckConstraintDefinition {
@@ -524,13 +524,13 @@ fn check_constraint_definition(i: &[u8]) -> IResult<&[u8], CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]]
-fn opt_constraint_with_opt_symbol(i: &[u8]) -> IResult<&[u8], Option<String>> {
+fn opt_constraint_with_opt_symbol(i: &str) -> IResult<&str, Option<String>> {
     map(
         opt(preceded(
             tag_no_case("CONSTRAINT"),
             opt(preceded(multispace1, sql_identifier)),
         )),
-        |(x)| x.and_then(|inner| inner.map(|value| String::from_utf8(value.to_vec()).unwrap())),
+        |(x)| x.and_then(|inner| inner.map(|value| String::from(value))),
     )(i)
 }
 
@@ -541,7 +541,7 @@ pub enum CreatePartitionOption {
     None,
 }
 
-pub fn create_table_partition_option(i: &[u8]) -> IResult<&[u8], CreatePartitionOption> {
+pub fn create_table_partition_option(i: &str) -> IResult<&str, CreatePartitionOption> {
     map(tag_no_case(""), |_| CreatePartitionOption::None)(i)
 }
 
@@ -584,7 +584,7 @@ mod test {
 
         for i in 0..create_sqls.len() {
             println!("{}/{}", i + 1, create_sqls.len());
-            let res = create_table_parser(create_sqls[i].as_bytes());
+            let res = create_table_parser(create_sqls[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -595,7 +595,7 @@ mod test {
     #[test]
     fn test_create_definition_list() {
         let part = "(order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))";
-        let res = create_definition_list(part.as_bytes());
+        let res = create_definition_list(part);
         assert!(res.is_ok());
     }
 }

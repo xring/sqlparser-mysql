@@ -34,7 +34,7 @@ pub enum AlgorithmOption {
 
 /// algorithm_option:
 ///     ALGORITHM [=] {DEFAULT | INPLACE | COPY}
-pub fn algorithm_option(i: &[u8]) -> IResult<&[u8], AlgorithmOption> {
+pub fn algorithm_option(i: &str) -> IResult<&str, AlgorithmOption> {
     map(
         tuple((
             tag_no_case("ALGORITHM"),
@@ -62,7 +62,7 @@ pub enum LockType {
 
 /// lock_option:
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-pub fn lock_option(i: &[u8]) -> IResult<&[u8], LockType> {
+pub fn lock_option(i: &str) -> IResult<&str, LockType> {
     map(
         tuple((
             tag_no_case("LOCK "),
@@ -90,7 +90,7 @@ pub enum MatchType {
 }
 
 /// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-fn match_type(i: &[u8]) -> IResult<&[u8], MatchType> {
+fn match_type(i: &str) -> IResult<&str, MatchType> {
     map(
         tuple((
             tag_no_case("MATCH"),
@@ -130,7 +130,7 @@ pub enum ReferenceOption {
 ///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
 ///       [ON DELETE reference_option]
 ///       [ON UPDATE reference_option]
-pub fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
+pub fn reference_definition(i: &str) -> IResult<&str, ReferenceDefinition> {
     let opt_on_delete = opt(map(
         tuple((
             tag_no_case("ON"),
@@ -155,7 +155,7 @@ pub fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
         tuple((
             tuple((multispace0, tag_no_case("REFERENCES"), multispace1)),
             // tbl_name
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
             key_part, // (key_part,...)
             multispace0,
@@ -180,7 +180,7 @@ pub fn reference_definition(i: &[u8]) -> IResult<&[u8], ReferenceDefinition> {
 
 /// reference_option:
 ///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
-pub fn reference_option(i: &[u8]) -> IResult<&[u8], ReferenceOption> {
+pub fn reference_option(i: &str) -> IResult<&str, ReferenceOption> {
     alt((
         map(tag_no_case("RESTRICT"), |_| ReferenceOption::Restrict),
         map(tag_no_case("CASCADE"), |_| ReferenceOption::Cascade),
@@ -285,7 +285,7 @@ pub enum VisibleType {
     INVISIBLE,
 }
 
-pub fn visible_or_invisible(i: &[u8]) -> IResult<&[u8], VisibleType> {
+pub fn visible_or_invisible(i: &str) -> IResult<&str, VisibleType> {
     alt((
         map(tag_no_case("VISIBLE"), |_| VisibleType::VISIBLE),
         map(tag_no_case("INVISIBLE"), |_| VisibleType::INVISIBLE),
@@ -342,7 +342,7 @@ impl fmt::Display for IndexType {
 
 /// index_type:
 ///    USING {BTREE | HASH}
-pub fn index_type(i: &[u8]) -> IResult<&[u8], IndexType> {
+pub fn index_type(i: &str) -> IResult<&str, IndexType> {
     map(
         tuple((
             tag_no_case("USING"),
@@ -369,22 +369,22 @@ pub struct KeyPart {
 }
 
 /// [index_name]
-pub fn opt_index_name(i: &[u8]) -> IResult<&[u8], Option<String>> {
+pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>> {
     opt(map(
         delimited(multispace1, sql_identifier, multispace0),
-        |(x)| String::from_utf8(x.to_vec()).unwrap(),
+        |(x)| String::from(x),
     ))(i)
 }
 
 /// [index_type]
 /// USING {BTREE | HASH}
-pub fn opt_index_type(i: &[u8]) -> IResult<&[u8], Option<IndexType>> {
+pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>> {
     opt(map(delimited(multispace1, index_type, multispace0), |x| x))(i)
 }
 
 /// (key_part,...)
 /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-pub fn key_part(i: &[u8]) -> IResult<&[u8], Vec<KeyPart>> {
+pub fn key_part(i: &str) -> IResult<&str, Vec<KeyPart>> {
     map(
         tuple((
             multispace0,
@@ -408,26 +408,24 @@ pub fn key_part(i: &[u8]) -> IResult<&[u8], Vec<KeyPart>> {
 ///   |ENGINE_ATTRIBUTE [=] 'string'
 ///   |SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
 /// }
-pub fn opt_index_option(i: &[u8]) -> IResult<&[u8], Option<IndexOption>> {
+pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>> {
     opt(map(preceded(multispace1, index_option), |x| x))(i)
 }
 
 /// (key_part,...)
-pub fn key_part_list(i: &[u8]) -> IResult<&[u8], Vec<KeyPart>> {
+pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>> {
     many1(map(terminated(key_part_item, opt(ws_sep_comma)), |e| e))(i)
 }
 
 /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-pub fn key_part_item(i: &[u8]) -> IResult<&[u8], KeyPart> {
+pub fn key_part_item(i: &str) -> IResult<&str, KeyPart> {
     let col_with_length = tuple((
         multispace0,
         sql_identifier,
         multispace0,
         opt(delimited(
             tag("("),
-            map_res(digit1, |digit_str: &[u8]| {
-                std::str::from_utf8(digit_str).unwrap().parse::<usize>()
-            }),
+            map_res(digit1, |digit_str: &str| digit_str.parse::<usize>()),
             tag(")"),
         )),
     ));
@@ -440,14 +438,9 @@ pub fn key_part_item(i: &[u8]) -> IResult<&[u8], KeyPart> {
         tuple((
             alt((
                 map(col_with_length, |(_, col_name, _, length)| {
-                    KeyPartType::ColumnNameWithLength(
-                        String::from_utf8(col_name.to_vec()).unwrap(),
-                        length,
-                    )
+                    KeyPartType::ColumnNameWithLength(String::from(col_name), length)
                 }),
-                map(expr, |expr: &[u8]| {
-                    KeyPartType::Expr(String::from_utf8(expr.to_vec()).unwrap())
-                }),
+                map(expr, |expr| KeyPartType::Expr(String::from(expr))),
             )),
             opt(map(
                 tuple((multispace1, order_type, multispace0)),
@@ -459,7 +452,7 @@ pub fn key_part_item(i: &[u8]) -> IResult<&[u8], KeyPart> {
 }
 
 /// {INDEX | KEY}
-pub fn index_or_key_type(i: &[u8]) -> IResult<&[u8], IndexOrKeyType> {
+pub fn index_or_key_type(i: &str) -> IResult<&str, IndexOrKeyType> {
     alt((
         map(tag_no_case("KEY"), |_| IndexOrKeyType::KEY),
         map(tag_no_case("INDEX"), |_| IndexOrKeyType::INDEX),
@@ -467,14 +460,14 @@ pub fn index_or_key_type(i: &[u8]) -> IResult<&[u8], IndexOrKeyType> {
 }
 
 /// // {FULLTEXT | SPATIAL}
-pub fn fulltext_or_spatial_type(i: &[u8]) -> IResult<&[u8], FulltextOrSpatialType> {
+pub fn fulltext_or_spatial_type(i: &str) -> IResult<&str, FulltextOrSpatialType> {
     alt((
         map(tag_no_case("FULLTEXT"), |_| FulltextOrSpatialType::FULLTEXT),
         map(tag_no_case("SPATIAL"), |_| FulltextOrSpatialType::SPATIAL),
     ))(i)
 }
 
-pub fn index_col_list(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
+pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
     many0(map(
         terminated(index_col_name, opt(ws_sep_comma)),
         // XXX(malte): ignores length and order
@@ -482,25 +475,25 @@ pub fn index_col_list(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
     ))(i)
 }
 
-pub fn index_col_name(i: &[u8]) -> IResult<&[u8], (Column, Option<u16>, Option<OrderType>)> {
+pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<OrderType>)> {
     let (remaining_input, (column, len_u8, order)) = tuple((
         terminated(column_identifier_without_alias, multispace0),
         opt(delimited(tag("("), digit1, tag(")"))),
         opt(order_type),
     ))(i)?;
-    let len = len_u8.map(|l| u16::from_str(std::str::from_utf8(l).unwrap()).unwrap());
+    let len = len_u8.map(|l| u16::from_str(l).unwrap());
 
     Ok((remaining_input, (column, len, order)))
 }
 
-pub fn order_type(i: &[u8]) -> IResult<&[u8], OrderType> {
+pub fn order_type(i: &str) -> IResult<&str, OrderType> {
     alt((
         map(tag_no_case("desc"), |_| OrderType::Desc),
         map(tag_no_case("asc"), |_| OrderType::Asc),
     ))(i)
 }
 
-pub fn parse_position(i: &[u8]) -> IResult<&[u8], MySQLColumnPosition> {
+pub fn parse_position(i: &str) -> IResult<&str, MySQLColumnPosition> {
     let mut parser = alt((
         map(
             tuple((multispace0, tag_no_case("FIRST"), multispace0)),
@@ -513,18 +506,14 @@ pub fn parse_position(i: &[u8]) -> IResult<&[u8], MySQLColumnPosition> {
                 multispace1,
                 sql_identifier,
             )),
-            |(_, _, _, identifier)| {
-                MySQLColumnPosition::After(
-                    String::from(std::str::from_utf8(identifier).unwrap()).into(),
-                )
-            },
+            |(_, _, _, identifier)| MySQLColumnPosition::After(String::from(identifier).into()),
         ),
     ));
     let (remaining_input, position) = parser(i)?;
     Ok((remaining_input, position))
 }
 
-pub fn single_column_definition(i: &[u8]) -> IResult<&[u8], ColumnSpecification> {
+pub fn single_column_definition(i: &str) -> IResult<&str, ColumnSpecification> {
     map(
         tuple((
             column_identifier_without_alias,
@@ -550,19 +539,7 @@ pub fn single_column_definition(i: &[u8]) -> IResult<&[u8], ColumnSpecification>
     )(i)
 }
 
-pub fn handle_error_with_debug(
-    input: String,
-    pattern: String,
-    err: nom::Err<Error<&[u8]>>,
-) -> nom::Err<Error<&[u8]>> {
-    println!(
-        "failed to parse ---{}--- as ---{}---: {}",
-        input, pattern, err
-    );
-    err
-}
-
-fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
+fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     let not_null = map(
         delimited(multispace0, tag_no_case("NOT NULL"), multispace0),
         |_| Some(ColumnConstraint::NotNull),
@@ -589,7 +566,7 @@ fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
             sql_identifier,
         ),
         |cs| {
-            let char_set = std::str::from_utf8(cs).unwrap().to_owned();
+            let char_set = cs.to_owned();
             Some(ColumnConstraint::CharacterSet(char_set))
         },
     );
@@ -599,7 +576,7 @@ fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
             sql_identifier,
         ),
         |c| {
-            let collation = std::str::from_utf8(c).unwrap().to_owned();
+            let collation = c.to_owned();
             Some(ColumnConstraint::Collation(collation))
         },
     );
@@ -616,19 +593,18 @@ fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     ))(i)
 }
 
-fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
+fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     let (remaining_input, (_, _, _, def, _)) = tuple((
         multispace0,
         tag_no_case("DEFAULT"),
         multispace1,
         alt((
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |s: &[u8]| Literal::String(String::from_utf8(s.to_vec()).unwrap()),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |s| {
+                Literal::String(String::from(s))
+            }),
             fixed_point,
-            map(digit1, |d| {
-                let d_i64 = i64::from_str(std::str::from_utf8(d).unwrap()).unwrap();
+            map(digit1, |d: &str| {
+                let d_i64 = d.parse().unwrap();
                 Literal::Integer(d_i64)
             }),
             map(tag("''"), |_| Literal::String(String::from(""))),
@@ -643,14 +619,14 @@ fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     Ok((remaining_input, Some(ColumnConstraint::DefaultValue(def))))
 }
 
-fn fixed_point(i: &[u8]) -> IResult<&[u8], Literal> {
+fn fixed_point(i: &str) -> IResult<&str, Literal> {
     let (remaining_input, (i, _, f)) = tuple((digit1, tag("."), digit1))(i)?;
 
     Ok((
         remaining_input,
         Literal::FixedPoint(Real {
-            integral: i32::from_str(std::str::from_utf8(i).unwrap()).unwrap(),
-            fractional: i32::from_str(std::str::from_utf8(f).unwrap()).unwrap(),
+            integral: i32::from_str(i).unwrap(),
+            fractional: i32::from_str(f).unwrap(),
         }),
     ))
 }

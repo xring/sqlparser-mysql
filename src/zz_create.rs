@@ -101,19 +101,19 @@ impl fmt::Display for CreateViewStatement {
 }
 
 // MySQL grammar element for index column definition (§13.1.18, index_col_name)
-pub fn index_col_name(i: &[u8]) -> IResult<&[u8], (Column, Option<u16>, Option<OrderType>)> {
+pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<OrderType>)> {
     let (remaining_input, (column, len_u8, order)) = tuple((
         terminated(column_identifier_without_alias, multispace0),
         opt(delimited(tag("("), digit1, tag(")"))),
         opt(order_type),
     ))(i)?;
-    let len = len_u8.map(|l| u16::from_str(str::from_utf8(l).unwrap()).unwrap());
+    let len = len_u8.map(|l| u16::from_str(l).unwrap());
 
     Ok((remaining_input, (column, len, order)))
 }
 
 // Helper for list of index columns
-pub fn index_col_list(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
+pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
     many0(map(
         terminated(index_col_name, opt(ws_sep_comma)),
         // XXX(malte): ignores length and order
@@ -122,11 +122,11 @@ pub fn index_col_list(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
 }
 
 // Parse rule for an individual key specification.
-pub fn key_specification(i: &[u8]) -> IResult<&[u8], TableKey> {
+pub fn key_specification(i: &str) -> IResult<&str, TableKey> {
     alt((full_text_key, primary_key, unique, key_or_index))(i)
 }
 
-fn full_text_key(i: &[u8]) -> IResult<&[u8], TableKey> {
+fn full_text_key(i: &str) -> IResult<&str, TableKey> {
     let (remaining_input, (_, _, _, _, name, _, columns)) = tuple((
         tag_no_case("fulltext"),
         multispace1,
@@ -143,14 +143,14 @@ fn full_text_key(i: &[u8]) -> IResult<&[u8], TableKey> {
 
     match name {
         Some(name) => {
-            let n = String::from_utf8(name.to_vec()).unwrap();
+            let n = String::from(name);
             Ok((remaining_input, TableKey::FulltextKey(Some(n), columns)))
         }
         None => Ok((remaining_input, TableKey::FulltextKey(None, columns))),
     }
 }
 
-fn primary_key(i: &[u8]) -> IResult<&[u8], TableKey> {
+fn primary_key(i: &str) -> IResult<&str, TableKey> {
     let (remaining_input, (_, _, columns, _)) = tuple((
         tag_no_case("primary key"),
         multispace0,
@@ -168,7 +168,7 @@ fn primary_key(i: &[u8]) -> IResult<&[u8], TableKey> {
     Ok((remaining_input, TableKey::PrimaryKey(columns)))
 }
 
-fn unique(i: &[u8]) -> IResult<&[u8], TableKey> {
+fn unique(i: &str) -> IResult<&str, TableKey> {
     // TODO: add branching to correctly parse whitespace after `unique`
     let (remaining_input, (_, _, _, name, _, columns)) = tuple((
         tag_no_case("unique"),
@@ -188,14 +188,14 @@ fn unique(i: &[u8]) -> IResult<&[u8], TableKey> {
 
     match name {
         Some(name) => {
-            let n = String::from_utf8(name.to_vec()).unwrap();
+            let n = String::from(name);
             Ok((remaining_input, TableKey::UniqueKey(Some(n), columns)))
         }
         None => Ok((remaining_input, TableKey::UniqueKey(None, columns))),
     }
 }
 
-fn key_or_index(i: &[u8]) -> IResult<&[u8], TableKey> {
+fn key_or_index(i: &str) -> IResult<&str, TableKey> {
     let (remaining_input, (_, _, name, _, columns)) = tuple((
         alt((tag_no_case("key"), tag_no_case("index"))),
         multispace0,
@@ -208,16 +208,16 @@ fn key_or_index(i: &[u8]) -> IResult<&[u8], TableKey> {
         ),
     ))(i)?;
 
-    let n = String::from_utf8(name.to_vec()).unwrap();
+    let n = String::from(name);
     Ok((remaining_input, TableKey::Key(n, columns)))
 }
 
 // Parse rule for a comma-separated list.
-pub fn key_specification_list(i: &[u8]) -> IResult<&[u8], Vec<TableKey>> {
+pub fn key_specification_list(i: &str) -> IResult<&str, Vec<TableKey>> {
     many1(terminated(key_specification, opt(ws_sep_comma)))(i)
 }
 
-pub fn field_specification(i: &[u8]) -> IResult<&[u8], ColumnSpecification> {
+pub fn field_specification(i: &str) -> IResult<&str, ColumnSpecification> {
     let (remaining_input, (column, field_type, constraints, comment, _)) = tuple((
         column_identifier_without_alias,
         opt(delimited(multispace1, type_identifier, multispace0)),
@@ -243,12 +243,12 @@ pub fn field_specification(i: &[u8]) -> IResult<&[u8], ColumnSpecification> {
 }
 
 // Parse rule for a comma-separated list.
-pub fn field_specification_list(i: &[u8]) -> IResult<&[u8], Vec<ColumnSpecification>> {
+pub fn field_specification_list(i: &str) -> IResult<&str, Vec<ColumnSpecification>> {
     many1(field_specification)(i)
 }
 
 // Parse rule for a column definition constraint.
-pub fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
+pub fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     let not_null = map(
         delimited(multispace0, tag_no_case("not null"), multispace0),
         |_| Some(ColumnConstraint::NotNull),
@@ -275,7 +275,7 @@ pub fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
             sql_identifier,
         ),
         |cs| {
-            let char_set = str::from_utf8(cs).unwrap().to_owned();
+            let char_set = cs.to_owned();
             Some(ColumnConstraint::CharacterSet(char_set))
         },
     );
@@ -285,7 +285,7 @@ pub fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
             sql_identifier,
         ),
         |c| {
-            let collation = str::from_utf8(c).unwrap().to_owned();
+            let collation = c.to_owned();
             Some(ColumnConstraint::Collation(collation))
         },
     );
@@ -302,19 +302,19 @@ pub fn column_constraint(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
     ))(i)
 }
 
-fn fixed_point(i: &[u8]) -> IResult<&[u8], Literal> {
+fn fixed_point(i: &str) -> IResult<&str, Literal> {
     let (remaining_input, (i, _, f)) = tuple((digit1, tag("."), digit1))(i)?;
 
     Ok((
         remaining_input,
         Literal::FixedPoint(Real {
-            integral: i32::from_str(str::from_utf8(i).unwrap()).unwrap(),
-            fractional: i32::from_str(str::from_utf8(f).unwrap()).unwrap(),
+            integral: i32::from_str(i).unwrap(),
+            fractional: i32::from_str(f).unwrap(),
         }),
     ))
 }
 
-fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
+fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     let (remaining_input, (_, _, _, def, _)) = tuple((
         multispace0,
         tag_no_case("default"),
@@ -322,11 +322,11 @@ fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
         alt((
             map(
                 delimited(tag("'"), take_until("'"), tag("'")),
-                |s: &[u8]| Literal::String(String::from_utf8(s.to_vec()).unwrap()),
+                |s| Literal::String(String::from(s)),
             ),
             fixed_point,
             map(digit1, |d| {
-                let d_i64 = i64::from_str(str::from_utf8(d).unwrap()).unwrap();
+                let d_i64 = i64::from_str(d).unwrap();
                 Literal::Integer(d_i64)
             }),
             map(tag("''"), |_| Literal::String(String::from(""))),
@@ -343,7 +343,7 @@ fn default(i: &[u8]) -> IResult<&[u8], Option<ColumnConstraint>> {
 
 // Parse rule for a SQL CREATE TABLE query.
 // TODO(malte): support types, TEMPORARY tables, IF NOT EXISTS, AS stmt
-pub fn creation(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
+pub fn creation(i: &str) -> IResult<&str, CreateTableStatement> {
     let (remaining_input, (_, _, _, _, table, _, _, _, fields_list, _, keys_list, _, _, _, _, _)) =
         tuple((
             tag_no_case("create"),
@@ -422,7 +422,7 @@ pub fn creation(i: &[u8]) -> IResult<&[u8], CreateTableStatement> {
 }
 
 // Parse rule for a SQL CREATE VIEW query.
-pub fn view_creation(i: &[u8]) -> IResult<&[u8], CreateViewStatement> {
+pub fn view_creation(i: &str) -> IResult<&str, CreateViewStatement> {
     let (remaining_input, (_, _, _, _, name_slice, _, _, _, def, _)) = tuple((
         tag_no_case("create"),
         multispace1,
@@ -439,7 +439,7 @@ pub fn view_creation(i: &[u8]) -> IResult<&[u8], CreateViewStatement> {
         statement_terminator,
     ))(i)?;
 
-    let name = String::from_utf8(name_slice.to_vec()).unwrap();
+    let name = String::from(name_slice);
     let fields = vec![]; // TODO(malte): support
     let definition = Box::new(def);
 
@@ -468,15 +468,15 @@ mod tests {
         let type2 = "bigint(20) unsigned";
         let type3 = "bigint(20) signed";
 
-        let res = type_identifier(type0.as_bytes());
+        let res = type_identifier(type0);
         assert_eq!(res.unwrap().1, SqlDataType::Bigint(20));
-        let res = type_identifier(type1.as_bytes());
+        let res = type_identifier(type1);
         assert_eq!(res.unwrap().1, SqlDataType::Varchar(255));
-        let res = type_identifier(type2.as_bytes());
+        let res = type_identifier(type2);
         assert_eq!(res.unwrap().1, SqlDataType::UnsignedBigint(20));
-        let res = type_identifier(type3.as_bytes());
+        let res = type_identifier(type3);
         assert_eq!(res.unwrap().1, SqlDataType::Bigint(20));
-        let res = type_identifier(type2.as_bytes());
+        let res = type_identifier(type2);
         assert_eq!(res.unwrap().1, SqlDataType::UnsignedBigint(20));
     }
 
@@ -486,7 +486,7 @@ mod tests {
         // because it is never validly the end of a query
         let qstring = "id bigint(20), name varchar(255),";
 
-        let res = field_specification_list(qstring.as_bytes());
+        let res = field_specification_list(qstring);
         assert_eq!(
             res.unwrap().1,
             vec![
@@ -500,7 +500,7 @@ mod tests {
     fn simple_create() {
         let qstring = "CREATE TABLE users (id bigint(20), name varchar(255), email varchar(255));";
 
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn create_without_space_after_tablename() {
         let qstring = "CREATE TABLE t(x integer);";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn create_tablename_with_schema() {
         let qstring = "CREATE TABLE db1.t(x integer);";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -556,7 +556,7 @@ mod tests {
     fn mediawiki_create() {
         let qstring = "CREATE TABLE user_newtalk (  user_id int(5) NOT NULL default '0',  user_ip \
                        varchar(40) NOT NULL default '') TYPE=MyISAM;";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -603,7 +603,7 @@ mod tests {
                         user_editcount int,
                         user_password_expires varbinary(14) DEFAULT NULL
                        ) ENGINE=, DEFAULT CHARSET=utf8";
-        creation(qstring.as_bytes()).unwrap();
+        creation(qstring).unwrap();
     }
 
     #[test]
@@ -616,7 +616,7 @@ mod tests {
  iw_local bool NOT NULL,
  iw_trans tinyint NOT NULL default 0
  ) ENGINE=, DEFAULT CHARSET=utf8";
-        creation(qstring.as_bytes()).unwrap();
+        creation(qstring).unwrap();
     }
 
     #[test]
@@ -636,7 +636,7 @@ mod tests {
           KEY `el_index_60` (`el_index_60`,`el_id`),
           KEY `el_from_index_60` (`el_from`,`el_index_60`,`el_id`)
         )";
-        creation(qstring.as_bytes()).unwrap();
+        creation(qstring).unwrap();
     }
 
     #[test]
@@ -645,7 +645,7 @@ mod tests {
         let qstring = "CREATE TABLE users (id bigint(20), name varchar(255), email varchar(255), \
                        PRIMARY KEY (id));";
 
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -667,7 +667,7 @@ mod tests {
         let qstring = "CREATE TABLE users (id bigint(20), name varchar(255), email varchar(255), \
                        UNIQUE KEY id_k (id));";
 
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -700,7 +700,7 @@ mod tests {
                        `object_repr` varchar(200) NOT NULL,
                        `action_flag` smallint UNSIGNED NOT NULL,
                        `change_message` longtext NOT NULL);";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -756,7 +756,7 @@ mod tests {
         let qstring = "CREATE TABLE `auth_group` (
                        `id` integer AutoIncrement NOT NULL PRIMARY KEY,
                        `name` varchar(80) NOT NULL UNIQUE)";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {
@@ -791,7 +791,7 @@ mod tests {
         let expected = "CREATE TABLE auth_group (\
                         id INT(32) AutoIncrement NOT NULL PRIMARY KEY, \
                         name VARCHAR(80) NOT NULL UNIQUE)";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 
@@ -799,7 +799,7 @@ mod tests {
     fn simple_create_view() {
         let qstring = "CREATE VIEW v AS SELECT * FROM users WHERE username = \"bob\";";
 
-        let res = view_creation(qstring.as_bytes());
+        let res = view_creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateViewStatement {
@@ -829,7 +829,7 @@ mod tests {
 
         let qstring = "CREATE VIEW v AS SELECT * FROM users UNION SELECT * FROM old_users;";
 
-        let res = view_creation(qstring.as_bytes());
+        let res = view_creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateViewStatement {
@@ -865,7 +865,7 @@ mod tests {
     fn format_create_view() {
         let qstring = "CREATE VIEW `v` AS SELECT * FROM `t`;";
         let expected = "CREATE VIEW v AS SELECT * FROM t";
-        let res = view_creation(qstring.as_bytes());
+        let res = view_creation(qstring);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 
@@ -881,7 +881,7 @@ mod tests {
             INDEX `thread_id`  (`thread_id`),
             INDEX `index_comments_on_user_id`  (`user_id`))
             ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-        let res = creation(qstring.as_bytes());
+        let res = creation(qstring);
         assert_eq!(
             res.unwrap().1,
             CreateTableStatement {

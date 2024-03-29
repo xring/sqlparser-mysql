@@ -58,7 +58,7 @@ impl fmt::Display for InsertStatement {
     }
 }
 
-fn fields(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
+fn fields(i: &str) -> IResult<&str, Vec<Column>> {
     delimited(
         preceded(tag("("), multispace0),
         field_list,
@@ -66,11 +66,11 @@ fn fields(i: &[u8]) -> IResult<&[u8], Vec<Column>> {
     )(i)
 }
 
-fn data(i: &[u8]) -> IResult<&[u8], Vec<Literal>> {
+fn data(i: &str) -> IResult<&str, Vec<Literal>> {
     delimited(tag("("), value_list, preceded(tag(")"), opt(ws_sep_comma)))(i)
 }
 
-fn on_duplicate(i: &[u8]) -> IResult<&[u8], Vec<(Column, FieldValueExpression)>> {
+fn on_duplicate(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>> {
     preceded(
         multispace0,
         preceded(
@@ -82,7 +82,7 @@ fn on_duplicate(i: &[u8]) -> IResult<&[u8], Vec<(Column, FieldValueExpression)>>
 
 // Parse rule for a SQL insert query.
 // TODO(malte): support REPLACE, nested selection, DEFAULT VALUES
-pub fn insertion(i: &[u8]) -> IResult<&[u8], InsertStatement> {
+pub fn insertion(i: &str) -> IResult<&str, InsertStatement> {
     let (remaining_input, (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _)) =
         tuple((
             tag_no_case("insert"),
@@ -124,7 +124,7 @@ mod tests {
     fn simple_insert() {
         let qstring = "INSERT INTO users VALUES (42, \"test\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -140,7 +140,7 @@ mod tests {
     fn simple_insert_schema() {
         let qstring = "INSERT INTO db1.users VALUES (42, \"test\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -156,7 +156,7 @@ mod tests {
     fn complex_insert() {
         let qstring = "INSERT INTO users VALUES (42, 'test', \"test\", CURRENT_TIMESTAMP);";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -177,7 +177,7 @@ mod tests {
     fn insert_with_field_names() {
         let qstring = "INSERT INTO users (id, name) VALUES (42, \"test\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -194,7 +194,7 @@ mod tests {
     fn insert_without_spaces() {
         let qstring = "INSERT INTO users(id, name) VALUES(42, \"test\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -210,7 +210,7 @@ mod tests {
     fn multi_insert() {
         let qstring = "INSERT INTO users (id, name) VALUES (42, \"test\"),(21, \"test2\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -229,7 +229,7 @@ mod tests {
     fn insert_with_parameters() {
         let qstring = "INSERT INTO users (id, name) VALUES (?, ?);";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -249,7 +249,7 @@ mod tests {
         let qstring = "INSERT INTO keystores (`key`, `value`) VALUES ($1, :2) \
                        ON DUPLICATE KEY UPDATE `value` = `value` + 1";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         let expected_ae = ArithmeticExpression::new(
             ArithmeticOperator::Add,
             ArithmeticBase::Column(Column::from("value")),
@@ -278,7 +278,7 @@ mod tests {
     fn insert_with_leading_value_whitespace() {
         let qstring = "INSERT INTO users (id, name) VALUES ( 42, \"test\");";
 
-        let res = insertion(qstring.as_bytes());
+        let res = insertion(qstring);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {

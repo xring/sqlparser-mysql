@@ -28,7 +28,7 @@ impl fmt::Display for TruncateTableStatement {
     }
 }
 
-pub fn truncate_table_parser(i: &[u8]) -> IResult<&[u8], TruncateTableStatement> {
+pub fn truncate_table_parser(i: &str) -> IResult<&str, TruncateTableStatement> {
     let mut parser = tuple((
         tag_no_case("TRUNCATE "),
         multispace0,
@@ -76,7 +76,7 @@ mod tests {
 
         for i in 0..good_sqls.len() {
             assert_eq!(
-                truncate_table_parser(good_sqls[i].as_bytes()).unwrap().1,
+                truncate_table_parser(good_sqls[i]).unwrap().1,
                 good_statements[i]
             );
         }
@@ -90,7 +90,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(truncate_table_parser(bad_sqls[i].as_bytes()).is_err())
+            assert!(truncate_table_parser(bad_sqls[i]).is_err())
         }
     }
 }

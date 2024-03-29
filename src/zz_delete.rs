@@ -29,7 +29,7 @@ impl fmt::Display for DeleteStatement {
     }
 }
 
-pub fn deletion(i: &[u8]) -> IResult<&[u8], DeleteStatement> {
+pub fn deletion(i: &str) -> IResult<&str, DeleteStatement> {
     let (remaining_input, (_, _, table, where_clause, _)) = tuple((
         tag_no_case("delete"),
         delimited(multispace1, tag_no_case("from"), multispace1),
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn simple_delete() {
         let qstring = "DELETE FROM users;";
-        let res = deletion(qstring.as_bytes());
+        let res = deletion(qstring);
         assert_eq!(
             res.unwrap().1,
             DeleteStatement {
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn simple_delete_schema() {
         let qstring = "DELETE FROM db1.users;";
-        let res = deletion(qstring.as_bytes());
+        let res = deletion(qstring);
         assert_eq!(
             res.unwrap().1,
             DeleteStatement {
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn delete_with_where_clause() {
         let str = "DELETE FROM users WHERE id = 1;";
-        let res = deletion(str.as_bytes());
+        let res = deletion(str);
 
         let expected_left = Base(Field(Column::from("id")));
         let expected_where_cond = Some(ComparisonOp(ConditionTree {
@@ -108,7 +108,7 @@ mod tests {
     fn format_delete() {
         let str = "DELETE FROM users WHERE id = 1";
         let expected = "DELETE FROM users WHERE id = 1";
-        let res = deletion(str.as_bytes());
+        let res = deletion(str);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 }

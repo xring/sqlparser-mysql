@@ -47,7 +47,7 @@ impl fmt::Display for RenameTableStatement {
     }
 }
 
-pub fn rename_table_parser(i: &[u8]) -> IResult<&[u8], RenameTableStatement> {
+pub fn rename_table_parser(i: &str) -> IResult<&str, RenameTableStatement> {
     let mut parser = tuple((
         tag_no_case("RENAME "),
         multispace0,
@@ -238,7 +238,7 @@ mod tests {
 
         for i in 0..good_sqls.len() {
             assert_eq!(
-                rename_table_parser(good_sqls[i].as_bytes()).unwrap().1,
+                rename_table_parser(good_sqls[i]).unwrap().1,
                 good_statements[i]
             );
         }
@@ -254,7 +254,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(rename_table_parser(bad_sqls[i].as_bytes()).is_err())
+            assert!(rename_table_parser(bad_sqls[i]).is_err())
         }
     }
 }

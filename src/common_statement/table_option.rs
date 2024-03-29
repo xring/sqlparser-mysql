@@ -3,10 +3,13 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::{delimited, tuple};
-use nom::IResult;
+use nom::{IResult, Parser};
 
 use common_parsers::sql_identifier;
-use common_statement::{CompressionType, DefaultOrZeroOrOne, index_col_list, InsertMethodType, RowFormatType, TablespaceType};
+use common_statement::{
+    index_col_list, CompressionType, DefaultOrZeroOrOne, InsertMethodType, RowFormatType,
+    TablespaceType,
+};
 
 /// table_option: {
 ///     AUTOEXTEND_SIZE [=] value
@@ -72,11 +75,11 @@ pub enum TableOption {
 
 pub type TableOptions = Vec<TableOption>;
 
-pub fn table_option(i: &[u8]) -> IResult<&[u8], TableOption> {
+pub fn table_option(i: &str) -> IResult<&str, TableOption> {
     alt((table_option_part_1, table_option_part_2))(i)
 }
 
-fn table_option_part_1(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn table_option_part_1(i: &str) -> IResult<&str, TableOption> {
     alt((
         autoextend_size,
         auto_increment,
@@ -96,7 +99,7 @@ fn table_option_part_1(i: &[u8]) -> IResult<&[u8], TableOption> {
     ))(i)
 }
 
-fn table_option_part_2(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn table_option_part_2(i: &str) -> IResult<&str, TableOption> {
     alt((
         insert_method,
         key_block_size,
@@ -115,7 +118,7 @@ fn table_option_part_2(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// AUTOEXTEND_SIZE [=] value
-fn autoextend_size(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn autoextend_size(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("AUTOEXTEND_SIZE "),
@@ -125,12 +128,14 @@ fn autoextend_size(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::AutoextendSize(std::str::from_utf8(x.4).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::AutoextendSize(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// AUTO_INCREMENT [=] value
-fn auto_increment(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn auto_increment(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("AUTO_INCREMENT "),
@@ -140,12 +145,14 @@ fn auto_increment(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::AutoIncrement(std::str::from_utf8(x.4).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::AutoIncrement(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// AVG_ROW_LENGTH [=] value
-fn avg_row_length(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn avg_row_length(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("AVG_ROW_LENGTH "),
@@ -155,12 +162,14 @@ fn avg_row_length(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::AvgRowLength(std::str::from_utf8(x.4).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::AvgRowLength(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// [DEFAULT] CHARACTER SET [=] charset_name
-fn default_character_set(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn default_character_set(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             opt(tag_no_case("DEFAULT ")),
@@ -174,7 +183,7 @@ fn default_character_set(i: &[u8]) -> IResult<&[u8], TableOption> {
                 opt(tag("=")),
                 multispace0,
             )),
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
         )),
         |(_, _, _, charset_name, _)| TableOption::DefaultCharacterSet(charset_name),
@@ -182,22 +191,22 @@ fn default_character_set(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// CHECKSUM [=] {0 | 1}
-fn checksum(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn checksum(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("CHECKSUM "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            alt((tag("0"), tag("1"))),
+            alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
             multispace0,
         )),
-        |x| TableOption::Checksum(std::str::from_utf8(x.4).unwrap().parse::<u8>().unwrap()),
+        |x| TableOption::Checksum(x.4),
     )(i)
 }
 
 /// [DEFAULT] COLLATE [=] collation_name
-fn default_collate(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn default_collate(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             opt(tag_no_case("DEFAULT ")),
@@ -214,9 +223,7 @@ fn default_collate(i: &[u8]) -> IResult<&[u8], TableOption> {
                     sql_identifier,
                     multispace0,
                 )),
-                |(_, _, _, _, _, collation_name, _)| {
-                    String::from_utf8(collation_name.to_vec()).unwrap()
-                },
+                |(_, _, _, _, _, collation_name, _)| String::from(collation_name),
             ),
             multispace0,
         )),
@@ -225,17 +232,16 @@ fn default_collate(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// COMMENT [=] 'string'
-fn comment(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn comment(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("COMMENT "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, comment, _)| TableOption::Comment(comment),
@@ -243,7 +249,7 @@ fn comment(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
-fn compression(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn compression(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("COMPRESSION "),
@@ -268,17 +274,16 @@ fn compression(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// CONNECTION [=] 'connect_string'
-fn connection(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn connection(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("CONNECTION "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, connect_string, _)| TableOption::Connection(connect_string),
@@ -286,7 +291,7 @@ fn connection(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-fn data_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn data_directory(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("DATA"),
@@ -295,10 +300,9 @@ fn data_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, _, _, path, _)| TableOption::DataDirectory(path),
@@ -306,7 +310,7 @@ fn data_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-fn index_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn index_directory(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("INDEX"),
@@ -315,10 +319,9 @@ fn index_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, _, _, path, _)| TableOption::DataDirectory(path),
@@ -326,22 +329,22 @@ fn index_directory(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// DELAY_KEY_WRITE [=] {0 | 1}
-fn delay_key_write(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn delay_key_write(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("DELAY_KEY_RITE "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            alt((tag("0"), tag("1"))),
+            alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
             multispace0,
         )),
-        |x| TableOption::DelayKeyWrite(std::str::from_utf8(x.4).unwrap().parse::<u8>().unwrap()),
+        |x| TableOption::DelayKeyWrite(x.4),
     )(i)
 }
 
 /// ENCRYPTION [=] {'Y' | 'N'}
-fn encryption(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn encryption(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("ENCRYPTION "),
@@ -356,7 +359,7 @@ fn encryption(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// ENGINE [=] engine_name
-fn engine(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn engine(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("ENGINE"),
@@ -366,22 +369,21 @@ fn engine(i: &[u8]) -> IResult<&[u8], TableOption> {
             sql_identifier,
             multispace0,
         )),
-        |(_, _, _, _, engine, _)| TableOption::Engine(String::from_utf8(engine.to_vec()).unwrap()),
+        |(_, _, _, _, engine, _)| TableOption::Engine(String::from(engine)),
     )(i)
 }
 
 /// ENGINE_ATTRIBUTE [=] 'string'
-fn engine_attribute(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn engine_attribute(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("ENGINE_ATTRIBUTE "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, attribute, _)| TableOption::EngineAttribute(attribute),
@@ -389,7 +391,7 @@ fn engine_attribute(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// INSERT_METHOD [=] { NO | FIRST | LAST }
-fn insert_method(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn insert_method(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("INSERT METHOD "),
@@ -408,7 +410,7 @@ fn insert_method(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// KEY_BLOCK_SIZE [=] value
-fn key_block_size(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn key_block_size(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("KEY_BLOCK_SIZE "),
@@ -418,12 +420,14 @@ fn key_block_size(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::KeyBlockSize(std::str::from_utf8(x.3).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::KeyBlockSize(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// MAX_ROWS [=] value
-fn max_rows(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn max_rows(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("MAX_ROWS "),
@@ -433,12 +437,14 @@ fn max_rows(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::MaxRows(std::str::from_utf8(x.3).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::MaxRows(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// MIN_ROWS [=] value
-fn min_rows(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn min_rows(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("MIN_ROWS "),
@@ -448,12 +454,14 @@ fn min_rows(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| TableOption::MinRows(std::str::from_utf8(x.3).unwrap().parse::<u64>().unwrap()),
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::MinRows(value.parse::<u64>().unwrap())
+        },
     )(i)
 }
 
 /// PACK_KEYS [=] {0 | 1 | DEFAULT}
-fn pack_keys(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn pack_keys(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("INSERT_METHOD "),
@@ -472,17 +480,16 @@ fn pack_keys(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// PASSWORD [=] 'string'
-fn password(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn password(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("PASSWORD "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, password, _)| TableOption::Password(password),
@@ -490,7 +497,7 @@ fn password(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-fn row_format(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn row_format(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("INSERT METHOD "),
@@ -513,7 +520,7 @@ fn row_format(i: &[u8]) -> IResult<&[u8], TableOption> {
 
 /// START TRANSACTION
 /// create table only
-fn start_transaction(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn start_transaction(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("START"),
@@ -525,17 +532,16 @@ fn start_transaction(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
-fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
             multispace0,
             opt(tag("=")),
             multispace0,
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, _, engine, _)| TableOption::SecondaryEngineAttribute(engine),
@@ -543,7 +549,7 @@ fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
-fn stats_auto_recalc(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("STATS_AUTO_RECALC "),
@@ -562,7 +568,7 @@ fn stats_auto_recalc(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
-fn stats_persistent(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn stats_persistent(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("STATS_PERSISTENT "),
@@ -581,7 +587,7 @@ fn stats_persistent(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// STATS_SAMPLE_PAGES [=] value
-fn stats_sample_pages(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn stats_sample_pages(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("STATS_SAMPLE_PAGES "),
@@ -591,19 +597,19 @@ fn stats_sample_pages(i: &[u8]) -> IResult<&[u8], TableOption> {
             digit1,
             multispace0,
         )),
-        |x| {
-            TableOption::StatsSamplePages(std::str::from_utf8(x.4).unwrap().parse::<u64>().unwrap())
+        |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            TableOption::StatsSamplePages(value.parse::<u64>().unwrap())
         },
     )(i)
 }
 
 /// TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
-fn tablespace(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn tablespace(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("TABLESPACE"),
             multispace1,
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()), // tablespace_name
+            map(sql_identifier, |x| String::from(x)), // tablespace_name
             multispace0,
             opt(map(
                 tuple((
@@ -622,7 +628,7 @@ fn tablespace(i: &[u8]) -> IResult<&[u8], TableOption> {
 }
 
 /// UNION [=] (tbl_name[,tbl_name]...)
-fn union(i: &[u8]) -> IResult<&[u8], TableOption> {
+fn union(i: &str) -> IResult<&str, TableOption> {
     map(
         tuple((
             tag_no_case("UNION "),

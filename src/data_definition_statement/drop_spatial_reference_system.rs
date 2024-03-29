@@ -39,8 +39,8 @@ impl fmt::Display for DropSpatialReferenceSystemStatement {
 ///
 /// srid: 32-bit unsigned integer
 pub fn drop_spatial_reference_system_parser(
-    i: &[u8],
-) -> IResult<&[u8], DropSpatialReferenceSystemStatement> {
+    i: &str,
+) -> IResult<&str, DropSpatialReferenceSystemStatement> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),
@@ -71,7 +71,7 @@ mod tests {
         ];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_spatial_reference_system_parser(sqls[i].as_bytes());
+            let res = drop_spatial_reference_system_parser(sqls[i]);
             assert!(res.is_ok());
             println!("{:?}", res);
         }

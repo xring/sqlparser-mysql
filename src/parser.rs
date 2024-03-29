@@ -57,7 +57,7 @@ impl fmt::Display for SQLStatement {
     }
 }
 
-pub fn parse_sql(i: &[u8]) -> IResult<&[u8], SQLStatement> {
+pub fn parse_sql(i: &str) -> IResult<&str, SQLStatement> {
     alt((
         // ALTER DATABASE
         map(alter_database_parser, |ad| SQLStatement::AlterDatabase(ad)),
@@ -84,11 +84,8 @@ pub fn parse_sql(i: &[u8]) -> IResult<&[u8], SQLStatement> {
     ))(i)
 }
 
-pub fn parse_query_bytes<T>(input: T) -> Result<SQLStatement, &'static str>
-where
-    T: AsRef<[u8]>,
-{
-    match parse_sql(input.as_ref()) {
+pub fn parse_query_bytes(input: &str) -> Result<SQLStatement, &'static str> {
+    match parse_sql(input) {
         Ok((_, o)) => Ok(o),
         Err(err) => {
             println!("{:?}", err);
@@ -101,7 +98,7 @@ pub fn parse_query<T>(input: T) -> Result<SQLStatement, &'static str>
 where
     T: AsRef<str>,
 {
-    parse_query_bytes(input.as_ref().trim().as_bytes())
+    parse_query_bytes(input.as_ref().trim())
 }
 
 #[cfg(test)]
@@ -139,14 +136,14 @@ mod tests {
 
     #[test]
     fn parse_byte_slice() {
-        let str: &[u8] = b"INSERT INTO users VALUES (42, \"test\");";
-        let res = parse_query_bytes(str);
+        let str = "INSERT INTO users VALUES (42, \"test\");";
+        let res = parse_query_bytes(&str);
         assert!(res.is_ok());
     }
 
     #[test]
     fn parse_byte_vector() {
-        let str: Vec<u8> = b"INSERT INTO users VALUES (42, \"test\");".to_vec();
+        let str = "INSERT INTO users VALUES (42, \"test\");";
         let res = parse_query_bytes(&str);
         assert!(res.is_ok());
     }

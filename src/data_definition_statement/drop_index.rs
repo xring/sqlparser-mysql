@@ -18,14 +18,14 @@ pub struct DropIndexStatement {
 
 /// DROP INDEX index_name ON tbl_name
 ///     [algorithm_option | lock_option] ...
-pub fn drop_index_parser(i: &[u8]) -> IResult<&[u8], DropIndexStatement> {
+pub fn drop_index_parser(i: &str) -> IResult<&str, DropIndexStatement> {
     map(
         tuple((
             tuple((tag_no_case("DROP"), multispace1)),
             tuple((tag_no_case("INDEX"), multispace1)),
             map(
                 tuple((sql_identifier, multispace1, tag_no_case("ON"), multispace1)),
-                |x| String::from_utf8(x.0.to_vec()).unwrap(),
+                |x| String::from(x.0),
             ),
             schema_table_name_without_alias, // tbl_name
             multispace0,
@@ -52,7 +52,7 @@ mod test {
     #[test]
     fn test_lock_option() {
         let part = "LOCK = default";
-        let res = lock_option(part.as_bytes());
+        let res = lock_option(part);
         println!("{:?}", res);
         // assert!(res.is_ok());
     }
@@ -68,7 +68,7 @@ mod test {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_index_parser(sqls[i].as_bytes());
+            let res = drop_index_parser(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

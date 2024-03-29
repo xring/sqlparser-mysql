@@ -44,7 +44,7 @@ impl fmt::Display for CaseWhenExpression {
     }
 }
 
-pub fn case_when_column(i: &[u8]) -> IResult<&[u8], CaseWhenExpression> {
+pub fn case_when_column(i: &str) -> IResult<&str, CaseWhenExpression> {
     let (remaining_input, (_, _, condition, _, _, _, column, _, else_val, _)) = tuple((
         tag_no_case("CASE WHEN"),
         multispace0,

@@ -40,14 +40,14 @@ impl fmt::Display for AlterDatabaseStatement {
     }
 }
 
-pub fn alter_database_parser(i: &[u8]) -> IResult<&[u8], AlterDatabaseStatement> {
+pub fn alter_database_parser(i: &str) -> IResult<&str, AlterDatabaseStatement> {
     map(
         tuple((
             tag_no_case("ALTER "),
             multispace0,
             alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
             multispace0,
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace1,
             many1(terminated(alter_database_option, multispace0)),
         )),
@@ -90,7 +90,7 @@ impl fmt::Display for AlterDatabaseOption {
     }
 }
 
-fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
+fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption> {
     // [DEFAULT] CHARACTER SET [=] charset_name
     let character = map(
         tuple((
@@ -104,7 +104,7 @@ fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
                 opt(tag("=")),
                 multispace0,
             )),
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
         )),
         |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
@@ -125,7 +125,7 @@ fn alter_database_option(i: &[u8]) -> IResult<&[u8], AlterDatabaseOption> {
                     multispace0,
                 )),
                 |(_, _, _, _, collation_name, _)| {
-                    String::from_utf8(collation_name.to_vec()).unwrap()
+                    String::from(collation_name)
                 },
             ),
             multispace0,
@@ -185,7 +185,7 @@ mod test {
         ];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = alter_database_parser(sqls[i].as_bytes());
+            let res = alter_database_parser(sqls[i]);
             assert!(res.is_ok());
         }
     }

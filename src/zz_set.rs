@@ -21,7 +21,7 @@ impl fmt::Display for SetStatement {
     }
 }
 
-pub fn set(i: &[u8]) -> IResult<&[u8], SetStatement> {
+pub fn set(i: &str) -> IResult<&str, SetStatement> {
     let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
         tag_no_case("SET"),
         multispace1,
@@ -32,7 +32,7 @@ pub fn set(i: &[u8]) -> IResult<&[u8], SetStatement> {
         literal,
         statement_terminator,
     ))(i)?;
-    let variable = String::from(str::from_utf8(var).unwrap());
+    let variable = String::from(var);
     Ok((remaining_input, SetStatement { variable, value }))
 }
 
@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn simple_set() {
         let qstring = "SET SQL_AUTO_IS_NULL = 0;";
-        let res = set(qstring.as_bytes());
+        let res = set(qstring);
         assert_eq!(
             res.unwrap().1,
             SetStatement {
@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn user_defined_vars() {
         let str = "SET @var = 123;";
-        let res = set(str.as_bytes());
+        let res = set(str);
         assert_eq!(
             res.unwrap().1,
             SetStatement {
@@ -70,7 +70,7 @@ mod tests {
     fn format_set() {
         let str = "set autocommit=1";
         let expected = "SET autocommit = 1";
-        let res = set(str.as_bytes());
+        let res = set(str);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 }

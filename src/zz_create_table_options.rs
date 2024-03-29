@@ -8,7 +8,7 @@ use nom::multi::separated_list0;
 use nom::sequence::tuple;
 use nom::IResult;
 
-pub fn table_options(i: &[u8]) -> IResult<&[u8], ()> {
+pub fn table_options(i: &str) -> IResult<&str, ()> {
     // TODO: make the create options accessible
     map(
         separated_list0(table_options_separator, create_option),
@@ -16,11 +16,11 @@ pub fn table_options(i: &[u8]) -> IResult<&[u8], ()> {
     )(i)
 }
 
-fn table_options_separator(i: &[u8]) -> IResult<&[u8], ()> {
+fn table_options_separator(i: &str) -> IResult<&str, ()> {
     map(alt((multispace1, ws_sep_comma)), |_| ())(i)
 }
 
-fn create_option(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option(i: &str) -> IResult<&str, ()> {
     alt((
         create_option_type,
         create_option_pack_keys,
@@ -56,23 +56,23 @@ where
     }
 }
 
-fn create_option_type(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_type(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("type"), alphanumeric1)(i)
 }
 
-fn create_option_pack_keys(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_pack_keys(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("pack_keys"), alt((tag("0"), tag("1"))))(i)
 }
 
-fn create_option_engine(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_engine(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("engine"), opt(alphanumeric1))(i)
 }
 
-fn create_option_auto_increment(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_auto_increment(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("auto_increment"), integer_literal)(i)
 }
 
-fn create_option_default_charset(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_default_charset(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(
         tag_no_case("default charset"),
         alt((
@@ -86,7 +86,7 @@ fn create_option_default_charset(i: &[u8]) -> IResult<&[u8], ()> {
     )(i)
 }
 
-fn create_option_collate(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_collate(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(
         tag_no_case("collate"),
         // TODO(malte): imprecise hack, should not accept everything
@@ -94,19 +94,19 @@ fn create_option_collate(i: &[u8]) -> IResult<&[u8], ()> {
     )(i)
 }
 
-fn create_option_comment(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_comment(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("comment"), string_literal)(i)
 }
 
-fn create_option_max_rows(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_max_rows(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("max_rows"), integer_literal)(i)
 }
 
-fn create_option_avg_row_length(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_avg_row_length(i: &str) -> IResult<&str, ()> {
     create_option_equals_pair(tag_no_case("avg_row_length"), integer_literal)(i)
 }
 
-fn create_option_row_format(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_row_format(i: &str) -> IResult<&str, ()> {
     let (remaining_input, (_, _, _, _, _)) = tuple((
         tag_no_case("row_format"),
         multispace0,
@@ -124,7 +124,7 @@ fn create_option_row_format(i: &[u8]) -> IResult<&[u8], ()> {
     Ok((remaining_input, ()))
 }
 
-fn create_option_key_block_size(i: &[u8]) -> IResult<&[u8], ()> {
+fn create_option_key_block_size(i: &str) -> IResult<&str, ()> {
     let (remaining_input, (_, _, _, _, _)) = tuple((
         tag_no_case("key_block_size"),
         multispace0,
@@ -140,7 +140,7 @@ mod tests {
     use super::*;
 
     fn should_parse_all(qstring: &str) {
-        assert_eq!(Ok((&b""[..], ())), table_options(qstring.as_bytes()))
+        assert_eq!(Ok(("", ())), table_options(qstring))
     }
 
     #[test]

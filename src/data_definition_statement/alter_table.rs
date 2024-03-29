@@ -5,26 +5,26 @@ use std::str::FromStr;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, anychar, digit1, multispace0, multispace1};
-use nom::combinator::{map, opt, recognize, rest};
-use nom::error::{Error, ParseError};
+use nom::combinator::{map, opt, recognize};
+use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{IResult, Parser};
 
-use common::column::{ColumnConstraint, ColumnSpecification, MySQLColumnPosition};
+use common::column::ColumnSpecification;
 use common::table::Table;
 use common_parsers::{
-    column_identifier_without_alias, parse_comment, schema_table_name_without_alias,
-    sql_identifier, statement_terminator, type_identifier, ws_sep_comma,
+    column_identifier_without_alias, schema_table_name_without_alias, sql_identifier,
+    statement_terminator, ws_sep_comma,
 };
 use common_statement::index_option::{index_option, IndexOption};
-use common_statement::table_option::{table_option, TableOption, TableOptions};
+use common_statement::table_option::{table_option, TableOptions};
 use common_statement::{
-    fulltext_or_spatial_type, handle_error_with_debug, index_col_list, index_or_key_type,
-    index_type, key_part, lock_option, opt_index_name, opt_index_option, opt_index_type,
-    reference_definition, single_column_definition, visible_or_invisible,
-    CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, LockType,
-    PartitionDefinition, ReferenceDefinition, VisibleType,
+    fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part, lock_option,
+    opt_index_name, opt_index_option, opt_index_type, reference_definition,
+    single_column_definition, visible_or_invisible, CheckConstraintDefinition,
+    FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, LockType, PartitionDefinition,
+    ReferenceDefinition, VisibleType,
 };
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ impl fmt::Display for AlterTableStatement {
 }
 
 /// ALTER TABLE tbl_name [alter_option [, alter_option] ...] [partition_options]
-pub fn alter_table_parser(i: &[u8]) -> IResult<&[u8], AlterTableStatement> {
+pub fn alter_table_parser(i: &str) -> IResult<&str, AlterTableStatement> {
     let mut parser = tuple((
         tuple((
             tag_no_case("ALTER "),
@@ -234,7 +234,7 @@ pub enum AlterTableOption {
     Validation(bool),
 }
 
-pub fn alter_option(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+pub fn alter_option(i: &str) -> IResult<&str, AlterTableOption> {
     let mut parser = alt((
         alter_table_options,
         alter_option_part_1,
@@ -246,13 +246,13 @@ pub fn alter_option(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 
 /// table_options:
 ///     table_option [[,] table_option] ...
-pub fn alter_table_options(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption> {
     map(many1(terminated(table_option, opt(ws_sep_comma))), |x| {
         AlterTableOption::TableOptions(x)
     })(i)
 }
 
-fn alter_option_part_1(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn alter_option_part_1(i: &str) -> IResult<&str, AlterTableOption> {
     alt((
         add_column,
         add_index_or_key,
@@ -271,7 +271,7 @@ fn alter_option_part_1(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
     ))(i)
 }
 
-fn alter_option_part_2(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn alter_option_part_2(i: &str) -> IResult<&str, AlterTableOption> {
     alt((
         convert_to_character_set,
         disable_or_enable_keys,
@@ -292,7 +292,7 @@ fn alter_option_part_2(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// [CONSTRAINT [symbol]]
-fn opt_constraint_with_opt_symbol_and_operation(i: &[u8]) -> IResult<&[u8], Option<String>> {
+fn opt_constraint_with_opt_symbol_and_operation(i: &str) -> IResult<&str, Option<String>> {
     map(
         tuple((
             tag_no_case("ADD"),
@@ -301,14 +301,14 @@ fn opt_constraint_with_opt_symbol_and_operation(i: &[u8]) -> IResult<&[u8], Opti
                 opt(preceded(multispace1, sql_identifier)),
             )),
         )),
-        |(_, x)| x.and_then(|inner| inner.map(|value| String::from_utf8(value.to_vec()).unwrap())),
+        |(_, x)| x.and_then(|inner| inner.map(|value| String::from(value))),
     )(i)
 }
 
 ///  | ADD [COLUMN] col_name column_definition
 ///        [FIRST | AFTER col_name]
 ///  | ADD [COLUMN] (col_name column_definition,...)
-fn add_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("ADD"), multispace1)),
@@ -353,7 +353,7 @@ fn add_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
-fn add_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_index_or_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("ADD"), multispace1)),
@@ -381,7 +381,7 @@ fn add_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// | ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
-fn add_fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_fulltext_or_spatial(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("ADD"), multispace1)),
@@ -409,7 +409,7 @@ fn add_fulltext_or_spatial(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// | ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
-fn add_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_primary_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -435,7 +435,7 @@ fn add_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// | ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
-fn add_unique(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_unique(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -483,7 +483,7 @@ fn add_unique(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// ADD [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
-fn add_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_foreign_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -524,7 +524,7 @@ fn add_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// | ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-fn add_check(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn add_check(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -532,10 +532,9 @@ fn add_check(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // CHECK
             tuple((multispace1, tag_no_case("CHECK"), multispace0)),
             // (expr)
-            map(
-                delimited(tag("("), take_until(")"), tag(")")),
-                |expr: &[u8]| String::from_utf8(expr.to_vec()).unwrap(),
-            ),
+            map(delimited(tag("("), take_until(")"), tag(")")), |expr| {
+                String::from(expr)
+            }),
             // [[NOT] ENFORCED]
             map(
                 opt(tuple((
@@ -559,7 +558,7 @@ fn add_check(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// DROP {CHECK | CONSTRAINT} symbol
-fn drop_check_or_constraint(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn drop_check_or_constraint(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("DROP"), multispace1)),
@@ -568,7 +567,7 @@ fn drop_check_or_constraint(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // symbol
             map(
                 tuple((multispace1, sql_identifier, multispace0)),
-                |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
+                |(_, symbol, _)| String::from(symbol),
             ),
         )),
         |(_, check_or_constraint, symbol)| {
@@ -578,7 +577,7 @@ fn drop_check_or_constraint(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// {CHECK | CONSTRAINT}
-fn check_or_constraint(i: &[u8]) -> IResult<&[u8], CheckOrConstraintType> {
+fn check_or_constraint(i: &str) -> IResult<&str, CheckOrConstraintType> {
     alt((
         map(tag_no_case("CHECK"), |_| CheckOrConstraintType::CHECK),
         map(tag_no_case("CONSTRAINT"), |_| {
@@ -588,7 +587,7 @@ fn check_or_constraint(i: &[u8]) -> IResult<&[u8], CheckOrConstraintType> {
 }
 
 /// ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED
-fn alter_check_or_constraint_enforced(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn alter_check_or_constraint_enforced(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("ALTER"), multispace1)),
@@ -597,7 +596,7 @@ fn alter_check_or_constraint_enforced(i: &[u8]) -> IResult<&[u8], AlterTableOpti
             // symbol
             map(
                 tuple((multispace1, sql_identifier, multispace1)),
-                |(_, symbol, _)| String::from_utf8(symbol.to_vec()).unwrap(),
+                |(_, symbol, _)| String::from(symbol),
             ),
             opt(tag_no_case("NOT ")),
             tuple((multispace0, tag_no_case("ENFORCED"))),
@@ -614,8 +613,8 @@ fn alter_check_or_constraint_enforced(i: &[u8]) -> IResult<&[u8], AlterTableOpti
 
 /// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
 fn algorithm_equal_default_or_instant_or_inplace_or_copy(
-    i: &[u8],
-) -> IResult<&[u8], AlterTableOption> {
+    i: &str,
+) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("ALGORITHM "),
@@ -648,7 +647,7 @@ pub enum AlertColumnOperation {
 ///   | SET {VISIBLE | INVISIBLE}
 ///   | DROP DEFAULT
 /// }
-fn alter_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn alter_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("ALTER "),
@@ -657,7 +656,7 @@ fn alter_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // col_name
             map(
                 tuple((multispace0, sql_identifier, multispace1)),
-                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+                |(_, col_name, _)| String::from(col_name),
             ),
             alt((
                 map(
@@ -669,19 +668,11 @@ fn alter_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                         alt((
                             map(
                                 alt((recognize(tuple((opt(tag("-")), digit1))), alphanumeric1)),
-                                |x: &[u8]| {
-                                    AlertColumnOperation::SetDefaultLiteral(
-                                        String::from_utf8(x.to_vec()).unwrap(),
-                                    )
-                                },
+                                |x| AlertColumnOperation::SetDefaultLiteral(String::from(x)),
                             ),
                             map(
                                 delimited(tag("("), recognize(many1(anychar)), tag(")")),
-                                |x: &[u8]| {
-                                    AlertColumnOperation::SetDefaultExpr(
-                                        String::from_utf8(x.to_vec()).unwrap(),
-                                    )
-                                },
+                                |x| AlertColumnOperation::SetDefaultExpr(String::from(x)),
                             ),
                         )),
                         multispace0,
@@ -716,7 +707,7 @@ fn alter_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
-fn alter_index_visibility(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn alter_index_visibility(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("ALTER "),
@@ -725,7 +716,7 @@ fn alter_index_visibility(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // index_name
             map(
                 tuple((multispace0, sql_identifier, multispace1)),
-                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+                |(_, col_name, _)| String::from(col_name),
             ),
             visible_or_invisible,
             multispace0,
@@ -737,7 +728,7 @@ fn alter_index_visibility(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]
-fn change_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn change_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("CHANGE "),
@@ -745,7 +736,7 @@ fn change_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             opt(tag_no_case("COLUMN ")),
             multispace0,
             // old_col_name
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace1,
             single_column_definition,
             multispace0,
@@ -761,7 +752,7 @@ fn change_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// [DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]
-fn default_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn default_character_set(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             opt(tag_no_case("DEFAULT ")),
@@ -775,7 +766,7 @@ fn default_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                 opt(tag("=")),
                 multispace0,
             )),
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
             opt(map(
                 tuple((
@@ -784,7 +775,7 @@ fn default_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                     multispace1,
                     sql_identifier,
                 )),
-                |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
+                |(_, _, _, collation_name)| String::from(collation_name),
             )),
         )),
         |(_, _, _, charset_name, _, collation_name)| {
@@ -794,7 +785,7 @@ fn default_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
-fn convert_to_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn convert_to_character_set(i: &str) -> IResult<&str, AlterTableOption> {
     let prefix = tuple((
         tag_no_case("CONVERT"),
         multispace1,
@@ -809,7 +800,7 @@ fn convert_to_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
         tuple((
             // CONVERT TO CHARACTER SET
             prefix,
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
             opt(map(
                 tuple((
@@ -818,7 +809,7 @@ fn convert_to_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
                     multispace1,
                     sql_identifier,
                 )),
-                |(_, _, _, collation_name)| String::from_utf8(collation_name.to_vec()).unwrap(),
+                |(_, _, _, collation_name)| String::from(collation_name),
             )),
         )),
         |(_, charset_name, _, collation_name)| {
@@ -828,7 +819,7 @@ fn convert_to_character_set(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// {DISCARD | IMPORT} TABLESPACE
-fn disable_or_enable_keys(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn disable_or_enable_keys(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             alt((
@@ -844,7 +835,7 @@ fn disable_or_enable_keys(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// {DISCARD | IMPORT} TABLESPACE
-fn discard_or_import_tablespace(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn discard_or_import_tablespace(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             alt((
@@ -864,7 +855,7 @@ fn discard_or_import_tablespace(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// DROP [COLUMN] col_name
-fn drop_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn drop_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("DROP "),
@@ -873,7 +864,7 @@ fn drop_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // col_name
             map(
                 tuple((multispace0, sql_identifier, multispace0)),
-                |(_, col_name, _)| String::from_utf8(col_name.to_vec()).unwrap(),
+                |(_, col_name, _)| String::from(col_name),
             ),
             multispace0,
         )),
@@ -882,7 +873,7 @@ fn drop_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// DROP {INDEX | KEY} index_name
-fn drop_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn drop_index_or_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("DROP"), multispace1)),
@@ -891,7 +882,7 @@ fn drop_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // [index_name]
             map(
                 tuple((multispace1, sql_identifier, multispace0)),
-                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+                |(_, index_name, _)| String::from(index_name),
             ),
             multispace0,
         )),
@@ -902,7 +893,7 @@ fn drop_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// DROP PRIMARY KEY
-fn drop_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn drop_primary_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("DROP"),
@@ -917,7 +908,7 @@ fn drop_primary_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// DROP FOREIGN KEY fk_symbol
-fn drop_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn drop_foreign_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("DROP"),
@@ -929,24 +920,24 @@ fn drop_foreign_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             sql_identifier,
             multispace0,
         )),
-        |x| AlterTableOption::DropForeignKey(String::from_utf8(x.6.to_vec()).unwrap()),
+        |x| AlterTableOption::DropForeignKey(String::from(x.6)),
     )(i)
 }
 
 /// FORCE
-fn force(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn force(i: &str) -> IResult<&str, AlterTableOption> {
     map(tuple((tag_no_case("FORCE"), multispace0)), |_| {
         AlterTableOption::Force
     })(i)
 }
 
 // LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-fn lock(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn lock(i: &str) -> IResult<&str, AlterTableOption> {
     map(lock_option, |(lock_type)| AlterTableOption::Lock(lock_type))(i)
 }
 
 /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
-fn modify_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn modify_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("MODIFY "),
@@ -961,7 +952,7 @@ fn modify_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// ORDER BY col_name [, col_name] ...
-fn order_by(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn order_by(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("ORDER"),
@@ -979,7 +970,7 @@ fn order_by(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// RENAME COLUMN old_col_name TO new_col_name
-fn rename_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn rename_column(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tag_no_case("RENAME "),
@@ -987,12 +978,12 @@ fn rename_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             opt(tag_no_case("COLUMN ")),
             multispace0,
             // old_col_name
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace1,
             tag_no_case("TO"),
             multispace1,
             // new_col_name
-            map(sql_identifier, |x| String::from_utf8(x.to_vec()).unwrap()),
+            map(sql_identifier, |x| String::from(x)),
             multispace0,
         )),
         |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| {
@@ -1002,7 +993,7 @@ fn rename_column(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// RENAME {INDEX | KEY} old_index_name TO new_index_name
-fn rename_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn rename_index_or_key(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("RENAME"), multispace1)),
@@ -1011,13 +1002,13 @@ fn rename_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // old_index_name
             map(
                 tuple((multispace1, sql_identifier, multispace1)),
-                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+                |(_, index_name, _)| String::from(index_name),
             ),
             tuple((multispace1, tag_no_case("TO"))),
             // new_index_name
             map(
                 tuple((multispace1, sql_identifier, multispace1)),
-                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+                |(_, index_name, _)| String::from(index_name),
             ),
             multispace0,
         )),
@@ -1028,7 +1019,7 @@ fn rename_index_or_key(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// RENAME [TO | AS] new_tbl_name
-fn rename_table(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn rename_table(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             tuple((tag_no_case("RENAME"), multispace1)),
@@ -1037,7 +1028,7 @@ fn rename_table(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
             // new_tbl_name
             map(
                 tuple((multispace1, sql_identifier, multispace0)),
-                |(_, index_name, _)| String::from_utf8(index_name.to_vec()).unwrap(),
+                |(_, index_name, _)| String::from(index_name),
             ),
             multispace0,
         )),
@@ -1046,7 +1037,7 @@ fn rename_table(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 }
 
 /// {WITHOUT | WITH} VALIDATION
-fn without_or_with_validation(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
+fn without_or_with_validation(i: &str) -> IResult<&str, AlterTableOption> {
     map(
         tuple((
             // {WITHOUT | WITH}
@@ -1082,7 +1073,7 @@ pub enum AlterPartitionOption {
     RemovePartitioning,
 }
 
-pub fn alter_table_partition_option(i: &[u8]) -> IResult<&[u8], AlterPartitionOption> {
+pub fn alter_table_partition_option(i: &str) -> IResult<&str, AlterPartitionOption> {
     map(tag_no_case(""), |_| AlterPartitionOption::None)(i)
 }
 
@@ -1128,14 +1119,14 @@ mod test {
         ];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_column(parts[i].as_bytes());
+            let res = add_column(parts[i]);
             // // res.unwrap();
             assert!(res.is_ok());
             println!("{:?}", res.unwrap().1);
         }
 
         let sql = "ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age";
-        let res = add_column(sql.as_bytes());
+        let res = add_column(sql);
         assert!(res.is_ok());
         if let (_, AlterTableOption::AddColumn(bl, cols)) = res.unwrap() {
             assert_eq!(cols.len(), 1);
@@ -1168,7 +1159,7 @@ mod test {
             MySQLColumnPosition::After("foo".into()),
         ];
         for i in 0..parts.len() {
-            let (r, res) = parse_position(parts[i].as_bytes()).unwrap();
+            let (r, res) = parse_position(parts[i]).unwrap();
             assert_eq!(res, positions[i])
         }
     }
@@ -1198,7 +1189,7 @@ mod test {
             "new_column11 VARCHAR(50) NOT NULL UNIQUE",
         ];
         for i in 0..parts.len() {
-            let res = single_column_definition(parts[i].as_bytes());
+            let res = single_column_definition(parts[i]);
             assert!(res.is_ok())
         }
     }
@@ -1217,7 +1208,7 @@ mod test {
         ];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_index_or_key(parts[i].as_bytes());
+            let res = add_index_or_key(parts[i]);
             // res.unwrap();
             assert!(res.is_ok());
             println!("{:?}", res.unwrap().1)
@@ -1234,7 +1225,7 @@ mod test {
         ];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_fulltext_or_spatial(parts[i].as_bytes());
+            let res = add_fulltext_or_spatial(parts[i]);
             assert!(res.is_ok());
             println!("{:?}", res.unwrap().1)
         }
@@ -1251,7 +1242,7 @@ mod test {
         ];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = index_option(parts[i].as_bytes());
+            let res = index_option(parts[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -1263,7 +1254,7 @@ mod test {
         let parts = vec!["ADD CONSTRAINT UNIQUE (col_19)"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_unique(parts[i].as_bytes());
+            let res = add_unique(parts[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -1275,7 +1266,7 @@ mod test {
         let parts = vec!["CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = convert_to_character_set(parts[i].as_bytes());
+            let res = convert_to_character_set(parts[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -1287,7 +1278,7 @@ mod test {
         let parts = vec!["ADD PRIMARY KEY (new_column)"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_primary_key(parts[i].as_bytes());
+            let res = add_primary_key(parts[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -1299,7 +1290,7 @@ mod test {
         let parts = vec!["ADD CONSTRAINT chk_column CHECK (new_column > 0) NOT ENFORCED;"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = add_check(parts[i].as_bytes());
+            let res = add_check(parts[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());
@@ -1311,7 +1302,7 @@ mod test {
         let parts = vec!["MODIFY COLUMN another_column VARCHAR(255) FIRST;"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
-            let res = modify_column(parts[i].as_bytes());
+            let res = modify_column(parts[i]);
             // res.unwrap();
             assert!(res.is_ok());
             println!("{:?}", res);
@@ -1379,7 +1370,7 @@ mod test {
 
         for i in 0..alter_sqls.len() {
             println!("{}/{}", i + 1, alter_sqls.len());
-            let res = alter_table_parser(alter_sqls[i].as_bytes());
+            let res = alter_table_parser(alter_sqls[i]);
             // res.unwrap();
             // println!("{:?}", res);
             assert!(res.is_ok());

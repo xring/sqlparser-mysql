@@ -6,9 +6,9 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
-use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
+use nom::IResult;
 
 use common::table::Table;
 use common_parsers::{
@@ -70,7 +70,7 @@ impl fmt::Display for DropTableStatement {
     }
 }
 
-pub fn drop_table_parser(i: &[u8]) -> IResult<&[u8], DropTableStatement> {
+pub fn drop_table_parser(i: &str) -> IResult<&str, DropTableStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         opt(delimited(
@@ -288,7 +288,7 @@ mod tests {
 
         for i in 0..good_sqls.len() {
             assert_eq!(
-                drop_table_parser(good_sqls[i].as_bytes()).unwrap().1,
+                drop_table_parser(good_sqls[i]).unwrap().1,
                 good_statements[i]
             );
         }
@@ -304,7 +304,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(drop_table_parser(bad_sqls[i].as_bytes()).is_err())
+            assert!(drop_table_parser(bad_sqls[i]).is_err())
         }
     }
 }

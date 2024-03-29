@@ -50,15 +50,13 @@ pub struct CreateIndexStatement {
 ///
 /// lock_option:
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-pub fn create_index_parser(i: &[u8]) -> IResult<&[u8], CreateIndexStatement> {
+pub fn create_index_parser(i: &str) -> IResult<&str, CreateIndexStatement> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
             opt(terminated(index, multispace1)),
             tuple((tag_no_case("INDEX"), multispace1)),
-            map(tuple((sql_identifier, multispace1)), |x| {
-                String::from_utf8(x.0.to_vec()).unwrap()
-            }),
+            map(tuple((sql_identifier, multispace1)), |x| String::from(x.0)),
             opt(terminated(index, multispace1)),
             terminated(tag_no_case("ON"), multispace1),
             terminated(schema_table_name_without_alias, multispace1), // tbl_name
@@ -103,7 +101,7 @@ pub enum Index {
 }
 
 /// [UNIQUE | FULLTEXT | SPATIAL]
-fn index(i: &[u8]) -> IResult<&[u8], Index> {
+fn index(i: &str) -> IResult<&str, Index> {
     alt((
         map(tag_no_case("UNIQUE"), |_| Index::Unique),
         map(tag_no_case("FULLTEXT"), |_| Index::Fulltext),
@@ -124,7 +122,7 @@ mod test {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_index_parser(sqls[i].as_bytes());
+            let res = drop_index_parser(sqls[i]);
             assert!(res.is_ok());
             println!("{:?}", res);
         }

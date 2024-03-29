@@ -40,7 +40,7 @@ impl fmt::Display for DropTablespaceStatement {
 
 /// DROP [UNDO] TABLESPACE tablespace_name
 ///     [ENGINE [=] engine_name]
-pub fn drop_tablespace_parser(i: &[u8]) -> IResult<&[u8], DropTablespaceStatement> {
+pub fn drop_tablespace_parser(i: &str) -> IResult<&str, DropTablespaceStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -49,7 +49,7 @@ pub fn drop_tablespace_parser(i: &[u8]) -> IResult<&[u8], DropTablespaceStatemen
         tag_no_case("TABLESPACE "),
         multispace0,
         map(sql_identifier, |tablespace_name| {
-            String::from_utf8(tablespace_name.to_vec()).unwrap()
+            String::from(tablespace_name)
         }),
         multispace0,
         opt(map(
@@ -61,7 +61,7 @@ pub fn drop_tablespace_parser(i: &[u8]) -> IResult<&[u8], DropTablespaceStatemen
                 sql_identifier,
                 multispace0,
             )),
-            |(_, _, _, _, engine, _)| String::from_utf8(engine.to_vec()).unwrap(),
+            |(_, _, _, _, engine, _)| String::from(engine),
         )),
         multispace0,
         statement_terminator,
@@ -94,7 +94,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_tablespace_parser(sqls[i].as_bytes());
+            let res = drop_tablespace_parser(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

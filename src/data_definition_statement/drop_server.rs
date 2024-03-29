@@ -18,7 +18,6 @@ pub struct DropServerStatement {
     pub server_name: String,
 }
 
-
 impl fmt::Display for DropServerStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP SERVER")?;
@@ -31,15 +30,13 @@ impl fmt::Display for DropServerStatement {
 }
 
 /// DROP SERVER [ IF EXISTS ] server_name
-pub fn drop_server_parser(i: &[u8]) -> IResult<&[u8], DropServerStatement> {
+pub fn drop_server_parser(i: &str) -> IResult<&str, DropServerStatement> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),
             terminated(tag_no_case("SERVER"), multispace1),
             parse_if_exists,
-            map(sql_identifier, |server_name| {
-                String::from_utf8(server_name.to_vec()).unwrap()
-            }),
+            map(sql_identifier, |server_name| String::from(server_name)),
             multispace0,
             statement_terminator,
         )),
@@ -62,7 +59,7 @@ mod tests {
         ];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_server_parser(sqls[i].as_bytes());
+            let res = drop_server_parser(sqls[i]);
             assert!(res.is_ok());
             println!("{:?}", res);
         }

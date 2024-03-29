@@ -34,14 +34,14 @@ impl fmt::Display for OrderClause {
     }
 }
 
-pub fn order_type(i: &[u8]) -> IResult<&[u8], OrderType> {
+pub fn order_type(i: &str) -> IResult<&str, OrderType> {
     alt((
         map(tag_no_case("desc"), |_| OrderType::Desc),
         map(tag_no_case("asc"), |_| OrderType::Asc),
     ))(i)
 }
 
-fn order_expr(i: &[u8]) -> IResult<&[u8], (Column, OrderType)> {
+fn order_expr(i: &str) -> IResult<&str, (Column, OrderType)> {
     let (remaining_input, (field_name, ordering, _)) = tuple((
         column_identifier_without_alias,
         opt(preceded(multispace0, order_type)),
@@ -55,7 +55,7 @@ fn order_expr(i: &[u8]) -> IResult<&[u8], (Column, OrderType)> {
 }
 
 // Parse ORDER BY clause
-pub fn order_clause(i: &[u8]) -> IResult<&[u8], OrderClause> {
+pub fn order_clause(i: &str) -> IResult<&str, OrderClause> {
     let (remaining_input, (_, _, _, columns)) = tuple((
         multispace0,
         tag_no_case("order by"),
@@ -91,9 +91,9 @@ mod tests {
             columns: vec![("name".into(), OrderType::Asc)],
         };
 
-        let res1 = selection(qstring1.as_bytes());
-        let res2 = selection(qstring2.as_bytes());
-        let res3 = selection(qstring3.as_bytes());
+        let res1 = selection(qstring1);
+        let res2 = selection(qstring2);
+        let res3 = selection(qstring3);
         assert_eq!(res1.unwrap().1.order, Some(expected_ord1));
         assert_eq!(res2.unwrap().1.order, Some(expected_ord2));
         assert_eq!(res3.unwrap().1.order, Some(expected_ord3));

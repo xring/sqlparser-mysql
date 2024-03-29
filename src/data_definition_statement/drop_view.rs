@@ -61,7 +61,7 @@ impl fmt::Display for DropViewStatement {
 /// DROP VIEW [IF EXISTS]
 ///     view_name [, view_name] ...
 ///     [RESTRICT | CASCADE]
-pub fn drop_view_parser(i: &[u8]) -> IResult<&[u8], DropViewStatement> {
+pub fn drop_view_parser(i: &str) -> IResult<&str, DropViewStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -70,7 +70,7 @@ pub fn drop_view_parser(i: &[u8]) -> IResult<&[u8], DropViewStatement> {
         multispace0,
         map(many0(terminated(sql_identifier, opt(ws_sep_comma))), |x| {
             x.iter()
-                .map(|v| String::from_utf8(v.to_vec()).unwrap())
+                .map(|v| String::from(*v))
                 .collect::<Vec<String>>()
         }),
         opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
@@ -107,7 +107,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_view_parser(sqls[i].as_bytes());
+            let res = drop_view_parser(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

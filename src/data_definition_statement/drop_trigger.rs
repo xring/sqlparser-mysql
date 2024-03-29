@@ -36,7 +36,7 @@ impl fmt::Display for DropTriggerStatement {
 }
 
 /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
-pub fn drop_trigger_parser(i: &[u8]) -> IResult<&[u8], DropTriggerStatement> {
+pub fn drop_trigger_parser(i: &str) -> IResult<&str, DropTriggerStatement> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -73,7 +73,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_trigger_parser(sqls[i].as_bytes());
+            let res = drop_trigger_parser(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

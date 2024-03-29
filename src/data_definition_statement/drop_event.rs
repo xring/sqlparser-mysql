@@ -18,7 +18,6 @@ pub struct DropEventStatement {
     pub event_name: String,
 }
 
-
 impl fmt::Display for DropEventStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP EVENT")?;
@@ -31,15 +30,13 @@ impl fmt::Display for DropEventStatement {
 }
 
 /// DROP EVENT [IF EXISTS] event_name
-pub fn drop_event_parser(i: &[u8]) -> IResult<&[u8], DropEventStatement> {
+pub fn drop_event_parser(i: &str) -> IResult<&str, DropEventStatement> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),
             terminated(tag_no_case("EVENT"), multispace1),
             parse_if_exists,
-            map(sql_identifier, |event_name| {
-                String::from_utf8(event_name.to_vec()).unwrap()
-            }),
+            map(sql_identifier, |event_name| String::from(event_name)),
             multispace0,
             statement_terminator,
         )),
@@ -56,13 +53,10 @@ mod tests {
 
     #[test]
     fn test_drop_event() {
-        let sqls = vec![
-            "DROP EVENT event_name;",
-            "DROP EVENT IF EXISTS event_name;",
-        ];
+        let sqls = vec!["DROP EVENT event_name;", "DROP EVENT IF EXISTS event_name;"];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_event_parser(sqls[i].as_bytes());
+            let res = drop_event_parser(sqls[i]);
             assert!(res.is_ok());
             println!("{:?}", res);
         }

@@ -30,14 +30,14 @@ impl fmt::Display for DropFunctionStatement {
 }
 
 /// DROP FUNCTION [IF EXISTS] sp_name
-pub fn drop_function_parser(i: &[u8]) -> IResult<&[u8], DropFunctionStatement> {
+pub fn drop_function_parser(i: &str) -> IResult<&str, DropFunctionStatement> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),
             terminated(tag_no_case("FUNCTION"), multispace1),
             parse_if_exists,
             map(sql_identifier, |sp_name| {
-                String::from_utf8(sp_name.to_vec()).unwrap()
+                String::from(sp_name)
             }),
             multispace0,
             statement_terminator,
@@ -61,7 +61,7 @@ mod tests {
         ];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_function_parser(sqls[i].as_bytes());
+            let res = drop_function_parser(sqls[i]);
             assert!(res.is_ok());
             println!("{:?}", res);
         }

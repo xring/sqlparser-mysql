@@ -36,7 +36,7 @@ pub enum IndexOption {
 ///   | COMMENT 'string'
 ///   | {VISIBLE | INVISIBLE}
 /// }
-pub fn index_option(i: &[u8]) -> IResult<&[u8], IndexOption> {
+pub fn index_option(i: &str) -> IResult<&str, IndexOption> {
     alt((
         map(key_block_size, |x| IndexOption::KeyBlockSize(x)),
         map(index_type, |x| IndexOption::IndexType(x)),
@@ -51,7 +51,7 @@ pub fn index_option(i: &[u8]) -> IResult<&[u8], IndexOption> {
 }
 
 /// KEY_BLOCK_SIZE [=] value
-fn key_block_size(i: &[u8]) -> IResult<&[u8], u64> {
+fn key_block_size(i: &str) -> IResult<&str, u64> {
     map(
         tuple((
             multispace0,
@@ -66,7 +66,7 @@ fn key_block_size(i: &[u8]) -> IResult<&[u8], u64> {
 }
 
 /// WITH PARSER parser_name
-fn with_parser(i: &[u8]) -> IResult<&[u8], String> {
+fn with_parser(i: &str) -> IResult<&str, String> {
     map(
         tuple((
             multispace0,
@@ -77,12 +77,12 @@ fn with_parser(i: &[u8]) -> IResult<&[u8], String> {
             sql_identifier,
             multispace0,
         )),
-        |(_, _, _, _, _, parser_name, _)| String::from(std::str::from_utf8(parser_name).unwrap()),
+        |(_, _, _, _, _, parser_name, _)| String::from(parser_name),
     )(i)
 }
 
 /// ENGINE_ATTRIBUTE [=] value
-fn engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
+fn engine_attribute(i: &str) -> IResult<&str, String> {
     map(
         tuple((
             tag_no_case("ENGINE_ATTRIBUTE "),
@@ -90,7 +90,7 @@ fn engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
             opt(tag("=")),
             map(
                 delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
+                |x| String::from(x),
             ),
             multispace0,
         )),
@@ -99,7 +99,7 @@ fn engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
 }
 
 /// SECONDARY_ENGINE_ATTRIBUTE [=] value
-fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
+fn secondary_engine_attribute(i: &str) -> IResult<&str, String> {
     map(
         tuple((
             tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
@@ -107,7 +107,7 @@ fn secondary_engine_attribute(i: &[u8]) -> IResult<&[u8], String> {
             opt(tag("=")),
             map(
                 delimited(tag("'"), take_until("'"), tag("'")),
-                |x: &[u8]| String::from_utf8(x.to_vec()).unwrap(),
+                |x| String::from(x),
             ),
             multispace0,
         )),
