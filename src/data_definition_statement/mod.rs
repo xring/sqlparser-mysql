@@ -5,6 +5,8 @@ pub mod drop_table;
 pub mod rename_table;
 pub mod truncate_table;
 pub mod alter_database;
+mod drop_index;
+mod create_index;
 
 pub use self::alter_table::alter_table_parser;
 pub use self::create_table::create_table_parser;

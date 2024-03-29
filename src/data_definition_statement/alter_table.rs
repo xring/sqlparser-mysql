@@ -19,7 +19,13 @@ use common_parsers::{
 };
 use common_statement::index_option::{index_option, IndexOption};
 use common_statement::table_option::{table_option, TableOption, TableOptions};
-use common_statement::{fulltext_or_spatial_type, handle_error_with_debug, index_col_list, index_or_key_type, index_type, key_part, opt_index_name, opt_index_option, opt_index_type, single_column_definition, visible_or_invisible, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, PartitionDefinition, VisibleType, reference_definition, ReferenceDefinition};
+use common_statement::{
+    fulltext_or_spatial_type, handle_error_with_debug, index_col_list, index_or_key_type,
+    index_type, key_part, lock_option, opt_index_name, opt_index_option, opt_index_type,
+    reference_definition, single_column_definition, visible_or_invisible,
+    CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, LockType,
+    PartitionDefinition, ReferenceDefinition, VisibleType,
+};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {
@@ -87,15 +93,6 @@ pub enum CheckOrConstraintType {
     CONSTRAINT,
 }
 
-/// LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum LockType {
-    DEFAULT,
-    NONE,
-    SHARED,
-    EXCLUSIVE,
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterTableOption {
     /// table_options
@@ -155,10 +152,10 @@ pub enum AlterTableOption {
     ///     [index_name] (col_name,...)
     ///     reference_definition
     AddForeignKey(
-        Option<String>, // [symbol]
-        Option<String>, // [index_name]
-        Vec<String>,    // (col_name,...)
-        ReferenceDefinition,         // reference_definition
+        Option<String>,      // [symbol]
+        Option<String>,      // [index_name]
+        Vec<String>,         // (col_name,...)
+        ReferenceDefinition, // reference_definition
     ),
 
     /// ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
@@ -945,22 +942,7 @@ fn force(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
 
 // LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
 fn lock(i: &[u8]) -> IResult<&[u8], AlterTableOption> {
-    map(
-        tuple((
-            tag_no_case("LOCK "),
-            multispace0,
-            opt(tag("= ")),
-            multispace0,
-            alt((
-                map(tag_no_case("DEFAULT"), |_| LockType::DEFAULT),
-                map(tag_no_case("NONE"), |_| LockType::NONE),
-                map(tag_no_case("SHARED"), |_| LockType::SHARED),
-                map(tag_no_case("EXCLUSIVE"), |_| LockType::EXCLUSIVE),
-            )),
-            multispace0,
-        )),
-        |(_, _, _, _, lock_type, _)| AlterTableOption::Lock(lock_type),
-    )(i)
+    map(lock_option, |(lock_type)| AlterTableOption::Lock(lock_type))(i)
 }
 
 /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]

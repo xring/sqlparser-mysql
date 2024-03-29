@@ -25,6 +25,62 @@ pub mod table_option;
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct PartitionDefinition {}
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub enum AlgorithmOption {
+    Default,
+    Inplace,
+    Copy,
+}
+
+/// algorithm_option:
+///     ALGORITHM [=] {DEFAULT | INPLACE | COPY}
+pub fn algorithm_option(i: &[u8]) -> IResult<&[u8], AlgorithmOption> {
+    map(
+        tuple((
+            tag_no_case("ALGORITHM"),
+            multispace0,
+            opt(tag("=")),
+            multispace0,
+            alt((
+                map(tag_no_case("DEFAULT"), |_| AlgorithmOption::Default),
+                map(tag_no_case("INPLACE"), |_| AlgorithmOption::Inplace),
+                map(tag_no_case("COPY"), |_| AlgorithmOption::Copy),
+            )),
+        )),
+        |x| x.4,
+    )(i)
+}
+
+/// LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub enum LockType {
+    DEFAULT,
+    NONE,
+    SHARED,
+    EXCLUSIVE,
+}
+
+/// lock_option:
+///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+pub fn lock_option(i: &[u8]) -> IResult<&[u8], LockType> {
+    map(
+        tuple((
+            tag_no_case("LOCK "),
+            multispace0,
+            opt(tag("= ")),
+            multispace0,
+            alt((
+                map(tag_no_case("DEFAULT"), |_| LockType::DEFAULT),
+                map(tag_no_case("NONE"), |_| LockType::NONE),
+                map(tag_no_case("SHARED"), |_| LockType::SHARED),
+                map(tag_no_case("EXCLUSIVE"), |_| LockType::EXCLUSIVE),
+            )),
+            multispace0,
+        )),
+        |x| x.4,
+    )(i)
+}
+
 /// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum MatchType {
