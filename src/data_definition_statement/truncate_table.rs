@@ -8,6 +8,7 @@ use nom::combinator::opt;
 use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
+use common::Statement;
 
 use common::table::Table;
 use common_parsers::{schema_table_name_without_alias, statement_terminator};
@@ -17,6 +18,8 @@ use common_parsers::{schema_table_name_without_alias, statement_terminator};
 pub struct TruncateTableStatement {
     pub table: Table,
 }
+
+impl Statement for TruncateTableStatement {}
 
 impl fmt::Display for TruncateTableStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

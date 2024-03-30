@@ -10,6 +10,7 @@ use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
+use common::Statement;
 
 use common::table::Table;
 use common_parsers::{
@@ -29,6 +30,8 @@ pub struct DropTableStatement {
     pub if_restrict: bool,
     pub if_cascade: bool,
 }
+
+impl Statement for DropTableStatement {}
 
 impl Default for DropTableStatement {
     fn default() -> Self {

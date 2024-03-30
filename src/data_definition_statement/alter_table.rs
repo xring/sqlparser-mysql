@@ -2,6 +2,7 @@ use core::fmt;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
+use nom::{IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, anychar, digit1, multispace0, multispace1};
@@ -9,23 +10,23 @@ use nom::combinator::{map, opt, recognize};
 use nom::error::{ParseError, VerboseError};
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::{IResult, Parser};
 
 use common::column::ColumnSpecification;
+use common::Statement;
 use common::table::Table;
 use common_parsers::{
     column_identifier_without_alias, schema_table_name_without_alias, sql_identifier,
     statement_terminator, ws_sep_comma,
 };
+use common_statement::{
+    CheckConstraintDefinition, fulltext_or_spatial_type, FulltextOrSpatialType, index_col_list, index_or_key_type, index_type,
+    IndexOrKeyType, IndexType, key_part, KeyPart,
+    lock_option, LockType, opt_index_name,
+    opt_index_option, opt_index_type, PartitionDefinition, reference_definition, ReferenceDefinition, single_column_definition,
+    visible_or_invisible, VisibleType,
+};
 use common_statement::index_option::{index_option, IndexOption};
 use common_statement::table_option::{table_option, TableOptions};
-use common_statement::{
-    fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part, lock_option,
-    opt_index_name, opt_index_option, opt_index_type, reference_definition,
-    single_column_definition, visible_or_invisible, CheckConstraintDefinition,
-    FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, LockType, PartitionDefinition,
-    ReferenceDefinition, VisibleType,
-};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {
@@ -33,6 +34,8 @@ pub struct AlterTableStatement {
     pub alter_options: Option<Vec<AlterTableOption>>,
     pub partition_options: Option<Vec<AlterPartitionOption>>,
 }
+
+impl Statement for AlterTableStatement {}
 
 impl fmt::Display for AlterTableStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1089,11 +1092,11 @@ pub fn alter_table_partition_option(
 mod test {
     use common::column::{ColumnConstraint, MySQLColumnPosition};
     use common::Literal;
-    use common_statement::index_option::index_option;
     use common_statement::{parse_position, single_column_definition};
+    use common_statement::index_option::index_option;
     use data_definition_statement::alter_table::{
         add_check, add_column, add_fulltext_or_spatial, add_index_or_key, add_primary_key,
-        add_unique, alter_table_parser, convert_to_character_set, modify_column, AlterTableOption,
+        add_unique, alter_table_parser, AlterTableOption, convert_to_character_set, modify_column,
     };
 
     #[test]

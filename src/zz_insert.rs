@@ -4,7 +4,7 @@ use std::str;
 
 use common::column::Column;
 use common::table::Table;
-use common::{FieldValueExpression, Literal};
+use common::{FieldValueExpression, Literal, Statement};
 use common_parsers::{
     assignment_expr_list, field_list, schema_table_reference, statement_terminator, value_list,
     ws_sep_comma,
@@ -25,6 +25,8 @@ pub struct InsertStatement {
     pub ignore: bool,
     pub on_duplicate: Option<Vec<(Column, FieldValueExpression)>>,
 }
+
+impl Statement for InsertStatement {}
 
 impl fmt::Display for InsertStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

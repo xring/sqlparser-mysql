@@ -9,7 +9,7 @@ use nom::IResult;
 
 use common::column::Column;
 use common::table::Table;
-use common::FieldValueExpression;
+use common::{FieldValueExpression, Statement};
 use common_parsers::{assignment_expr_list, statement_terminator, table_reference};
 use keywords::escape_if_keyword;
 use zz_condition::ConditionExpression;
@@ -21,6 +21,8 @@ pub struct UpdateStatement {
     pub fields: Vec<(Column, FieldValueExpression)>,
     pub where_clause: Option<ConditionExpression>,
 }
+
+impl Statement for UpdateStatement {}
 
 impl fmt::Display for UpdateStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

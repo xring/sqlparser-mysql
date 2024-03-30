@@ -9,6 +9,7 @@ use nom::combinator::opt;
 use nom::error::VerboseError;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
+use common::Statement;
 use zz_condition::ConditionExpression;
 use zz_select::where_clause;
 
@@ -29,6 +30,8 @@ impl fmt::Display for DeleteStatement {
         Ok(())
     }
 }
+
+impl Statement for DeleteStatement {}
 
 pub fn deletion(i: &str) -> IResult<&str, DeleteStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, table, where_clause, _)) = tuple((

@@ -1,6 +1,7 @@
 use core::fmt;
 use std::fmt::Formatter;
 
+use common::Statement;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
@@ -28,6 +29,8 @@ pub struct AlterDatabaseStatement {
     pub name: String,
     pub alter_options: Vec<AlterDatabaseOption>,
 }
+
+impl Statement for AlterDatabaseStatement {}
 
 impl fmt::Display for AlterDatabaseStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -125,9 +128,7 @@ fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseE
                     sql_identifier,
                     multispace0,
                 )),
-                |(_, _, _, _, collation_name, _)| {
-                    String::from(collation_name)
-                },
+                |(_, _, _, _, collation_name, _)| String::from(collation_name),
             ),
             multispace0,
         )),

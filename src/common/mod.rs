@@ -1,13 +1,15 @@
+use common::column::Column;
+use keywords::escape_if_keyword;
 use std::fmt;
 use std::fmt::Display;
 use ArithmeticExpression;
-use common::column::Column;
-use keywords::escape_if_keyword;
 
-pub mod table;
 pub mod column;
+pub mod table;
 
 pub mod trigger;
+
+pub trait Statement {}
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum SqlDataType {

@@ -9,6 +9,7 @@ use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
+use common::Statement;
 
 use common::table::Table;
 use common_parsers::{
@@ -22,6 +23,8 @@ use common_parsers::{
 pub struct RenameTableStatement {
     pub tables: Vec<(Table, Table)>,
 }
+
+impl Statement for RenameTableStatement {}
 
 impl fmt::Display for RenameTableStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

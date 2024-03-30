@@ -8,6 +8,7 @@ use nom::character::complete::multispace0;
 use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
+use common::Statement;
 
 use common_parsers::{parse_if_exists, sql_identifier, statement_terminator};
 
@@ -17,6 +18,8 @@ pub struct DropDatabaseStatement {
     pub if_exists: bool,
     pub name: String,
 }
+
+impl Statement for DropDatabaseStatement {}
 
 impl fmt::Display for DropDatabaseStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

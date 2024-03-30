@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use common::column::{Column, ColumnConstraint, ColumnSpecification};
 use common::table::Table;
-use common::{FieldDefinitionExpression, Literal, Operator, Real, SqlDataType, TableKey};
+use common::{FieldDefinitionExpression, Literal, Operator, Real, SqlDataType, Statement, TableKey};
 use common_parsers::{
     column_identifier_without_alias, parse_comment, schema_table_reference, sql_identifier,
     statement_terminator, type_identifier, ws_sep_comma,
@@ -78,6 +78,8 @@ pub struct CreateViewStatement {
     pub fields: Vec<Column>,
     pub definition: Box<SelectSpecification>,
 }
+
+impl Statement for CreateViewStatement {}
 
 impl fmt::Display for CreateViewStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -2,18 +2,30 @@ use std::fmt;
 use std::io::BufRead;
 use std::str;
 
+use common::Statement;
 use data_definition_statement::alter_database::{alter_database_parser, AlterDatabaseStatement};
 use data_definition_statement::alter_table::AlterTableStatement;
+use data_definition_statement::create_index::CreateIndexStatement;
 use data_definition_statement::create_table::CreateTableStatement;
 use data_definition_statement::drop_database::{drop_database_parser, DropDatabaseStatement};
+use data_definition_statement::drop_event::DropEventStatement;
+use data_definition_statement::drop_function::DropFunctionStatement;
+use data_definition_statement::drop_index::DropIndexStatement;
+use data_definition_statement::drop_logfile_group::DropLogfileGroupStatement;
+use data_definition_statement::drop_procedure::DropProcedureStatement;
+use data_definition_statement::drop_server::DropServerStatement;
+use data_definition_statement::drop_spatial_reference_system::DropSpatialReferenceSystemStatement;
 use data_definition_statement::drop_table::{drop_table_parser, DropTableStatement};
+use data_definition_statement::drop_tablespace::DropTablespaceStatement;
+use data_definition_statement::drop_trigger::DropTriggerStatement;
+use data_definition_statement::drop_view::DropViewStatement;
 use data_definition_statement::rename_table::{rename_table_parser, RenameTableStatement};
 use data_definition_statement::truncate_table::{truncate_table_parser, TruncateTableStatement};
 use data_definition_statement::{alter_table_parser, create_table_parser};
 use nom::branch::alt;
 use nom::combinator::map;
 use nom::error::{VerboseError, VerboseErrorKind};
-use nom::IResult;
+use nom::{IResult, Offset};
 use zz_compound_select::{compound_selection, CompoundSelectStatement};
 use zz_create::{creation, view_creation, CreateViewStatement};
 use zz_delete::{deletion, DeleteStatement};
@@ -26,9 +38,20 @@ use zz_update::{updating, UpdateStatement};
 pub enum SQLStatement {
     AlterDatabase(AlterDatabaseStatement),
     AlterTable(AlterTableStatement),
+    CreateIndex(CreateIndexStatement),
     CreateTable(CreateTableStatement),
     DropDatabase(DropDatabaseStatement),
+    DropEvent(DropEventStatement),
+    DropFunction(DropFunctionStatement),
+    DropIndex(DropIndexStatement),
+    DropLogfileGroup(DropLogfileGroupStatement),
+    DropProcedure(DropProcedureStatement),
+    DropServer(DropServerStatement),
+    DropSpatialReferenceSystem(DropSpatialReferenceSystemStatement),
     DropTable(DropTableStatement),
+    DropTableSpace(DropTablespaceStatement),
+    DropTrigger(DropTriggerStatement),
+    DropView(DropViewStatement),
     RenameTable(RenameTableStatement),
     TruncateTable(TruncateTableStatement),
     // HISTORY
@@ -59,47 +82,62 @@ impl fmt::Display for SQLStatement {
     }
 }
 
-pub fn sql_parser(i: &str) -> IResult<&str, SQLStatement, VerboseError<&str>> {
-    alt((
-        // ALTER DATABASE
-        map(alter_database_parser, |ad| SQLStatement::AlterDatabase(ad)),
-        // ALTER TABLE
-        map(alter_table_parser, |at| SQLStatement::AlterTable(at)),
-        // CREATE TABLE
-        map(create_table_parser, |ct| SQLStatement::CreateTable(ct)),
-        // DROP DATABASE
-        map(drop_database_parser, |dt| SQLStatement::DropDatabase(dt)),
-        // DROP TABLE
-        map(drop_table_parser, |dt| SQLStatement::DropTable(dt)),
-        // RENAME TABLE
-        map(rename_table_parser, |dt| SQLStatement::RenameTable(dt)),
-        // TRUNCATE TABLE
-        map(truncate_table_parser, |dt| SQLStatement::TruncateTable(dt)),
-        // HISTORY
-        map(insertion, |i| SQLStatement::Insert(i)),
-        map(compound_selection, |cs| SQLStatement::CompoundSelect(cs)),
-        map(selection, |s| SQLStatement::Select(s)),
-        map(deletion, |d| SQLStatement::Delete(d)),
-        map(updating, |u| SQLStatement::Update(u)),
-        map(set, |s| SQLStatement::Set(s)),
-        map(view_creation, |vc| SQLStatement::CreateView(vc)),
-    ))(i)
-}
-
 pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
-    match sql_parser(input) {
-        Ok((_, o)) => Ok(o),
-        Err(err) => match err {
-            nom::Err::Error(e) | nom::Err::Failure(e) => {
-                let err = e.errors[0].clone();
-                println!("unable to parse: {}", err.0);
-                let err_msg = err.0.split(" ").next().unwrap_or("");
-                let err_msg = format!("failed to parse sql, error near `{}`", err_msg);
-                Err(err_msg)
-            }
-            _ => Err(String::from("failed to parse sql: other error")),
+    let parsers = vec![
+        |i| {
+            map(alter_database_parser, |parsed| {
+                SQLStatement::AlterDatabase(parsed)
+            })(i)
         },
+        |i| {
+            map(alter_table_parser, |parsed| {
+                SQLStatement::AlterTable(parsed)
+            })(i)
+        },
+        |i| {
+            map(create_table_parser, |parsed| {
+                SQLStatement::CreateTable(parsed)
+            })(i)
+        },
+        |i| {
+            map(drop_database_parser, |parsed| {
+                SQLStatement::DropDatabase(parsed)
+            })(i)
+        },
+        |i| map(drop_table_parser, |parsed| SQLStatement::DropTable(parsed))(i),
+        |i| {
+            map(rename_table_parser, |parsed| {
+                SQLStatement::RenameTable(parsed)
+            })(i)
+        },
+        |i| {
+            map(truncate_table_parser, |parsed| {
+                SQLStatement::TruncateTable(parsed)
+            })(i)
+        },
+        // TODO add all parsers
+        // TODO need parallel parse ?
+    ];
+
+    let mut deepest_error = None;
+    let mut max_consumed = 0;
+
+    for mut parser in parsers {
+        match parser(input) {
+            Ok(result) => return Ok(result.1 as SQLStatement),
+            Err(nom::Err::Error(err)) => {
+                let consumed = input.offset(err.errors[0].0);
+                if consumed > max_consumed {
+                    deepest_error = Some(err.errors[0].0);
+                    max_consumed = consumed;
+                }
+            }
+            Err(e) => return Err(String::from("failed to parse sql: other error")),
+        }
     }
+    let err_msg = deepest_error.unwrap().split(" ").next().unwrap_or("");
+    let err_msg = format!("failed to parse sql, error near `{}`", err_msg);
+    Err(err_msg)
 }
 
 #[cfg(test)]

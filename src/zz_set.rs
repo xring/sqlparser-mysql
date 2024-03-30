@@ -3,7 +3,7 @@ use nom::character::complete::{multispace0, multispace1};
 use nom::error::VerboseError;
 use std::{fmt, str};
 
-use common::Literal;
+use common::{Literal, Statement};
 use common_parsers::{literal, sql_identifier, statement_terminator};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -13,6 +13,8 @@ pub struct SetStatement {
     pub variable: String,
     pub value: Literal,
 }
+
+impl Statement for SetStatement {}
 
 impl fmt::Display for SetStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

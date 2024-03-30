@@ -20,6 +20,7 @@ use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
+use common::Statement;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
@@ -28,6 +29,8 @@ pub struct CreateTableStatement {
     pub if_not_exists: bool,
     pub create_type: CreateTableType,
 }
+
+impl Statement for CreateTableStatement {}
 
 impl fmt::Display for CreateTableStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -55,7 +58,8 @@ impl fmt::Display for CreateTableStatement {
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
 pub fn create_table_parser(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    alt((create_simple, create_like_old_table, create_as_query))(i)
+    //alt((create_simple, create_like_old_table, create_as_query))(i)
+    create_simple(i)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

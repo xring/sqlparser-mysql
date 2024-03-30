@@ -6,7 +6,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{anychar, digit1, multispace0, multispace1};
 use nom::combinator::{map, map_res, opt, recognize};
-use nom::error::{Error, ParseError, VerboseError};
+use nom::error::{Error, ParseError, VerboseError, VerboseErrorKind};
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
@@ -518,29 +518,79 @@ pub fn parse_position(i: &str) -> IResult<&str, MySQLColumnPosition, VerboseErro
 }
 
 pub fn single_column_definition(i: &str) -> IResult<&str, ColumnSpecification, VerboseError<&str>> {
-    map(
-        tuple((
-            column_identifier_without_alias,
-            opt(delimited(multispace1, type_identifier, multispace0)),
-            many0(column_constraint),
-            opt(parse_comment),
-            opt(parse_position),
-            opt(ws_sep_comma),
-        )),
-        |(column, field_type, constraints, comment, position, _)| {
-            let sql_type = match field_type {
-                None => SqlDataType::Text,
-                Some(ref t) => t.clone(),
-            };
-            ColumnSpecification {
-                column,
-                sql_type,
-                constraints: constraints.into_iter().filter_map(|m| m).collect(),
-                comment,
-                position,
+    let mut parser = tuple((
+        column_identifier_without_alias,
+        opt(delimited(multispace1, type_identifier, multispace0)),
+        many0(column_constraint),
+        opt(parse_comment),
+        opt(parse_position),
+        opt(ws_sep_comma),
+    ));
+
+    match parser(i) {
+        Ok((input, (column, field_type, constraints, comment, position, _))) => {
+            if field_type.is_none() {
+                let error = VerboseError {
+                    errors: vec![(i, VerboseErrorKind::Context("data type is empty"))],
+                };
+                return Err(nom::Err::Error(error));
             }
-        },
-    )(i)
+
+            let sql_type = field_type.unwrap();
+            Ok((
+                input,
+                ColumnSpecification {
+                    column,
+                    sql_type,
+                    constraints: constraints.into_iter().filter_map(|m| m).collect(),
+                    comment,
+                    position,
+                },
+            ))
+        }
+        Err(err) => Err(err),
+    }
+    // map(
+    //     tuple((
+    //         column_identifier_without_alias,
+    //         opt(delimited(multispace1, type_identifier, multispace0)),
+    //         many0(column_constraint),
+    //         opt(parse_comment),
+    //         opt(parse_position),
+    //         opt(ws_sep_comma),
+    //     )),
+    //     |(column, field_type, constraints, comment, position, _)| {
+    //
+    //         if field_type.is_none() {
+    //             let error = VerboseError {
+    //                 errors: vec![(i, VerboseErrorKind::Context("Input is empty"))],
+    //             };
+    //             return Err(Err::Error(error));
+    //         }
+    //
+    //         let sql_type = field_type.unwrap();
+    //
+    //         // let sql_type = match field_type {
+    //         //     // FIXME this should be error?
+    //         //     //None => SqlDataType::Text,
+    //         //     None => {
+    //         //         let error = VerboseError {
+    //         //             errors: vec![(i, VerboseErrorKind::Context("Input is empty"))],
+    //         //         };
+    //         //         return Err(Err::Error(error));
+    //         //         // return Err(err);
+    //         //     }
+    //         //     Some(ref t) => t.clone(),
+    //         // };
+    //         ColumnSpecification {
+    //             column,
+    //             sql_type,
+    //             constraints: constraints.into_iter().filter_map(|m| m).collect(),
+    //             comment,
+    //             position,
+    //         }
+    //     },
+    // )(i)
 }
 
 fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {

@@ -12,7 +12,7 @@ use nom::IResult;
 
 use common::column::Column;
 use common::table::Table;
-use common::FieldDefinitionExpression;
+use common::{FieldDefinitionExpression, Statement};
 use common_parsers::{
     as_alias, field_definition_expr, field_list, statement_terminator, table_list, table_reference,
     unsigned_number,
@@ -89,6 +89,8 @@ pub struct SelectStatement {
     pub order: Option<OrderClause>,
     pub limit: Option<LimitClause>,
 }
+
+impl Statement for SelectStatement {}
 
 impl fmt::Display for SelectStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
