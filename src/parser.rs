@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io::BufRead;
 use std::str;
 
 use data_definition_statement::alter_database::{alter_database_parser, AlterDatabaseStatement};
@@ -11,6 +12,7 @@ use data_definition_statement::truncate_table::{truncate_table_parser, TruncateT
 use data_definition_statement::{alter_table_parser, create_table_parser};
 use nom::branch::alt;
 use nom::combinator::map;
+use nom::error::{VerboseError, VerboseErrorKind};
 use nom::IResult;
 use zz_compound_select::{compound_selection, CompoundSelectStatement};
 use zz_create::{creation, view_creation, CreateViewStatement};
@@ -57,7 +59,7 @@ impl fmt::Display for SQLStatement {
     }
 }
 
-pub fn parse_sql(i: &str) -> IResult<&str, SQLStatement> {
+pub fn sql_parser(i: &str) -> IResult<&str, SQLStatement, VerboseError<&str>> {
     alt((
         // ALTER DATABASE
         map(alter_database_parser, |ad| SQLStatement::AlterDatabase(ad)),
@@ -84,21 +86,20 @@ pub fn parse_sql(i: &str) -> IResult<&str, SQLStatement> {
     ))(i)
 }
 
-pub fn parse_query_bytes(input: &str) -> Result<SQLStatement, &'static str> {
-    match parse_sql(input) {
+pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
+    match sql_parser(input) {
         Ok((_, o)) => Ok(o),
-        Err(err) => {
-            println!("{:?}", err);
-            Err("failed to parse query")
-        }
+        Err(err) => match err {
+            nom::Err::Error(e) | nom::Err::Failure(e) => {
+                let err = e.errors[0].clone();
+                println!("unable to parse: {}", err.0);
+                let err_msg = err.0.split(" ").next().unwrap_or("");
+                let err_msg = format!("failed to parse sql, error near `{}`", err_msg);
+                Err(err_msg)
+            }
+            _ => Err(String::from("failed to parse sql: other error")),
+        },
     }
-}
-
-pub fn parse_query<T>(input: T) -> Result<SQLStatement, &'static str>
-where
-    T: AsRef<str>,
-{
-    parse_query_bytes(input.as_ref().trim())
 }
 
 #[cfg(test)]
@@ -111,7 +112,7 @@ mod tests {
     #[test]
     fn hash_query() {
         let str = "INSERT INTO users VALUES (42, \"test\");";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
 
         let expected = SQLStatement::Insert(InsertStatement {
@@ -130,21 +131,21 @@ mod tests {
     #[test]
     fn trim_query() {
         let str = "   INSERT INTO users VALUES (42, \"test\");     ";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
     }
 
     #[test]
     fn parse_byte_slice() {
         let str = "INSERT INTO users VALUES (42, \"test\");";
-        let res = parse_query_bytes(&str);
+        let res = parse_sql(&str);
         assert!(res.is_ok());
     }
 
     #[test]
     fn parse_byte_vector() {
         let str = "INSERT INTO users VALUES (42, \"test\");";
-        let res = parse_query_bytes(&str);
+        let res = parse_sql(&str);
         assert!(res.is_ok());
     }
 
@@ -157,12 +158,12 @@ mod tests {
         let str4 = "SELECT name, password FROM users AS u WHERE user = 'aaa' AND password = 'xxx'";
         let str5 = "SELECT name * 2 AS double_name FROM users";
 
-        let res0 = parse_query(str0);
-        let res1 = parse_query(str1);
-        let res2 = parse_query(str2);
-        let res3 = parse_query(str3);
-        let res4 = parse_query(str4);
-        let res5 = parse_query(str5);
+        let res0 = parse_sql(str0);
+        let res1 = parse_sql(str1);
+        let res2 = parse_sql(str2);
+        let res3 = parse_sql(str3);
+        let res4 = parse_sql(str4);
+        let res5 = parse_sql(str5);
 
         assert!(res0.is_ok());
         assert!(res1.is_ok());
@@ -189,9 +190,9 @@ mod tests {
         let expected2 = "SELECT name, password FROM users AS u";
         let expected3 = "SELECT name, password FROM users AS u WHERE user_id = '1'";
 
-        let res1 = parse_query(str1);
-        let res2 = parse_query(str2);
-        let res3 = parse_query(str3);
+        let res1 = parse_sql(str1);
+        let res2 = parse_sql(str2);
+        let res3 = parse_sql(str3);
 
         assert!(res1.is_ok());
         assert!(res2.is_ok());
@@ -211,8 +212,8 @@ mod tests {
             "SELECT name, password FROM users AS u WHERE user = 'aaa' AND password = 'xxx'";
         let expected1 = "SELECT name, password FROM users AS u WHERE user = ? AND password = ?";
 
-        let res0 = parse_query(str0);
-        let res1 = parse_query(str1);
+        let res0 = parse_sql(str0);
+        let res1 = parse_sql(str1);
         assert!(res0.is_ok());
         assert!(res1.is_ok());
         assert_eq!(expected0, format!("{}", res0.unwrap()));
@@ -224,7 +225,7 @@ mod tests {
         let str1 = "select count(*) from users";
         let expected1 = "SELECT count(*) FROM users";
 
-        let res1 = parse_query(str1);
+        let res1 = parse_sql(str1);
         assert!(res1.is_ok());
         assert_eq!(expected1, format!("{}", res1.unwrap()));
     }
@@ -232,7 +233,7 @@ mod tests {
     #[test]
     fn display_insert_query() {
         let str = "INSERT INTO users (name, password) VALUES ('aaa', 'xxx')";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
         assert_eq!(str, format!("{}", res.unwrap()));
     }
@@ -241,7 +242,7 @@ mod tests {
     fn display_insert_query_no_columns() {
         let str = "INSERT INTO users VALUES ('aaa', 'xxx')";
         let expected = "INSERT INTO users VALUES ('aaa', 'xxx')";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
         assert_eq!(expected, format!("{}", res.unwrap()));
     }
@@ -250,7 +251,7 @@ mod tests {
     fn format_insert_query() {
         let str = "insert into users (name, password) values ('aaa', 'xxx')";
         let expected = "INSERT INTO users (name, password) VALUES ('aaa', 'xxx')";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
         assert_eq!(expected, format!("{}", res.unwrap()));
     }
@@ -259,7 +260,7 @@ mod tests {
     fn format_update_query() {
         let str = "update users set name=42, password='xxx' where id=1";
         let expected = "UPDATE users SET name = 42, password = 'xxx' WHERE id = 1";
-        let res = parse_query(str);
+        let res = parse_sql(str);
         assert!(res.is_ok());
         assert_eq!(expected, format!("{}", res.unwrap()));
     }
@@ -272,8 +273,8 @@ mod tests {
         let expected0 = "DELETE FROM users WHERE user = 'aaa' AND password = 'xxx'";
         let expected1 = "DELETE FROM users WHERE user = ? AND password = ?";
 
-        let res0 = parse_query(str0);
-        let res1 = parse_query(str1);
+        let res0 = parse_sql(str0);
+        let res1 = parse_sql(str1);
         assert!(res0.is_ok());
         assert!(res1.is_ok());
         assert_eq!(expected0, format!("{}", res0.unwrap()));
@@ -288,8 +289,8 @@ mod tests {
         let expected0 = "DELETE FROM articles WHERE `key` = 'aaa'";
         let expected1 = "DELETE FROM `where` WHERE user = ?";
 
-        let res0 = parse_query(str0);
-        let res1 = parse_query(str1);
+        let res0 = parse_sql(str0);
+        let res1 = parse_sql(str1);
         assert!(res0.is_ok());
         assert!(res1.is_ok());
         assert_eq!(expected0, format!("{}", res0.unwrap()));

@@ -11,6 +11,7 @@ use common::{Literal, Operator};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::IResult;
 use zz_select::{nested_selection, SelectStatement};
@@ -109,7 +110,7 @@ impl fmt::Display for ConditionExpression {
 }
 
 // Parse a conditional expression into a condition tree structure
-pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression> {
+pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let cond = map(
         separated_pair(
             and_expr,
@@ -128,7 +129,7 @@ pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression> {
     alt((cond, and_expr))(i)
 }
 
-pub fn and_expr(i: &str) -> IResult<&str, ConditionExpression> {
+pub fn and_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let cond = map(
         separated_pair(
             parenthetical_expr,
@@ -147,7 +148,7 @@ pub fn and_expr(i: &str) -> IResult<&str, ConditionExpression> {
     alt((cond, parenthetical_expr))(i)
 }
 
-fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression> {
+fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let (remaining_input, (_, _, left_expr, _, _, _, operator, _, right_expr)) = tuple((
         tag("("),
         multispace0,
@@ -171,7 +172,7 @@ fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression> {
     Ok((remaining_input, cond))
 }
 
-pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression> {
+pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     alt((
         parenthetical_expr_helper,
         map(
@@ -186,7 +187,7 @@ pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression> {
     ))(i)
 }
 
-pub fn not_expr(i: &str) -> IResult<&str, ConditionExpression> {
+pub fn not_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     alt((
         map(
             preceded(pair(tag_no_case("not"), multispace1), parenthetical_expr),
@@ -196,7 +197,7 @@ pub fn not_expr(i: &str) -> IResult<&str, ConditionExpression> {
     ))(i)
 }
 
-fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression)> {
+fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
     let (remaining_input, (_, _, not, _, _)) = tuple((
         tag_no_case("is"),
         multispace0,
@@ -220,7 +221,7 @@ fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression)> {
     ))
 }
 
-fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression)> {
+fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
     map(
         separated_pair(
             opt(terminated(tag_no_case("not"), multispace1)),
@@ -245,7 +246,9 @@ fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression)> {
     )(i)
 }
 
-fn boolean_primary_rest(i: &str) -> IResult<&str, (Operator, ConditionExpression)> {
+fn boolean_primary_rest(
+    i: &str,
+) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
     alt((
         is_null,
         in_operation,
@@ -253,7 +256,7 @@ fn boolean_primary_rest(i: &str) -> IResult<&str, (Operator, ConditionExpression
     ))(i)
 }
 
-fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression> {
+fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     alt((
         map(
             separated_pair(predicate, multispace0, boolean_primary_rest),
@@ -269,7 +272,7 @@ fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression> {
     ))(i)
 }
 
-fn predicate(i: &str) -> IResult<&str, ConditionExpression> {
+fn predicate(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let nested_exists = map(
         tuple((
             opt(delimited(multispace0, tag_no_case("not"), multispace1)),
@@ -293,7 +296,7 @@ fn predicate(i: &str) -> IResult<&str, ConditionExpression> {
     alt((simple_expr, nested_exists))(i)
 }
 
-fn simple_expr(i: &str) -> IResult<&str, ConditionExpression> {
+fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     alt((
         map(
             delimited(

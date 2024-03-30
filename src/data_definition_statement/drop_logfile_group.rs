@@ -6,6 +6,7 @@ use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
 
@@ -30,7 +31,7 @@ impl fmt::Display for DropLogfileGroupStatement {
 
 /// DROP LOGFILE GROUP logfile_group
 ///     ENGINE [=] engine_name
-pub fn drop_logfile_group_parser(i: &str) -> IResult<&str, DropLogfileGroupStatement> {
+pub fn drop_logfile_group_parser(i: &str) -> IResult<&str, DropLogfileGroupStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,

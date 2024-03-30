@@ -4,11 +4,12 @@ use common_parsers::{integer_literal, sql_identifier, string_literal, ws_sep_com
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::multi::separated_list0;
 use nom::sequence::tuple;
 use nom::IResult;
 
-pub fn table_options(i: &str) -> IResult<&str, ()> {
+pub fn table_options(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     // TODO: make the create options accessible
     map(
         separated_list0(table_options_separator, create_option),
@@ -16,11 +17,11 @@ pub fn table_options(i: &str) -> IResult<&str, ()> {
     )(i)
 }
 
-fn table_options_separator(i: &str) -> IResult<&str, ()> {
+fn table_options_separator(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     map(alt((multispace1, ws_sep_comma)), |_| ())(i)
 }
 
-fn create_option(i: &str) -> IResult<&str, ()> {
+fn create_option(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     alt((
         create_option_type,
         create_option_pack_keys,
@@ -38,17 +39,15 @@ fn create_option(i: &str) -> IResult<&str, ()> {
 
 /// Helper to parse equals-separated create option pairs.
 /// Throws away the create option and value
-pub fn create_option_equals_pair<'a, I, O1, O2, F, G>(
+pub fn create_option_equals_pair<'a, O1, O2, F, G>(
     mut first: F,
     mut second: G,
-) -> impl FnMut(I) -> IResult<I, ()>
-where
-    F: FnMut(I) -> IResult<I, O1>,
-    G: FnMut(I) -> IResult<I, O2>,
-    I: nom::InputTakeAtPosition + nom::InputTake + nom::Compare<&'a str>,
-    <I as nom::InputTakeAtPosition>::Item: nom::AsChar + Clone,
+) -> impl FnMut(&'a str) -> IResult<&'a str, (), VerboseError<&'a str>>
+    where
+        F: FnMut(&'a str) -> IResult<&'a str, O1, VerboseError<&'a str>>,
+        G: FnMut(&'a str) -> IResult<&'a str, O2, VerboseError<&'a str>>,
 {
-    move |i: I| {
+    move |i: &'a str| {
         let (i, _o1) = first(i)?;
         let (i, _) = ws_sep_equals(i)?;
         let (i, _o2) = second(i)?;
@@ -56,23 +55,23 @@ where
     }
 }
 
-fn create_option_type(i: &str) -> IResult<&str, ()> {
+fn create_option_type(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("type"), alphanumeric1)(i)
 }
 
-fn create_option_pack_keys(i: &str) -> IResult<&str, ()> {
+fn create_option_pack_keys(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("pack_keys"), alt((tag("0"), tag("1"))))(i)
 }
 
-fn create_option_engine(i: &str) -> IResult<&str, ()> {
+fn create_option_engine(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("engine"), opt(alphanumeric1))(i)
 }
 
-fn create_option_auto_increment(i: &str) -> IResult<&str, ()> {
+fn create_option_auto_increment(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("auto_increment"), integer_literal)(i)
 }
 
-fn create_option_default_charset(i: &str) -> IResult<&str, ()> {
+fn create_option_default_charset(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(
         tag_no_case("default charset"),
         alt((
@@ -86,7 +85,7 @@ fn create_option_default_charset(i: &str) -> IResult<&str, ()> {
     )(i)
 }
 
-fn create_option_collate(i: &str) -> IResult<&str, ()> {
+fn create_option_collate(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(
         tag_no_case("collate"),
         // TODO(malte): imprecise hack, should not accept everything
@@ -94,19 +93,19 @@ fn create_option_collate(i: &str) -> IResult<&str, ()> {
     )(i)
 }
 
-fn create_option_comment(i: &str) -> IResult<&str, ()> {
+fn create_option_comment(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("comment"), string_literal)(i)
 }
 
-fn create_option_max_rows(i: &str) -> IResult<&str, ()> {
+fn create_option_max_rows(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("max_rows"), integer_literal)(i)
 }
 
-fn create_option_avg_row_length(i: &str) -> IResult<&str, ()> {
+fn create_option_avg_row_length(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     create_option_equals_pair(tag_no_case("avg_row_length"), integer_literal)(i)
 }
 
-fn create_option_row_format(i: &str) -> IResult<&str, ()> {
+fn create_option_row_format(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     let (remaining_input, (_, _, _, _, _)) = tuple((
         tag_no_case("row_format"),
         multispace0,
@@ -124,7 +123,7 @@ fn create_option_row_format(i: &str) -> IResult<&str, ()> {
     Ok((remaining_input, ()))
 }
 
-fn create_option_key_block_size(i: &str) -> IResult<&str, ()> {
+fn create_option_key_block_size(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     let (remaining_input, (_, _, _, _, _)) = tuple((
         tag_no_case("key_block_size"),
         multispace0,

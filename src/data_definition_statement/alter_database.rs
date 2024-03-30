@@ -5,6 +5,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
@@ -40,7 +41,7 @@ impl fmt::Display for AlterDatabaseStatement {
     }
 }
 
-pub fn alter_database_parser(i: &str) -> IResult<&str, AlterDatabaseStatement> {
+pub fn alter_database_parser(i: &str) -> IResult<&str, AlterDatabaseStatement, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ALTER "),
@@ -90,7 +91,7 @@ impl fmt::Display for AlterDatabaseOption {
     }
 }
 
-fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption> {
+fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseError<&str>> {
     // [DEFAULT] CHARACTER SET [=] charset_name
     let character = map(
         tuple((

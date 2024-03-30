@@ -1,13 +1,14 @@
 use std::fmt;
 use std::str;
 
-use zz_condition::ConditionExpression;
+use common::column::Column;
+use common::table::Table;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
+use nom::error::VerboseError;
 use nom::IResult;
-use common::column::Column;
-use common::table::Table;
+use zz_condition::ConditionExpression;
 use zz_select::{JoinClause, SelectStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -90,7 +91,7 @@ impl fmt::Display for JoinConstraint {
 }
 
 // Parse binary comparison operators
-pub fn join_operator(i: &str) -> IResult<&str, JoinOperator> {
+pub fn join_operator(i: &str) -> IResult<&str, JoinOperator, VerboseError<&str>> {
     alt((
         map(tag_no_case("join"), |_| JoinOperator::Join),
         map(tag_no_case("left join"), |_| JoinOperator::LeftJoin),
@@ -106,8 +107,8 @@ pub fn join_operator(i: &str) -> IResult<&str, JoinOperator> {
 
 #[cfg(test)]
 mod tests {
-    use common::{FieldDefinitionExpression, Operator};
     use super::*;
+    use common::{FieldDefinitionExpression, Operator};
     use zz_condition::ConditionBase::*;
     use zz_condition::ConditionExpression::{self, *};
     use zz_condition::ConditionTree;

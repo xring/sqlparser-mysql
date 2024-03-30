@@ -5,6 +5,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
@@ -137,7 +138,7 @@ impl fmt::Display for SelectStatement {
     }
 }
 
-fn having_clause(i: &str) -> IResult<&str, ConditionExpression> {
+fn having_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let (remaining_input, (_, _, _, ce)) = tuple((
         multispace0,
         tag_no_case("having"),
@@ -149,7 +150,7 @@ fn having_clause(i: &str) -> IResult<&str, ConditionExpression> {
 }
 
 // Parse GROUP BY clause
-pub fn group_by_clause(i: &str) -> IResult<&str, GroupByClause> {
+pub fn group_by_clause(i: &str) -> IResult<&str, GroupByClause, VerboseError<&str>> {
     let (remaining_input, (_, _, _, columns, having)) = tuple((
         multispace0,
         tag_no_case("group by"),
@@ -161,7 +162,7 @@ pub fn group_by_clause(i: &str) -> IResult<&str, GroupByClause> {
     Ok((remaining_input, GroupByClause { columns, having }))
 }
 
-fn offset(i: &str) -> IResult<&str, u64> {
+fn offset(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
     let (remaining_input, (_, _, _, val)) = tuple((
         multispace0,
         tag_no_case("offset"),
@@ -173,7 +174,7 @@ fn offset(i: &str) -> IResult<&str, u64> {
 }
 
 // Parse LIMIT clause
-pub fn limit_clause(i: &str) -> IResult<&str, LimitClause> {
+pub fn limit_clause(i: &str) -> IResult<&str, LimitClause, VerboseError<&str>> {
     let (remaining_input, (_, _, _, limit, opt_offset)) = tuple((
         multispace0,
         tag_no_case("limit"),
@@ -189,7 +190,7 @@ pub fn limit_clause(i: &str) -> IResult<&str, LimitClause> {
     Ok((remaining_input, LimitClause { limit, offset }))
 }
 
-fn join_constraint(i: &str) -> IResult<&str, JoinConstraint> {
+fn join_constraint(i: &str) -> IResult<&str, JoinConstraint, VerboseError<&str>> {
     let using_clause = map(
         tuple((
             tag_no_case("using"),
@@ -218,7 +219,7 @@ fn join_constraint(i: &str) -> IResult<&str, JoinConstraint> {
 }
 
 // Parse JOIN clause
-fn join_clause(i: &str) -> IResult<&str, JoinClause> {
+fn join_clause(i: &str) -> IResult<&str, JoinClause, VerboseError<&str>> {
     let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
         multispace0,
         opt(terminated(tag_no_case("natural"), multispace1)),
@@ -239,7 +240,7 @@ fn join_clause(i: &str) -> IResult<&str, JoinClause> {
     ))
 }
 
-fn join_rhs(i: &str) -> IResult<&str, JoinRightSide> {
+fn join_rhs(i: &str) -> IResult<&str, JoinRightSide, VerboseError<&str>> {
     let nested_select = map(
         tuple((
             delimited(tag("("), nested_selection, tag(")")),
@@ -258,7 +259,7 @@ fn join_rhs(i: &str) -> IResult<&str, JoinRightSide> {
 }
 
 // Parse WHERE clause of a selection
-pub fn where_clause(i: &str) -> IResult<&str, ConditionExpression> {
+pub fn where_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
     let (remaining_input, (_, _, _, where_condition)) = tuple((
         multispace0,
         tag_no_case("where"),
@@ -270,11 +271,11 @@ pub fn where_clause(i: &str) -> IResult<&str, ConditionExpression> {
 }
 
 // Parse rule for a SQL selection query.
-pub fn selection(i: &str) -> IResult<&str, SelectStatement> {
+pub fn selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
     terminated(nested_selection, statement_terminator)(i)
 }
 
-pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement> {
+pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
     let (
         remaining_input,
         (_, _, distinct, _, fields, _, tables, join, where_clause, group_by, order, limit),

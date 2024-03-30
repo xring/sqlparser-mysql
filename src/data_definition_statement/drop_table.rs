@@ -6,6 +6,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
+use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
@@ -70,7 +71,7 @@ impl fmt::Display for DropTableStatement {
     }
 }
 
-pub fn drop_table_parser(i: &str) -> IResult<&str, DropTableStatement> {
+pub fn drop_table_parser(i: &str) -> IResult<&str, DropTableStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         opt(delimited(

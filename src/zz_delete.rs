@@ -3,12 +3,13 @@ use std::{fmt, str};
 
 use common::table::Table;
 use common_parsers::{schema_table_reference, statement_terminator};
-use zz_condition::ConditionExpression;
 use keywords::escape_if_keyword;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::opt;
+use nom::error::VerboseError;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
+use zz_condition::ConditionExpression;
 use zz_select::where_clause;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -29,7 +30,7 @@ impl fmt::Display for DeleteStatement {
     }
 }
 
-pub fn deletion(i: &str) -> IResult<&str, DeleteStatement> {
+pub fn deletion(i: &str) -> IResult<&str, DeleteStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, table, where_clause, _)) = tuple((
         tag_no_case("delete"),
         delimited(multispace1, tag_no_case("from"), multispace1),
@@ -51,8 +52,8 @@ pub fn deletion(i: &str) -> IResult<&str, DeleteStatement> {
 mod tests {
     use super::*;
     use common::column::Column;
-    use common::Operator;
     use common::Literal;
+    use common::Operator;
     use zz_condition::ConditionBase::*;
     use zz_condition::ConditionExpression::*;
     use zz_condition::ConditionTree;

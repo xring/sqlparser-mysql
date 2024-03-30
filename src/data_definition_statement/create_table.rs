@@ -6,11 +6,17 @@ use common::table::Table;
 use common_parsers::{schema_table_reference, sql_identifier, statement_terminator, ws_sep_comma};
 use common_statement::index_option::{index_option, IndexOption};
 use common_statement::table_option::{table_option, TableOptions};
-use common_statement::{fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part, opt_index_name, opt_index_option, opt_index_type, single_column_definition, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, KeyPart, ReferenceDefinition, reference_definition};
+use common_statement::{
+    fulltext_or_spatial_type, index_col_list, index_or_key_type, index_type, key_part,
+    opt_index_name, opt_index_option, opt_index_type, reference_definition,
+    single_column_definition, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType,
+    IndexType, KeyPart, ReferenceDefinition,
+};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt, rest};
+use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
@@ -48,7 +54,7 @@ impl fmt::Display for CreateTableStatement {
 ///
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-pub fn create_table_parser(i: &str) -> IResult<&str, CreateTableStatement> {
+pub fn create_table_parser(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
     alt((create_simple, create_like_old_table, create_as_query))(i)
 }
 
@@ -89,11 +95,11 @@ pub enum CreateTableType {
     LikeOldTable(Table),
 }
 
-fn create_table_options(i: &str) -> IResult<&str, TableOptions> {
+fn create_table_options(i: &str) -> IResult<&str, TableOptions, VerboseError<&str>> {
     map(many1(terminated(table_option, opt(ws_sep_comma))), |x| x)(i)
 }
 
-fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>> {
+fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>, VerboseError<&str>> {
     delimited(
         tag("("),
         many1(map(
@@ -114,7 +120,7 @@ fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>> {
 ///     (create_definition,...)
 ///     [table_options]
 ///     [partition_options]
-fn create_simple(i: &str) -> IResult<&str, CreateTableStatement> {
+fn create_simple(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
     map(
         tuple((
             create_table_with_name,
@@ -150,7 +156,7 @@ fn create_simple(i: &str) -> IResult<&str, CreateTableStatement> {
 ///     [partition_options]
 ///     [IGNORE | REPLACE]
 ///     [AS] query_expression
-fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement> {
+fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
     map(
         tuple((
             create_table_with_name,
@@ -191,7 +197,7 @@ fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement> {
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement> {
+fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
     map(
         tuple((
             create_table_with_name,
@@ -224,7 +230,7 @@ fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement> {
 }
 
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table)> {
+fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table), VerboseError<&str>> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
@@ -242,7 +248,7 @@ fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table)> {
 }
 
 /// [IF NOT EXISTS]
-fn if_not_exists(i: &str) -> IResult<&str, bool> {
+fn if_not_exists(i: &str) -> IResult<&str, bool, VerboseError<&str>> {
     map(
         opt(tuple((
             tag_no_case("IF"),
@@ -272,7 +278,7 @@ fn if_not_exists(i: &str) -> IResult<&str, bool> {
 ///       reference_definition
 ///   | check_constraint_definition
 /// }
-pub fn create_definition(i: &str) -> IResult<&str, CreateDefinition> {
+pub fn create_definition(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     alt((
         map(single_column_definition, |x| {
             CreateDefinition::ColumnDefinition(x)
@@ -340,7 +346,7 @@ pub enum CreateDefinition {
 }
 
 /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
-fn index_or_key(i: &str) -> IResult<&str, CreateDefinition> {
+fn index_or_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             // {INDEX | KEY}
@@ -367,7 +373,7 @@ fn index_or_key(i: &str) -> IResult<&str, CreateDefinition> {
 }
 
 /// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
-fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition> {
+fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             // {FULLTEXT | SPATIAL}
@@ -394,7 +400,7 @@ fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition> {
 }
 
 /// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
-fn primary_key(i: &str) -> IResult<&str, CreateDefinition> {
+fn primary_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
@@ -415,7 +421,7 @@ fn primary_key(i: &str) -> IResult<&str, CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
-fn unique(i: &str) -> IResult<&str, CreateDefinition> {
+fn unique(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
@@ -454,7 +460,7 @@ fn unique(i: &str) -> IResult<&str, CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
-fn foreign_key(i: &str) -> IResult<&str, CreateDefinition> {
+fn foreign_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -492,7 +498,7 @@ fn foreign_key(i: &str) -> IResult<&str, CreateDefinition> {
 
 /// check_constraint_definition
 /// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition> {
+fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
     map(
         tuple((
             // [CONSTRAINT [symbol]]
@@ -524,7 +530,7 @@ fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition> {
 }
 
 /// [CONSTRAINT [symbol]]
-fn opt_constraint_with_opt_symbol(i: &str) -> IResult<&str, Option<String>> {
+fn opt_constraint_with_opt_symbol(i: &str) -> IResult<&str, Option<String>, VerboseError<&str>> {
     map(
         opt(preceded(
             tag_no_case("CONSTRAINT"),
@@ -541,7 +547,9 @@ pub enum CreatePartitionOption {
     None,
 }
 
-pub fn create_table_partition_option(i: &str) -> IResult<&str, CreatePartitionOption> {
+pub fn create_table_partition_option(
+    i: &str,
+) -> IResult<&str, CreatePartitionOption, VerboseError<&str>> {
     map(tag_no_case(""), |_| CreatePartitionOption::None)(i)
 }
 

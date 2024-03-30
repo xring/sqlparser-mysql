@@ -5,6 +5,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::map;
+use nom::error::VerboseError;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
@@ -40,7 +41,7 @@ impl fmt::Display for DropSpatialReferenceSystemStatement {
 /// srid: 32-bit unsigned integer
 pub fn drop_spatial_reference_system_parser(
     i: &str,
-) -> IResult<&str, DropSpatialReferenceSystemStatement> {
+) -> IResult<&str, DropSpatialReferenceSystemStatement, VerboseError<&str>> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),

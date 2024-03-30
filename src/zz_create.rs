@@ -10,17 +10,17 @@ use common_parsers::{
     column_identifier_without_alias, parse_comment, schema_table_reference, sql_identifier,
     statement_terminator, type_identifier, ws_sep_comma,
 };
-use common_statement::OrderType;
+use common_statement::{order_type, OrderType};
 use keywords::escape_if_keyword;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 use zz_compound_select::{compound_selection, CompoundSelectStatement};
 use zz_create_table_options::table_options;
-use zz_order::order_type;
 use zz_select::{nested_selection, SelectStatement};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -101,7 +101,9 @@ impl fmt::Display for CreateViewStatement {
 }
 
 // MySQL grammar element for index column definition (§13.1.18, index_col_name)
-pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<OrderType>)> {
+pub fn index_col_name(
+    i: &str,
+) -> IResult<&str, (Column, Option<u16>, Option<OrderType>), VerboseError<&str>> {
     let (remaining_input, (column, len_u8, order)) = tuple((
         terminated(column_identifier_without_alias, multispace0),
         opt(delimited(tag("("), digit1, tag(")"))),
@@ -113,7 +115,7 @@ pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<Ord
 }
 
 // Helper for list of index columns
-pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
+pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
     many0(map(
         terminated(index_col_name, opt(ws_sep_comma)),
         // XXX(malte): ignores length and order
@@ -122,11 +124,11 @@ pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
 }
 
 // Parse rule for an individual key specification.
-pub fn key_specification(i: &str) -> IResult<&str, TableKey> {
+pub fn key_specification(i: &str) -> IResult<&str, TableKey, VerboseError<&str>> {
     alt((full_text_key, primary_key, unique, key_or_index))(i)
 }
 
-fn full_text_key(i: &str) -> IResult<&str, TableKey> {
+fn full_text_key(i: &str) -> IResult<&str, TableKey, VerboseError<&str>> {
     let (remaining_input, (_, _, _, _, name, _, columns)) = tuple((
         tag_no_case("fulltext"),
         multispace1,
@@ -150,7 +152,7 @@ fn full_text_key(i: &str) -> IResult<&str, TableKey> {
     }
 }
 
-fn primary_key(i: &str) -> IResult<&str, TableKey> {
+fn primary_key(i: &str) -> IResult<&str, TableKey, VerboseError<&str>> {
     let (remaining_input, (_, _, columns, _)) = tuple((
         tag_no_case("primary key"),
         multispace0,
@@ -168,7 +170,7 @@ fn primary_key(i: &str) -> IResult<&str, TableKey> {
     Ok((remaining_input, TableKey::PrimaryKey(columns)))
 }
 
-fn unique(i: &str) -> IResult<&str, TableKey> {
+fn unique(i: &str) -> IResult<&str, TableKey, VerboseError<&str>> {
     // TODO: add branching to correctly parse whitespace after `unique`
     let (remaining_input, (_, _, _, name, _, columns)) = tuple((
         tag_no_case("unique"),
@@ -195,7 +197,7 @@ fn unique(i: &str) -> IResult<&str, TableKey> {
     }
 }
 
-fn key_or_index(i: &str) -> IResult<&str, TableKey> {
+fn key_or_index(i: &str) -> IResult<&str, TableKey, VerboseError<&str>> {
     let (remaining_input, (_, _, name, _, columns)) = tuple((
         alt((tag_no_case("key"), tag_no_case("index"))),
         multispace0,
@@ -213,11 +215,11 @@ fn key_or_index(i: &str) -> IResult<&str, TableKey> {
 }
 
 // Parse rule for a comma-separated list.
-pub fn key_specification_list(i: &str) -> IResult<&str, Vec<TableKey>> {
+pub fn key_specification_list(i: &str) -> IResult<&str, Vec<TableKey>, VerboseError<&str>> {
     many1(terminated(key_specification, opt(ws_sep_comma)))(i)
 }
 
-pub fn field_specification(i: &str) -> IResult<&str, ColumnSpecification> {
+pub fn field_specification(i: &str) -> IResult<&str, ColumnSpecification, VerboseError<&str>> {
     let (remaining_input, (column, field_type, constraints, comment, _)) = tuple((
         column_identifier_without_alias,
         opt(delimited(multispace1, type_identifier, multispace0)),
@@ -243,12 +245,14 @@ pub fn field_specification(i: &str) -> IResult<&str, ColumnSpecification> {
 }
 
 // Parse rule for a comma-separated list.
-pub fn field_specification_list(i: &str) -> IResult<&str, Vec<ColumnSpecification>> {
+pub fn field_specification_list(
+    i: &str,
+) -> IResult<&str, Vec<ColumnSpecification>, VerboseError<&str>> {
     many1(field_specification)(i)
 }
 
 // Parse rule for a column definition constraint.
-pub fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
+pub fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
     let not_null = map(
         delimited(multispace0, tag_no_case("not null"), multispace0),
         |_| Some(ColumnConstraint::NotNull),
@@ -302,7 +306,7 @@ pub fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     ))(i)
 }
 
-fn fixed_point(i: &str) -> IResult<&str, Literal> {
+fn fixed_point(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     let (remaining_input, (i, _, f)) = tuple((digit1, tag("."), digit1))(i)?;
 
     Ok((
@@ -314,16 +318,15 @@ fn fixed_point(i: &str) -> IResult<&str, Literal> {
     ))
 }
 
-fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
+fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
     let (remaining_input, (_, _, _, def, _)) = tuple((
         multispace0,
         tag_no_case("default"),
         multispace1,
         alt((
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |s| Literal::String(String::from(s)),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |s| {
+                Literal::String(String::from(s))
+            }),
             fixed_point,
             map(digit1, |d| {
                 let d_i64 = i64::from_str(d).unwrap();
@@ -343,7 +346,7 @@ fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
 
 // Parse rule for a SQL CREATE TABLE query.
 // TODO(malte): support types, TEMPORARY tables, IF NOT EXISTS, AS stmt
-pub fn creation(i: &str) -> IResult<&str, CreateTableStatement> {
+pub fn creation(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, _, _, table, _, _, _, fields_list, _, keys_list, _, _, _, _, _)) =
         tuple((
             tag_no_case("create"),
@@ -422,7 +425,7 @@ pub fn creation(i: &str) -> IResult<&str, CreateTableStatement> {
 }
 
 // Parse rule for a SQL CREATE VIEW query.
-pub fn view_creation(i: &str) -> IResult<&str, CreateViewStatement> {
+pub fn view_creation(i: &str) -> IResult<&str, CreateViewStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, _, _, name_slice, _, _, _, def, _)) = tuple((
         tag_no_case("create"),
         multispace1,

@@ -6,6 +6,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
+use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
@@ -36,7 +37,7 @@ impl fmt::Display for DropTriggerStatement {
 }
 
 /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
-pub fn drop_trigger_parser(i: &str) -> IResult<&str, DropTriggerStatement> {
+pub fn drop_trigger_parser(i: &str) -> IResult<&str, DropTriggerStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,

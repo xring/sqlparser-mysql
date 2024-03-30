@@ -5,14 +5,14 @@ use std::str;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
-use nom::IResult;
+use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
+use nom::IResult;
 
 use common::table::Table;
 use common_parsers::{
-    schema_table_reference_to_schema_table_reference,
-    statement_terminator, ws_sep_comma,
+    schema_table_reference_to_schema_table_reference, statement_terminator, ws_sep_comma,
 };
 
 /// RENAME TABLE
@@ -47,7 +47,7 @@ impl fmt::Display for RenameTableStatement {
     }
 }
 
-pub fn rename_table_parser(i: &str) -> IResult<&str, RenameTableStatement> {
+pub fn rename_table_parser(i: &str) -> IResult<&str, RenameTableStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("RENAME "),
         multispace0,

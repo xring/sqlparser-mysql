@@ -5,8 +5,9 @@ use std::str;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
-use nom::IResult;
+use nom::error::VerboseError;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use common_parsers::{parse_if_exists, sql_identifier, statement_terminator};
 
@@ -29,7 +30,7 @@ impl fmt::Display for DropDatabaseStatement {
     }
 }
 
-pub fn drop_database_parser(i: &str) -> IResult<&str, DropDatabaseStatement> {
+pub fn drop_database_parser(i: &str) -> IResult<&str, DropDatabaseStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,

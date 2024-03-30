@@ -5,8 +5,9 @@ use std::str;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
-use nom::IResult;
+use nom::error::VerboseError;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use common::table::Table;
 use common_parsers::{schema_table_name_without_alias, statement_terminator};
@@ -28,7 +29,7 @@ impl fmt::Display for TruncateTableStatement {
     }
 }
 
-pub fn truncate_table_parser(i: &str) -> IResult<&str, TruncateTableStatement> {
+pub fn truncate_table_parser(i: &str) -> IResult<&str, TruncateTableStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("TRUNCATE "),
         multispace0,
@@ -45,7 +46,9 @@ pub fn truncate_table_parser(i: &str) -> IResult<&str, TruncateTableStatement> {
 #[cfg(test)]
 mod tests {
     use common::table::Table;
-    use data_definition_statement::truncate_table::{truncate_table_parser, TruncateTableStatement};
+    use data_definition_statement::truncate_table::{
+        truncate_table_parser, TruncateTableStatement,
+    };
 
     #[test]
     fn test_parse_truncate_table() {

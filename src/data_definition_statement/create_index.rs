@@ -10,6 +10,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
@@ -50,7 +51,7 @@ pub struct CreateIndexStatement {
 ///
 /// lock_option:
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-pub fn create_index_parser(i: &str) -> IResult<&str, CreateIndexStatement> {
+pub fn create_index_parser(i: &str) -> IResult<&str, CreateIndexStatement, VerboseError<&str>> {
     map(
         tuple((
             tuple((tag_no_case("CREATE"), multispace1)),
@@ -101,7 +102,7 @@ pub enum Index {
 }
 
 /// [UNIQUE | FULLTEXT | SPATIAL]
-fn index(i: &str) -> IResult<&str, Index> {
+fn index(i: &str) -> IResult<&str, Index, VerboseError<&str>> {
     alt((
         map(tag_no_case("UNIQUE"), |_| Index::Unique),
         map(tag_no_case("FULLTEXT"), |_| Index::Fulltext),

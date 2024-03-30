@@ -3,12 +3,13 @@ use std::{fmt, str};
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
-use nom::IResult;
+use nom::error::VerboseError;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use common::column::Column;
-use common::FieldValueExpression;
 use common::table::Table;
+use common::FieldValueExpression;
 use common_parsers::{assignment_expr_list, statement_terminator, table_reference};
 use keywords::escape_if_keyword;
 use zz_condition::ConditionExpression;
@@ -42,7 +43,7 @@ impl fmt::Display for UpdateStatement {
     }
 }
 
-pub fn updating(i: &str) -> IResult<&str, UpdateStatement> {
+pub fn updating(i: &str) -> IResult<&str, UpdateStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, table, _, _, _, fields, _, where_clause, _)) = tuple((
         tag_no_case("update"),
         multispace1,
@@ -67,7 +68,9 @@ pub fn updating(i: &str) -> IResult<&str, UpdateStatement> {
 
 #[cfg(test)]
 mod tests {
-    use common::{FieldValueExpression, ItemPlaceholder, Literal, LiteralExpression, Operator, Real};
+    use common::{
+        FieldValueExpression, ItemPlaceholder, Literal, LiteralExpression, Operator, Real,
+    };
     use zz_arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
     use zz_condition::ConditionBase::*;
     use zz_condition::ConditionExpression::*;

@@ -10,7 +10,7 @@ use nom::character::complete::{
 use nom::character::is_alphanumeric;
 use nom::combinator::opt;
 use nom::combinator::{map, not, peek, recognize};
-use nom::error::{ErrorKind, ParseError};
+use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::{fold_many0, many0, many1, separated_list0};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::{IResult, InputLength, Parser};
@@ -62,7 +62,7 @@ where
     }
 }
 
-fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>)> {
+fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>), VerboseError<&str>> {
     let (remaining_input, (m, d)) = tuple((
         digit1,
         opt(preceded(tag(","), preceded(multispace0, digit1))),
@@ -74,21 +74,21 @@ fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>)> {
     ))
 }
 
-pub fn precision(i: &str) -> IResult<&str, (u8, Option<u8>)> {
+pub fn precision(i: &str) -> IResult<&str, (u8, Option<u8>), VerboseError<&str>> {
     delimited(tag("("), precision_helper, tag(")"))(i)
 }
 
-fn opt_signed(i: &str) -> IResult<&str, Option<&str>> {
+fn opt_signed(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {
     opt(alt((tag_no_case("unsigned"), tag_no_case("signed"))))(i)
 }
 
-fn delim_digit(i: &str) -> IResult<&str, &str> {
+fn delim_digit(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     delimited(tag("("), digit1, tag(")"))(i)
 }
 
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
-fn tiny_int(i: &str) -> IResult<&str, SqlDataType> {
+fn tiny_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     let (remaining_input, (_, len, _, signed)) = tuple((
         tag_no_case("tinyint"),
         opt(delim_digit),
@@ -119,7 +119,7 @@ fn tiny_int(i: &str) -> IResult<&str, SqlDataType> {
 
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
-fn big_int(i: &str) -> IResult<&str, SqlDataType> {
+fn big_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     let (remaining_input, (_, len, _, signed)) = tuple((
         tag_no_case("bigint"),
         opt(delim_digit),
@@ -150,7 +150,7 @@ fn big_int(i: &str) -> IResult<&str, SqlDataType> {
 
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
-fn sql_int_type(i: &str) -> IResult<&str, SqlDataType> {
+fn sql_int_type(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     let (remaining_input, (_, len, _, signed)) = tuple((
         alt((
             tag_no_case("integer"),
@@ -186,7 +186,7 @@ fn sql_int_type(i: &str) -> IResult<&str, SqlDataType> {
 // TODO(malte): not strictly ok to treat DECIMAL and NUMERIC as identical; the
 // former has "at least" M precision, the latter "exactly".
 // See https://dev.mysql.com/doc/refman/5.7/en/precision-math-decimal-characteristics.html
-fn decimal_or_numeric(i: &str) -> IResult<&str, SqlDataType> {
+fn decimal_or_numeric(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     let (remaining_input, precision) = delimited(
         alt((tag_no_case("decimal"), tag_no_case("numeric"))),
         opt(precision),
@@ -200,7 +200,7 @@ fn decimal_or_numeric(i: &str) -> IResult<&str, SqlDataType> {
     }
 }
 
-fn type_identifier_first_half(i: &str) -> IResult<&str, SqlDataType> {
+fn type_identifier_first_half(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     alt((
         tiny_int,
         big_int,
@@ -267,7 +267,7 @@ fn type_identifier_first_half(i: &str) -> IResult<&str, SqlDataType> {
     ))(i)
 }
 
-fn type_identifier_second_half(i: &str) -> IResult<&str, SqlDataType> {
+fn type_identifier_second_half(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     alt((
         map(
             tuple((tag_no_case("binary"), delim_digit, multispace0)),
@@ -288,12 +288,12 @@ fn type_identifier_second_half(i: &str) -> IResult<&str, SqlDataType> {
 }
 
 // A SQL type specifier.
-pub fn type_identifier(i: &str) -> IResult<&str, SqlDataType> {
+pub fn type_identifier(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
     alt((type_identifier_first_half, type_identifier_second_half))(i)
 }
 
 // Parses the argument for an aggregation function
-pub fn function_argument_parser(i: &str) -> IResult<&str, FunctionArgument> {
+pub fn function_argument_parser(i: &str) -> IResult<&str, FunctionArgument, VerboseError<&str>> {
     alt((
         map(case_when_column, |cw| FunctionArgument::Conditional(cw)),
         map(column_identifier_without_alias, |c| {
@@ -304,14 +304,14 @@ pub fn function_argument_parser(i: &str) -> IResult<&str, FunctionArgument> {
 
 // Parses the arguments for an aggregation function, and also returns whether the distinct flag is
 // present.
-pub fn function_arguments(i: &str) -> IResult<&str, (FunctionArgument, bool)> {
+pub fn function_arguments(i: &str) -> IResult<&str, (FunctionArgument, bool), VerboseError<&str>> {
     let distinct_parser = opt(tuple((tag_no_case("distinct"), multispace1)));
     let (remaining_input, (distinct, args)) =
         tuple((distinct_parser, function_argument_parser))(i)?;
     Ok((remaining_input, (args, distinct.is_some())))
 }
 
-fn group_concat_fx_helper(i: &str) -> IResult<&str, &str> {
+fn group_concat_fx_helper(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let ws_sep = preceded(multispace0, tag_no_case("separator"));
     let (remaining_input, sep) = delimited(
         ws_sep,
@@ -322,15 +322,15 @@ fn group_concat_fx_helper(i: &str) -> IResult<&str, &str> {
     Ok((remaining_input, sep.unwrap_or("")))
 }
 
-fn group_concat_fx(i: &str) -> IResult<&str, (Column, Option<&str>)> {
+fn group_concat_fx(i: &str) -> IResult<&str, (Column, Option<&str>), VerboseError<&str>> {
     pair(column_identifier_without_alias, opt(group_concat_fx_helper))(i)
 }
 
-fn delim_fx_args(i: &str) -> IResult<&str, (FunctionArgument, bool)> {
+fn delim_fx_args(i: &str) -> IResult<&str, (FunctionArgument, bool), VerboseError<&str>> {
     delimited(tag("("), function_arguments, tag(")"))(i)
 }
 
-pub fn column_function(i: &str) -> IResult<&str, FunctionExpression> {
+pub fn column_function(i: &str) -> IResult<&str, FunctionExpression, VerboseError<&str>> {
     let delim_group_concat_fx = delimited(tag("("), group_concat_fx, tag(")"));
     alt((
         map(tag_no_case("count(*)"), |_| FunctionExpression::CountStar),
@@ -381,7 +381,7 @@ pub fn column_function(i: &str) -> IResult<&str, FunctionExpression> {
 }
 
 // Parses a SQL column identifier in the table.column format
-pub fn column_identifier_without_alias(i: &str) -> IResult<&str, Column> {
+pub fn column_identifier_without_alias(i: &str) -> IResult<&str, Column, VerboseError<&str>> {
     let table_parser = pair(opt(terminated(sql_identifier, tag("."))), sql_identifier);
     alt((
         map(column_function, |f| Column {
@@ -403,7 +403,7 @@ pub fn column_identifier_without_alias(i: &str) -> IResult<&str, Column> {
 }
 
 // Parses a SQL column identifier in the table.column format
-pub fn column_identifier(i: &str) -> IResult<&str, Column> {
+pub fn column_identifier(i: &str) -> IResult<&str, Column, VerboseError<&str>> {
     let col_func_no_table = map(pair(column_function, opt(as_alias)), |tup| Column {
         name: match tup.1 {
             None => format!("{}", tup.0),
@@ -438,7 +438,7 @@ pub fn column_identifier(i: &str) -> IResult<&str, Column> {
     alt((col_func_no_table, col_w_table))(i)
 }
 
-pub fn sql_identifier(i: &str) -> IResult<&str, &str> {
+pub fn sql_identifier(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     alt((
         alt((
             preceded(
@@ -463,7 +463,7 @@ pub fn sql_identifier(i: &str) -> IResult<&str, &str> {
 }
 
 // Parse an unsigned integer.
-pub fn unsigned_number(i: &str) -> IResult<&str, u64> {
+pub fn unsigned_number(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
     map(digit1, |d| FromStr::from_str(d).unwrap())(i)
 }
 
@@ -476,7 +476,7 @@ pub(crate) fn eof<I: Copy + InputLength, E: ParseError<I>>(input: I) -> IResult<
 }
 
 // Parse a terminator that ends a SQL statement.
-pub fn statement_terminator(i: &str) -> IResult<&str, ()> {
+pub fn statement_terminator(i: &str) -> IResult<&str, (), VerboseError<&str>> {
     let (remaining_input, _) =
         delimited(multispace0, alt((tag(";"), line_ending, eof)), multispace0)(i)?;
 
@@ -484,7 +484,7 @@ pub fn statement_terminator(i: &str) -> IResult<&str, ()> {
 }
 
 // Parse binary comparison operators
-pub fn binary_comparison_operator(i: &str) -> IResult<&str, Operator> {
+pub fn binary_comparison_operator(i: &str) -> IResult<&str, Operator, VerboseError<&str>> {
     alt((
         map(tag_no_case("not_like"), |_| Operator::NotLike),
         map(tag_no_case("like"), |_| Operator::Like),
@@ -500,7 +500,7 @@ pub fn binary_comparison_operator(i: &str) -> IResult<&str, Operator> {
 }
 
 // Parse rule for AS-based aliases for SQL entities.
-pub fn as_alias(i: &str) -> IResult<&str, &str> {
+pub fn as_alias(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     map(
         tuple((
             multispace1,
@@ -511,7 +511,7 @@ pub fn as_alias(i: &str) -> IResult<&str, &str> {
     )(i)
 }
 
-fn field_value_expr(i: &str) -> IResult<&str, FieldValueExpression> {
+fn field_value_expr(i: &str) -> IResult<&str, FieldValueExpression, VerboseError<&str>> {
     alt((
         map(literal, |l| {
             FieldValueExpression::Literal(LiteralExpression {
@@ -525,7 +525,7 @@ fn field_value_expr(i: &str) -> IResult<&str, FieldValueExpression> {
     ))(i)
 }
 
-fn assignment_expr(i: &str) -> IResult<&str, (Column, FieldValueExpression)> {
+fn assignment_expr(i: &str) -> IResult<&str, (Column, FieldValueExpression), VerboseError<&str>> {
     separated_pair(
         column_identifier_without_alias,
         delimited(multispace0, tag("="), multispace0),
@@ -533,26 +533,22 @@ fn assignment_expr(i: &str) -> IResult<&str, (Column, FieldValueExpression)> {
     )(i)
 }
 
-pub(crate) fn ws_sep_comma(i: &str) -> IResult<&str, &str> {
+pub fn ws_sep_comma(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     delimited(multispace0, tag(","), multispace0)(i)
 }
 
-pub(crate) fn ws_sep_equals<'a, I>(i: I) -> IResult<I, I>
-where
-    I: nom::InputTakeAtPosition + nom::InputTake + nom::Compare<&'a str>,
-    // Compare required by tag
-    <I as nom::InputTakeAtPosition>::Item: nom::AsChar + Clone,
-    // AsChar and Clone required by multispace0
-{
+pub(crate) fn ws_sep_equals(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     delimited(multispace0, tag("="), multispace0)(i)
 }
 
-pub fn assignment_expr_list(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>> {
+pub fn assignment_expr_list(
+    i: &str,
+) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
     many1(terminated(assignment_expr, opt(ws_sep_comma)))(i)
 }
 
 // Parse rule for a comma-separated list of fields without aliases.
-pub fn field_list(i: &str) -> IResult<&str, Vec<Column>> {
+pub fn field_list(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
     many0(terminated(
         column_identifier_without_alias,
         opt(ws_sep_comma),
@@ -560,7 +556,9 @@ pub fn field_list(i: &str) -> IResult<&str, Vec<Column>> {
 }
 
 // Parse list of column/field definitions.
-pub fn field_definition_expr(i: &str) -> IResult<&str, Vec<FieldDefinitionExpression>> {
+pub fn field_definition_expr(
+    i: &str,
+) -> IResult<&str, Vec<FieldDefinitionExpression>, VerboseError<&str>> {
     many0(terminated(
         alt((
             map(tag("*"), |_| FieldDefinitionExpression::All),
@@ -581,12 +579,12 @@ pub fn field_definition_expr(i: &str) -> IResult<&str, Vec<FieldDefinitionExpres
 
 // Parse list of table names.
 // XXX(malte): add support for aliases
-pub fn table_list(i: &str) -> IResult<&str, Vec<Table>> {
+pub fn table_list(i: &str) -> IResult<&str, Vec<Table>, VerboseError<&str>> {
     many0(terminated(schema_table_reference, opt(ws_sep_comma)))(i)
 }
 
 // Integer literal value
-pub fn integer_literal(i: &str) -> IResult<&str, Literal> {
+pub fn integer_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     map(pair(opt(tag("-")), digit1), |tup| {
         let mut intval = i64::from_str(tup.1).unwrap();
         if (tup.0).is_some() {
@@ -601,7 +599,7 @@ fn unpack(v: &str) -> i32 {
 }
 
 // Floating point literal value
-pub fn float_literal(i: &str) -> IResult<&str, Literal> {
+pub fn float_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     map(tuple((opt(tag("-")), digit1, tag("."), digit1)), |tup| {
         Literal::FixedPoint(Real {
             integral: if (tup.0).is_some() {
@@ -615,7 +613,10 @@ pub fn float_literal(i: &str) -> IResult<&str, Literal> {
 }
 
 /// String literal value
-fn raw_string_quoted(input: &str, is_single_quote: bool) -> IResult<&str, String> {
+fn raw_string_quoted(
+    input: &str,
+    is_single_quote: bool,
+) -> IResult<&str, String, VerboseError<&str>> {
     // Adjusted to work with &str
     let quote_char = if is_single_quote { '\'' } else { '"' };
     let quote_str = if is_single_quote { "\'" } else { "\"" };
@@ -653,15 +654,15 @@ fn raw_string_quoted(input: &str, is_single_quote: bool) -> IResult<&str, String
     )(input)
 }
 
-fn raw_string_single_quoted(i: &str) -> IResult<&str, String> {
+fn raw_string_single_quoted(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     raw_string_quoted(i, true)
 }
 
-fn raw_string_double_quoted(i: &str) -> IResult<&str, String> {
+fn raw_string_double_quoted(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     raw_string_quoted(i, false)
 }
 
-pub fn string_literal(i: &str) -> IResult<&str, Literal> {
+pub fn string_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     map(
         alt((raw_string_single_quoted, raw_string_double_quoted)),
         |str| Literal::String(str),
@@ -669,7 +670,7 @@ pub fn string_literal(i: &str) -> IResult<&str, Literal> {
 }
 
 // Any literal value.
-pub fn literal(i: &str) -> IResult<&str, Literal> {
+pub fn literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     alt((
         float_literal,
         integer_literal,
@@ -694,7 +695,7 @@ pub fn literal(i: &str) -> IResult<&str, Literal> {
     ))(i)
 }
 
-pub fn literal_expression(i: &str) -> IResult<&str, LiteralExpression> {
+pub fn literal_expression(i: &str) -> IResult<&str, LiteralExpression, VerboseError<&str>> {
     map(
         pair(opt_delimited(tag("("), literal, tag(")")), opt(as_alias)),
         |p| LiteralExpression {
@@ -705,12 +706,12 @@ pub fn literal_expression(i: &str) -> IResult<&str, LiteralExpression> {
 }
 
 // Parse a list of values (e.g., for INSERT syntax).
-pub fn value_list(i: &str) -> IResult<&str, Vec<Literal>> {
+pub fn value_list(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
     many0(delimited(multispace0, literal, opt(ws_sep_comma)))(i)
 }
 
 // Parse a reference to a named schema.table, with an optional alias
-pub fn schema_table_reference(i: &str) -> IResult<&str, Table> {
+pub fn schema_table_reference(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
     map(
         tuple((
             opt(pair(sql_identifier, tag("."))),
@@ -732,7 +733,7 @@ pub fn schema_table_reference(i: &str) -> IResult<&str, Table> {
 }
 
 /// table alias not allowed in DROP/TRUNCATE/RENAME TABLE statement
-pub fn schema_table_name_without_alias(i: &str) -> IResult<&str, Table> {
+pub fn schema_table_name_without_alias(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
     map(
         tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
         |tup| Table {
@@ -746,7 +747,7 @@ pub fn schema_table_name_without_alias(i: &str) -> IResult<&str, Table> {
     )(i)
 }
 
-pub fn schema_trigger_name(i: &str) -> IResult<&str, Trigger> {
+pub fn schema_trigger_name(i: &str) -> IResult<&str, Trigger, VerboseError<&str>> {
     map(
         tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
         |tup| Trigger {
@@ -760,7 +761,9 @@ pub fn schema_trigger_name(i: &str) -> IResult<&str, Trigger> {
 }
 
 /// db_name.tb_name TO db_name.tb_name
-pub fn schema_table_reference_to_schema_table_reference(i: &str) -> IResult<&str, (Table, Table)> {
+pub fn schema_table_reference_to_schema_table_reference(
+    i: &str,
+) -> IResult<&str, (Table, Table), VerboseError<&str>> {
     map(
         tuple((
             schema_table_name_without_alias, // 解析起始表名
@@ -774,7 +777,7 @@ pub fn schema_table_reference_to_schema_table_reference(i: &str) -> IResult<&str
 }
 
 // Parse a reference to a named table, with an optional alias
-pub fn table_reference(i: &str) -> IResult<&str, Table> {
+pub fn table_reference(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
     map(pair(sql_identifier, opt(as_alias)), |tup| Table {
         name: String::from(tup.0),
         alias: match tup.1 {
@@ -786,7 +789,7 @@ pub fn table_reference(i: &str) -> IResult<&str, Table> {
 }
 
 // Parse rule for a comment part.
-pub fn parse_comment(i: &str) -> IResult<&str, String> {
+pub fn parse_comment(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     map(
         preceded(
             delimited(multispace0, tag_no_case("comment"), multispace1),
@@ -796,7 +799,7 @@ pub fn parse_comment(i: &str) -> IResult<&str, String> {
     )(i)
 }
 
-pub fn parse_if_exists(i: &str) -> IResult<&str, Option<&str>> {
+pub fn parse_if_exists(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {
     opt(delimited(
         multispace0,
         delimited(tag_no_case("IF"), multispace1, tag_no_case("EXISTS ")),
@@ -835,10 +838,7 @@ mod tests {
     #[test]
     fn opt_delimited_tests() {
         // let ok1 = IResult::Ok(("".as_bytes(), "abc".as_bytes()));
-        assert_eq!(
-            test_opt_delimited_fn_call("abc"),
-            IResult::Ok(("", "abc"))
-        );
+        assert_eq!(test_opt_delimited_fn_call("abc"), IResult::Ok(("", "abc")));
         assert_eq!(
             test_opt_delimited_fn_call("(abc)"),
             IResult::Ok(("", "abc"))

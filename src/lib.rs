@@ -30,9 +30,9 @@ pub mod parser;
 #[macro_use]
 mod keywords;
 pub mod common;
-mod common_parsers;
+pub mod common_parsers;
 mod common_statement;
-mod data_definition_statement;
+pub mod data_definition_statement;
 mod zz_arithmetic;
 mod zz_case;
 mod zz_compound_select;

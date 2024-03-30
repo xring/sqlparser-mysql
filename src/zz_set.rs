@@ -1,11 +1,12 @@
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
+use nom::error::VerboseError;
 use std::{fmt, str};
 
+use common::Literal;
 use common_parsers::{literal, sql_identifier, statement_terminator};
 use nom::sequence::tuple;
 use nom::IResult;
-use common::Literal;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct SetStatement {
@@ -21,7 +22,7 @@ impl fmt::Display for SetStatement {
     }
 }
 
-pub fn set(i: &str) -> IResult<&str, SetStatement> {
+pub fn set(i: &str) -> IResult<&str, SetStatement, VerboseError<&str>> {
     let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
         tag_no_case("SET"),
         multispace1,

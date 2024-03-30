@@ -2,17 +2,17 @@ use nom::character::complete::{multispace0, multispace1};
 use std::fmt;
 use std::str;
 
+use common::column::Column;
 use common_parsers::{column_identifier_without_alias, ws_sep_comma};
+use common_statement::{order_type, OrderType};
 use keywords::escape_if_keyword;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{preceded, tuple};
 use nom::IResult;
-use common::column::Column;
-use common_statement::OrderType;
-
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct OrderClause {
@@ -34,14 +34,7 @@ impl fmt::Display for OrderClause {
     }
 }
 
-pub fn order_type(i: &str) -> IResult<&str, OrderType> {
-    alt((
-        map(tag_no_case("desc"), |_| OrderType::Desc),
-        map(tag_no_case("asc"), |_| OrderType::Asc),
-    ))(i)
-}
-
-fn order_expr(i: &str) -> IResult<&str, (Column, OrderType)> {
+fn order_expr(i: &str) -> IResult<&str, (Column, OrderType), VerboseError<&str>> {
     let (remaining_input, (field_name, ordering, _)) = tuple((
         column_identifier_without_alias,
         opt(preceded(multispace0, order_type)),
@@ -55,7 +48,7 @@ fn order_expr(i: &str) -> IResult<&str, (Column, OrderType)> {
 }
 
 // Parse ORDER BY clause
-pub fn order_clause(i: &str) -> IResult<&str, OrderClause> {
+pub fn order_clause(i: &str) -> IResult<&str, OrderClause, VerboseError<&str>> {
     let (remaining_input, (_, _, _, columns)) = tuple((
         multispace0,
         tag_no_case("order by"),
@@ -68,8 +61,8 @@ pub fn order_clause(i: &str) -> IResult<&str, OrderClause> {
 
 #[cfg(test)]
 mod tests {
-    use common_statement::OrderType;
     use super::*;
+    use common_statement::OrderType;
     use zz_select::selection;
 
     #[test]

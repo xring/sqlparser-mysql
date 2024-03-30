@@ -7,6 +7,7 @@ use common::column::Column;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
+use nom::error::VerboseError;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 use common::Literal;
@@ -44,7 +45,7 @@ impl fmt::Display for CaseWhenExpression {
     }
 }
 
-pub fn case_when_column(i: &str) -> IResult<&str, CaseWhenExpression> {
+pub fn case_when_column(i: &str) -> IResult<&str, CaseWhenExpression, VerboseError<&str>> {
     let (remaining_input, (_, _, condition, _, _, _, column, _, else_val, _)) = tuple((
         tag_no_case("CASE WHEN"),
         multispace0,

@@ -5,6 +5,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::map;
+use nom::error::VerboseError;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
@@ -30,7 +31,7 @@ impl fmt::Display for DropFunctionStatement {
 }
 
 /// DROP FUNCTION [IF EXISTS] sp_name
-pub fn drop_function_parser(i: &str) -> IResult<&str, DropFunctionStatement> {
+pub fn drop_function_parser(i: &str) -> IResult<&str, DropFunctionStatement, VerboseError<&str>> {
     map(
         tuple((
             terminated(tag_no_case("DROP"), multispace1),

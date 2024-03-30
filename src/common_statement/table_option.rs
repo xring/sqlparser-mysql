@@ -1,9 +1,10 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
-use nom::combinator::{map, opt};
+use nom::combinator::{map, opt, value};
 use nom::sequence::{delimited, tuple};
 use nom::{IResult, Parser};
+use nom::error::VerboseError;
 
 use common_parsers::sql_identifier;
 use common_statement::{
@@ -75,11 +76,11 @@ pub enum TableOption {
 
 pub type TableOptions = Vec<TableOption>;
 
-pub fn table_option(i: &str) -> IResult<&str, TableOption> {
+pub fn table_option(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     alt((table_option_part_1, table_option_part_2))(i)
 }
 
-fn table_option_part_1(i: &str) -> IResult<&str, TableOption> {
+fn table_option_part_1(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     alt((
         autoextend_size,
         auto_increment,
@@ -99,7 +100,7 @@ fn table_option_part_1(i: &str) -> IResult<&str, TableOption> {
     ))(i)
 }
 
-fn table_option_part_2(i: &str) -> IResult<&str, TableOption> {
+fn table_option_part_2(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     alt((
         insert_method,
         key_block_size,
@@ -118,7 +119,7 @@ fn table_option_part_2(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// AUTOEXTEND_SIZE [=] value
-fn autoextend_size(i: &str) -> IResult<&str, TableOption> {
+fn autoextend_size(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("AUTOEXTEND_SIZE "),
@@ -135,7 +136,7 @@ fn autoextend_size(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// AUTO_INCREMENT [=] value
-fn auto_increment(i: &str) -> IResult<&str, TableOption> {
+fn auto_increment(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("AUTO_INCREMENT "),
@@ -152,7 +153,7 @@ fn auto_increment(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// AVG_ROW_LENGTH [=] value
-fn avg_row_length(i: &str) -> IResult<&str, TableOption> {
+fn avg_row_length(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("AVG_ROW_LENGTH "),
@@ -169,7 +170,7 @@ fn avg_row_length(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// [DEFAULT] CHARACTER SET [=] charset_name
-fn default_character_set(i: &str) -> IResult<&str, TableOption> {
+fn default_character_set(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             opt(tag_no_case("DEFAULT ")),
@@ -191,7 +192,7 @@ fn default_character_set(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// CHECKSUM [=] {0 | 1}
-fn checksum(i: &str) -> IResult<&str, TableOption> {
+fn checksum(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("CHECKSUM "),
@@ -206,7 +207,7 @@ fn checksum(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// [DEFAULT] COLLATE [=] collation_name
-fn default_collate(i: &str) -> IResult<&str, TableOption> {
+fn default_collate(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             opt(tag_no_case("DEFAULT ")),
@@ -232,7 +233,7 @@ fn default_collate(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// COMMENT [=] 'string'
-fn comment(i: &str) -> IResult<&str, TableOption> {
+fn comment(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("COMMENT "),
@@ -249,7 +250,7 @@ fn comment(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
-fn compression(i: &str) -> IResult<&str, TableOption> {
+fn compression(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("COMPRESSION "),
@@ -274,7 +275,7 @@ fn compression(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// CONNECTION [=] 'connect_string'
-fn connection(i: &str) -> IResult<&str, TableOption> {
+fn connection(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("CONNECTION "),
@@ -291,7 +292,7 @@ fn connection(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-fn data_directory(i: &str) -> IResult<&str, TableOption> {
+fn data_directory(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("DATA"),
@@ -310,7 +311,7 @@ fn data_directory(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-fn index_directory(i: &str) -> IResult<&str, TableOption> {
+fn index_directory(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("INDEX"),
@@ -329,7 +330,7 @@ fn index_directory(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// DELAY_KEY_WRITE [=] {0 | 1}
-fn delay_key_write(i: &str) -> IResult<&str, TableOption> {
+fn delay_key_write(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("DELAY_KEY_RITE "),
@@ -344,7 +345,7 @@ fn delay_key_write(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// ENCRYPTION [=] {'Y' | 'N'}
-fn encryption(i: &str) -> IResult<&str, TableOption> {
+fn encryption(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ENCRYPTION "),
@@ -359,7 +360,7 @@ fn encryption(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// ENGINE [=] engine_name
-fn engine(i: &str) -> IResult<&str, TableOption> {
+fn engine(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ENGINE"),
@@ -374,7 +375,7 @@ fn engine(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// ENGINE_ATTRIBUTE [=] 'string'
-fn engine_attribute(i: &str) -> IResult<&str, TableOption> {
+fn engine_attribute(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ENGINE_ATTRIBUTE "),
@@ -391,7 +392,7 @@ fn engine_attribute(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// INSERT_METHOD [=] { NO | FIRST | LAST }
-fn insert_method(i: &str) -> IResult<&str, TableOption> {
+fn insert_method(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("INSERT METHOD "),
@@ -410,7 +411,7 @@ fn insert_method(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// KEY_BLOCK_SIZE [=] value
-fn key_block_size(i: &str) -> IResult<&str, TableOption> {
+fn key_block_size(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("KEY_BLOCK_SIZE "),
@@ -427,7 +428,7 @@ fn key_block_size(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// MAX_ROWS [=] value
-fn max_rows(i: &str) -> IResult<&str, TableOption> {
+fn max_rows(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("MAX_ROWS "),
@@ -444,7 +445,7 @@ fn max_rows(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// MIN_ROWS [=] value
-fn min_rows(i: &str) -> IResult<&str, TableOption> {
+fn min_rows(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("MIN_ROWS "),
@@ -461,7 +462,7 @@ fn min_rows(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// PACK_KEYS [=] {0 | 1 | DEFAULT}
-fn pack_keys(i: &str) -> IResult<&str, TableOption> {
+fn pack_keys(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("INSERT_METHOD "),
@@ -480,7 +481,7 @@ fn pack_keys(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// PASSWORD [=] 'string'
-fn password(i: &str) -> IResult<&str, TableOption> {
+fn password(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("PASSWORD "),
@@ -497,7 +498,7 @@ fn password(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-fn row_format(i: &str) -> IResult<&str, TableOption> {
+fn row_format(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("INSERT METHOD "),
@@ -520,7 +521,7 @@ fn row_format(i: &str) -> IResult<&str, TableOption> {
 
 /// START TRANSACTION
 /// create table only
-fn start_transaction(i: &str) -> IResult<&str, TableOption> {
+fn start_transaction(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("START"),
@@ -532,7 +533,7 @@ fn start_transaction(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
-fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption> {
+fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
@@ -549,7 +550,7 @@ fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
-fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption> {
+fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("STATS_AUTO_RECALC "),
@@ -568,7 +569,7 @@ fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
-fn stats_persistent(i: &str) -> IResult<&str, TableOption> {
+fn stats_persistent(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("STATS_PERSISTENT "),
@@ -587,7 +588,7 @@ fn stats_persistent(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// STATS_SAMPLE_PAGES [=] value
-fn stats_sample_pages(i: &str) -> IResult<&str, TableOption> {
+fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("STATS_SAMPLE_PAGES "),
@@ -604,7 +605,7 @@ fn stats_sample_pages(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
-fn tablespace(i: &str) -> IResult<&str, TableOption> {
+fn tablespace(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("TABLESPACE"),
@@ -628,7 +629,7 @@ fn tablespace(i: &str) -> IResult<&str, TableOption> {
 }
 
 /// UNION [=] (tbl_name[,tbl_name]...)
-fn union(i: &str) -> IResult<&str, TableOption> {
+fn union(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("UNION "),

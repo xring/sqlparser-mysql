@@ -6,6 +6,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
@@ -61,7 +62,7 @@ impl fmt::Display for DropViewStatement {
 /// DROP VIEW [IF EXISTS]
 ///     view_name [, view_name] ...
 ///     [RESTRICT | CASCADE]
-pub fn drop_view_parser(i: &str) -> IResult<&str, DropViewStatement> {
+pub fn drop_view_parser(i: &str) -> IResult<&str, DropViewStatement, VerboseError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,

@@ -3,6 +3,7 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
 
@@ -36,7 +37,7 @@ pub enum IndexOption {
 ///   | COMMENT 'string'
 ///   | {VISIBLE | INVISIBLE}
 /// }
-pub fn index_option(i: &str) -> IResult<&str, IndexOption> {
+pub fn index_option(i: &str) -> IResult<&str, IndexOption, VerboseError<&str>> {
     alt((
         map(key_block_size, |x| IndexOption::KeyBlockSize(x)),
         map(index_type, |x| IndexOption::IndexType(x)),
@@ -51,7 +52,7 @@ pub fn index_option(i: &str) -> IResult<&str, IndexOption> {
 }
 
 /// KEY_BLOCK_SIZE [=] value
-fn key_block_size(i: &str) -> IResult<&str, u64> {
+fn key_block_size(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
     map(
         tuple((
             multispace0,
@@ -66,7 +67,7 @@ fn key_block_size(i: &str) -> IResult<&str, u64> {
 }
 
 /// WITH PARSER parser_name
-fn with_parser(i: &str) -> IResult<&str, String> {
+fn with_parser(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     map(
         tuple((
             multispace0,
@@ -82,16 +83,15 @@ fn with_parser(i: &str) -> IResult<&str, String> {
 }
 
 /// ENGINE_ATTRIBUTE [=] value
-fn engine_attribute(i: &str) -> IResult<&str, String> {
+fn engine_attribute(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ENGINE_ATTRIBUTE "),
             multispace0,
             opt(tag("=")),
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x| String::from(x),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, engine, _)| engine,
@@ -99,16 +99,15 @@ fn engine_attribute(i: &str) -> IResult<&str, String> {
 }
 
 /// SECONDARY_ENGINE_ATTRIBUTE [=] value
-fn secondary_engine_attribute(i: &str) -> IResult<&str, String> {
+fn secondary_engine_attribute(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
             multispace0,
             opt(tag("=")),
-            map(
-                delimited(tag("'"), take_until("'"), tag("'")),
-                |x| String::from(x),
-            ),
+            map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
+                String::from(x)
+            }),
             multispace0,
         )),
         |(_, _, _, engine, _)| engine,

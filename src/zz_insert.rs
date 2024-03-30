@@ -2,7 +2,9 @@ use nom::character::complete::{multispace0, multispace1};
 use std::fmt;
 use std::str;
 
+use common::column::Column;
 use common::table::Table;
+use common::{FieldValueExpression, Literal};
 use common_parsers::{
     assignment_expr_list, field_list, schema_table_reference, statement_terminator, value_list,
     ws_sep_comma,
@@ -10,11 +12,10 @@ use common_parsers::{
 use keywords::escape_if_keyword;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::opt;
+use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
-use common::column::Column;
-use common::{FieldValueExpression, Literal};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct InsertStatement {
@@ -58,7 +59,7 @@ impl fmt::Display for InsertStatement {
     }
 }
 
-fn fields(i: &str) -> IResult<&str, Vec<Column>> {
+fn fields(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
     delimited(
         preceded(tag("("), multispace0),
         field_list,
@@ -66,11 +67,11 @@ fn fields(i: &str) -> IResult<&str, Vec<Column>> {
     )(i)
 }
 
-fn data(i: &str) -> IResult<&str, Vec<Literal>> {
+fn data(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
     delimited(tag("("), value_list, preceded(tag(")"), opt(ws_sep_comma)))(i)
 }
 
-fn on_duplicate(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>> {
+fn on_duplicate(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
     preceded(
         multispace0,
         preceded(
@@ -82,7 +83,7 @@ fn on_duplicate(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>> {
 
 // Parse rule for a SQL insert query.
 // TODO(malte): support REPLACE, nested selection, DEFAULT VALUES
-pub fn insertion(i: &str) -> IResult<&str, InsertStatement> {
+pub fn insertion(i: &str) -> IResult<&str, InsertStatement, VerboseError<&str>> {
     let (remaining_input, (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _)) =
         tuple((
             tag_no_case("insert"),
@@ -116,8 +117,8 @@ pub fn insertion(i: &str) -> IResult<&str, InsertStatement> {
 
 #[cfg(test)]
 mod tests {
-    use common::{FieldValueExpression, ItemPlaceholder};
     use super::*;
+    use common::{FieldValueExpression, ItemPlaceholder};
     use zz_arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
 
     #[test]

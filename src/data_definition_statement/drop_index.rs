@@ -5,6 +5,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
 
@@ -18,7 +19,7 @@ pub struct DropIndexStatement {
 
 /// DROP INDEX index_name ON tbl_name
 ///     [algorithm_option | lock_option] ...
-pub fn drop_index_parser(i: &str) -> IResult<&str, DropIndexStatement> {
+pub fn drop_index_parser(i: &str) -> IResult<&str, DropIndexStatement, VerboseError<&str>> {
     map(
         tuple((
             tuple((tag_no_case("DROP"), multispace1)),

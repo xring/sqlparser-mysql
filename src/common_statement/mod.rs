@@ -6,7 +6,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{anychar, digit1, multispace0, multispace1};
 use nom::combinator::{map, map_res, opt, recognize};
-use nom::error::{Error, ParseError};
+use nom::error::{Error, ParseError, VerboseError};
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
@@ -34,7 +34,7 @@ pub enum AlgorithmOption {
 
 /// algorithm_option:
 ///     ALGORITHM [=] {DEFAULT | INPLACE | COPY}
-pub fn algorithm_option(i: &str) -> IResult<&str, AlgorithmOption> {
+pub fn algorithm_option(i: &str) -> IResult<&str, AlgorithmOption, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("ALGORITHM"),
@@ -62,7 +62,7 @@ pub enum LockType {
 
 /// lock_option:
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-pub fn lock_option(i: &str) -> IResult<&str, LockType> {
+pub fn lock_option(i: &str) -> IResult<&str, LockType, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("LOCK "),
@@ -90,7 +90,7 @@ pub enum MatchType {
 }
 
 /// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-fn match_type(i: &str) -> IResult<&str, MatchType> {
+fn match_type(i: &str) -> IResult<&str, MatchType, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("MATCH"),
@@ -130,7 +130,7 @@ pub enum ReferenceOption {
 ///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
 ///       [ON DELETE reference_option]
 ///       [ON UPDATE reference_option]
-pub fn reference_definition(i: &str) -> IResult<&str, ReferenceDefinition> {
+pub fn reference_definition(i: &str) -> IResult<&str, ReferenceDefinition, VerboseError<&str>> {
     let opt_on_delete = opt(map(
         tuple((
             tag_no_case("ON"),
@@ -180,7 +180,7 @@ pub fn reference_definition(i: &str) -> IResult<&str, ReferenceDefinition> {
 
 /// reference_option:
 ///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
-pub fn reference_option(i: &str) -> IResult<&str, ReferenceOption> {
+pub fn reference_option(i: &str) -> IResult<&str, ReferenceOption, VerboseError<&str>> {
     alt((
         map(tag_no_case("RESTRICT"), |_| ReferenceOption::Restrict),
         map(tag_no_case("CASCADE"), |_| ReferenceOption::Cascade),
@@ -285,7 +285,7 @@ pub enum VisibleType {
     INVISIBLE,
 }
 
-pub fn visible_or_invisible(i: &str) -> IResult<&str, VisibleType> {
+pub fn visible_or_invisible(i: &str) -> IResult<&str, VisibleType, VerboseError<&str>> {
     alt((
         map(tag_no_case("VISIBLE"), |_| VisibleType::VISIBLE),
         map(tag_no_case("INVISIBLE"), |_| VisibleType::INVISIBLE),
@@ -342,7 +342,7 @@ impl fmt::Display for IndexType {
 
 /// index_type:
 ///    USING {BTREE | HASH}
-pub fn index_type(i: &str) -> IResult<&str, IndexType> {
+pub fn index_type(i: &str) -> IResult<&str, IndexType, VerboseError<&str>> {
     map(
         tuple((
             tag_no_case("USING"),
@@ -369,7 +369,7 @@ pub struct KeyPart {
 }
 
 /// [index_name]
-pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>> {
+pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, VerboseError<&str>> {
     opt(map(
         delimited(multispace1, sql_identifier, multispace0),
         |(x)| String::from(x),
@@ -378,13 +378,13 @@ pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>> {
 
 /// [index_type]
 /// USING {BTREE | HASH}
-pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>> {
+pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>, VerboseError<&str>> {
     opt(map(delimited(multispace1, index_type, multispace0), |x| x))(i)
 }
 
 /// (key_part,...)
 /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-pub fn key_part(i: &str) -> IResult<&str, Vec<KeyPart>> {
+pub fn key_part(i: &str) -> IResult<&str, Vec<KeyPart>, VerboseError<&str>> {
     map(
         tuple((
             multispace0,
@@ -408,17 +408,17 @@ pub fn key_part(i: &str) -> IResult<&str, Vec<KeyPart>> {
 ///   |ENGINE_ATTRIBUTE [=] 'string'
 ///   |SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
 /// }
-pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>> {
+pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>, VerboseError<&str>> {
     opt(map(preceded(multispace1, index_option), |x| x))(i)
 }
 
 /// (key_part,...)
-pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>> {
+pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>, VerboseError<&str>> {
     many1(map(terminated(key_part_item, opt(ws_sep_comma)), |e| e))(i)
 }
 
 /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-pub fn key_part_item(i: &str) -> IResult<&str, KeyPart> {
+pub fn key_part_item(i: &str) -> IResult<&str, KeyPart, VerboseError<&str>> {
     let col_with_length = tuple((
         multispace0,
         sql_identifier,
@@ -452,7 +452,7 @@ pub fn key_part_item(i: &str) -> IResult<&str, KeyPart> {
 }
 
 /// {INDEX | KEY}
-pub fn index_or_key_type(i: &str) -> IResult<&str, IndexOrKeyType> {
+pub fn index_or_key_type(i: &str) -> IResult<&str, IndexOrKeyType, VerboseError<&str>> {
     alt((
         map(tag_no_case("KEY"), |_| IndexOrKeyType::KEY),
         map(tag_no_case("INDEX"), |_| IndexOrKeyType::INDEX),
@@ -460,14 +460,16 @@ pub fn index_or_key_type(i: &str) -> IResult<&str, IndexOrKeyType> {
 }
 
 /// // {FULLTEXT | SPATIAL}
-pub fn fulltext_or_spatial_type(i: &str) -> IResult<&str, FulltextOrSpatialType> {
+pub fn fulltext_or_spatial_type(
+    i: &str,
+) -> IResult<&str, FulltextOrSpatialType, VerboseError<&str>> {
     alt((
         map(tag_no_case("FULLTEXT"), |_| FulltextOrSpatialType::FULLTEXT),
         map(tag_no_case("SPATIAL"), |_| FulltextOrSpatialType::SPATIAL),
     ))(i)
 }
 
-pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
+pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
     many0(map(
         terminated(index_col_name, opt(ws_sep_comma)),
         // XXX(malte): ignores length and order
@@ -475,7 +477,9 @@ pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>> {
     ))(i)
 }
 
-pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<OrderType>)> {
+pub fn index_col_name(
+    i: &str,
+) -> IResult<&str, (Column, Option<u16>, Option<OrderType>), VerboseError<&str>> {
     let (remaining_input, (column, len_u8, order)) = tuple((
         terminated(column_identifier_without_alias, multispace0),
         opt(delimited(tag("("), digit1, tag(")"))),
@@ -486,14 +490,14 @@ pub fn index_col_name(i: &str) -> IResult<&str, (Column, Option<u16>, Option<Ord
     Ok((remaining_input, (column, len, order)))
 }
 
-pub fn order_type(i: &str) -> IResult<&str, OrderType> {
+pub fn order_type(i: &str) -> IResult<&str, OrderType, VerboseError<&str>> {
     alt((
-        map(tag_no_case("desc"), |_| OrderType::Desc),
-        map(tag_no_case("asc"), |_| OrderType::Asc),
+        map(tag_no_case("DESC"), |_| OrderType::Desc),
+        map(tag_no_case("ASC"), |_| OrderType::Asc),
     ))(i)
 }
 
-pub fn parse_position(i: &str) -> IResult<&str, MySQLColumnPosition> {
+pub fn parse_position(i: &str) -> IResult<&str, MySQLColumnPosition, VerboseError<&str>> {
     let mut parser = alt((
         map(
             tuple((multispace0, tag_no_case("FIRST"), multispace0)),
@@ -513,7 +517,7 @@ pub fn parse_position(i: &str) -> IResult<&str, MySQLColumnPosition> {
     Ok((remaining_input, position))
 }
 
-pub fn single_column_definition(i: &str) -> IResult<&str, ColumnSpecification> {
+pub fn single_column_definition(i: &str) -> IResult<&str, ColumnSpecification, VerboseError<&str>> {
     map(
         tuple((
             column_identifier_without_alias,
@@ -539,7 +543,7 @@ pub fn single_column_definition(i: &str) -> IResult<&str, ColumnSpecification> {
     )(i)
 }
 
-fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
+fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
     let not_null = map(
         delimited(multispace0, tag_no_case("NOT NULL"), multispace0),
         |_| Some(ColumnConstraint::NotNull),
@@ -593,7 +597,7 @@ fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     ))(i)
 }
 
-fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
+fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
     let (remaining_input, (_, _, _, def, _)) = tuple((
         multispace0,
         tag_no_case("DEFAULT"),
@@ -619,7 +623,7 @@ fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>> {
     Ok((remaining_input, Some(ColumnConstraint::DefaultValue(def))))
 }
 
-fn fixed_point(i: &str) -> IResult<&str, Literal> {
+fn fixed_point(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
     let (remaining_input, (i, _, f)) = tuple((digit1, tag("."), digit1))(i)?;
 
     Ok((
