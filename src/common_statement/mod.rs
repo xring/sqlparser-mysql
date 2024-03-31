@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
-use nom::character::complete::{anychar, digit1, multispace0, multispace1};
+use nom::character::complete::{anychar, char, digit1, multispace0, multispace1};
 use nom::combinator::{map, map_res, opt, recognize};
 use nom::error::{Error, ParseError, VerboseError, VerboseErrorKind};
 use nom::multi::{many0, many1};
@@ -14,7 +14,8 @@ use nom::IResult;
 use common::column::{Column, ColumnConstraint, ColumnSpecification, MySQLColumnPosition};
 use common::{Literal, Real, SqlDataType};
 use common_parsers::{
-    column_identifier_without_alias, parse_comment, sql_identifier, type_identifier, ws_sep_comma,
+    column_identifier_without_alias, delim_digit, parse_comment, sql_identifier, type_identifier,
+    ws_sep_comma,
 };
 use common_statement::index_option::{index_option, IndexOption};
 
@@ -617,7 +618,11 @@ fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, Verbose
     let character_set = map(
         preceded(
             delimited(multispace0, tag_no_case("CHARACTER SET"), multispace1),
-            sql_identifier,
+            alt((
+                sql_identifier,
+                delimited(tag("'"), sql_identifier, tag("'")),
+                delimited(tag("\""), sql_identifier, tag("\"")),
+            )),
         ),
         |cs| {
             let char_set = cs.to_owned();
@@ -627,12 +632,29 @@ fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, Verbose
     let collate = map(
         preceded(
             delimited(multispace0, tag_no_case("COLLATE"), multispace1),
-            sql_identifier,
+            alt((
+                sql_identifier,
+                delimited(tag("'"), sql_identifier, tag("'")),
+                delimited(tag("\""), sql_identifier, tag("\"")),
+            )),
         ),
         |c| {
             let collation = c.to_owned();
             Some(ColumnConstraint::Collation(collation))
         },
+    );
+    // https://dev.mysql.com/doc/refman/5.7/en/timestamp-initialization.html
+    // for timestamp only, part of constraint
+    let on_update = map(
+        tuple((
+            tag_no_case("ON"),
+            multispace1,
+            tag_no_case("UPDATE"),
+            multispace1,
+            tag_no_case("CURRENT_TIMESTAMP"),
+            opt(delim_digit),
+        )),
+        |_| Some(ColumnConstraint::OnUpdate(Literal::CurrentTimestamp)),
     );
 
     alt((
@@ -644,6 +666,7 @@ fn column_constraint(i: &str) -> IResult<&str, Option<ColumnConstraint>, Verbose
         unique,
         character_set,
         collate,
+        on_update,
     ))(i)
 }
 
@@ -656,16 +679,24 @@ fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str
             map(delimited(tag("'"), take_until("'"), tag("'")), |s| {
                 Literal::String(String::from(s))
             }),
+            map(delimited(tag("\""), take_until("\""), tag("\"")), |s| {
+                Literal::String(String::from(s))
+            }),
             fixed_point,
-            map(digit1, |d: &str| {
-                let d_i64 = d.parse().unwrap();
-                Literal::Integer(d_i64)
+            map(tuple((opt(tag("-")), digit1)), |d: (Option<&str>, &str)| {
+                let d_i64 = d.1.parse().unwrap();
+                if d.0.is_some() {
+                    Literal::Integer(-1 * d_i64)
+                } else {
+                    Literal::Integer(d_i64)
+                }
             }),
             map(tag("''"), |_| Literal::String(String::from(""))),
             map(tag_no_case("NULL"), |_| Literal::Null),
-            map(tag_no_case("CURRENT_TIMESTAMP"), |_| {
-                Literal::CurrentTimestamp
-            }),
+            map(
+                tuple((tag_no_case("CURRENT_TIMESTAMP"), opt(delim_digit))),
+                |_| Literal::CurrentTimestamp,
+            ),
         )),
         multispace0,
     ))(i)?;

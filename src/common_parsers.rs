@@ -82,15 +82,16 @@ fn opt_signed(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {
     opt(alt((tag_no_case("unsigned"), tag_no_case("signed"))))(i)
 }
 
-fn delim_digit(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn delim_digit(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     delimited(tag("("), digit1, tag(")"))(i)
 }
 
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
 fn tiny_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
-    let (remaining_input, (_, len, _, signed)) = tuple((
+    let (remaining_input, (_, _, len, _, signed)) = tuple((
         tag_no_case("tinyint"),
+        multispace0,
         opt(delim_digit),
         multispace0,
         opt_signed,
@@ -120,8 +121,9 @@ fn tiny_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
 fn big_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
-    let (remaining_input, (_, len, _, signed)) = tuple((
+    let (remaining_input, (_, _, len, _, signed)) = tuple((
         tag_no_case("bigint"),
+        multispace0,
         opt(delim_digit),
         multispace0,
         opt_signed,
@@ -151,12 +153,13 @@ fn big_int(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
 // TODO: rather than copy paste these functions, should create a function that returns a parser
 // based on the sql int type, just like nom does
 fn sql_int_type(i: &str) -> IResult<&str, SqlDataType, VerboseError<&str>> {
-    let (remaining_input, (_, len, _, signed)) = tuple((
+    let (remaining_input, (_, _, len, _, signed)) = tuple((
         alt((
             tag_no_case("integer"),
             tag_no_case("int"),
             tag_no_case("smallint"),
         )),
+        multispace0,
         opt(delim_digit),
         multispace0,
         opt_signed,
@@ -250,6 +253,7 @@ fn type_identifier_first_half(i: &str) -> IResult<&str, SqlDataType, VerboseErro
             |_| SqlDataType::Real,
         ),
         map(tag_no_case("text"), |_| SqlDataType::Text),
+        map(tag_no_case("json"), |_| SqlDataType::Json),
         map(
             tuple((tag_no_case("timestamp"), opt(delim_digit), multispace0)),
             |_| SqlDataType::Timestamp,
@@ -790,13 +794,22 @@ pub fn table_reference(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
 
 // Parse rule for a comment part.
 pub fn parse_comment(i: &str) -> IResult<&str, String, VerboseError<&str>> {
-    map(
-        preceded(
-            delimited(multispace0, tag_no_case("comment"), multispace1),
-            delimited(tag("'"), take_until("'"), tag("'")),
+    alt((
+        map(
+            preceded(
+                delimited(multispace0, tag_no_case("comment"), multispace1),
+                delimited(tag("'"), take_until("'"), tag("'")),
+            ),
+            |comment| String::from(comment),
         ),
-        |comment| String::from(comment),
-    )(i)
+        map(
+            preceded(
+                delimited(multispace0, tag_no_case("comment"), multispace1),
+                delimited(tag("\""), take_until("\""), tag("\"")),
+            ),
+            |comment| String::from(comment),
+        ),
+    ))(i)
 }
 
 pub fn parse_if_exists(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {

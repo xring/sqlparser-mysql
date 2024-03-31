@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, write};
 use std::str;
 use CaseWhenExpression;
 
@@ -187,6 +187,7 @@ pub enum ColumnConstraint {
     AutoIncrement,
     PrimaryKey,
     Unique,
+    OnUpdate(Literal),
 }
 
 impl fmt::Display for ColumnConstraint {
@@ -202,6 +203,7 @@ impl fmt::Display for ColumnConstraint {
             ColumnConstraint::AutoIncrement => write!(f, "AutoIncrement"),
             ColumnConstraint::PrimaryKey => write!(f, "PRIMARY KEY"),
             ColumnConstraint::Unique => write!(f, "UNIQUE"),
+            ColumnConstraint::OnUpdate(ref ts)=> write!(f, "ON UPDATE CURRENT_TIMESTAMP"),
         }
     }
 }

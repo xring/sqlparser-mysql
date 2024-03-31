@@ -21,7 +21,7 @@ use data_definition_statement::drop_trigger::DropTriggerStatement;
 use data_definition_statement::drop_view::DropViewStatement;
 use data_definition_statement::rename_table::{rename_table_parser, RenameTableStatement};
 use data_definition_statement::truncate_table::{truncate_table_parser, TruncateTableStatement};
-use data_definition_statement::{alter_table_parser, create_table_parser};
+use data_definition_statement::{alter_table_parser, create_index_parser, create_table_parser, drop_index_parser};
 use nom::branch::alt;
 use nom::combinator::map;
 use nom::error::{VerboseError, VerboseErrorKind};
@@ -36,6 +36,7 @@ use zz_update::{updating, UpdateStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum SQLStatement {
+    // DDS
     AlterDatabase(AlterDatabaseStatement),
     AlterTable(AlterTableStatement),
     CreateIndex(CreateIndexStatement),
@@ -54,6 +55,7 @@ pub enum SQLStatement {
     DropView(DropViewStatement),
     RenameTable(RenameTableStatement),
     TruncateTable(TruncateTableStatement),
+
     // HISTORY
     CreateView(CreateViewStatement),
     Insert(InsertStatement),
@@ -100,6 +102,11 @@ pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
             })(i)
         },
         |i| {
+            map(create_index_parser, |parsed| {
+                SQLStatement::CreateIndex(parsed)
+            })(i)
+        },
+        |i| {
             map(drop_database_parser, |parsed| {
                 SQLStatement::DropDatabase(parsed)
             })(i)
@@ -108,6 +115,11 @@ pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
         |i| {
             map(rename_table_parser, |parsed| {
                 SQLStatement::RenameTable(parsed)
+            })(i)
+        },
+        |i| {
+            map(drop_index_parser, |parsed| {
+                SQLStatement::DropIndex(parsed)
             })(i)
         },
         |i| {
@@ -124,7 +136,7 @@ pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
 
     for mut parser in parsers {
         match parser(input) {
-            Ok(result) => return Ok(result.1 as SQLStatement),
+            Ok(result) => return Ok(result.1),
             Err(nom::Err::Error(err)) => {
                 let consumed = input.offset(err.errors[0].0);
                 if consumed > max_consumed {
@@ -136,7 +148,7 @@ pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
         }
     }
     let err_msg = deepest_error.unwrap().split(" ").next().unwrap_or("");
-    let err_msg = format!("failed to parse sql, error near `{}`", err_msg);
+    let err_msg = format!("failed to parse sql, error in SQL syntax near `{}`", err_msg);
     Err(err_msg)
 }
 

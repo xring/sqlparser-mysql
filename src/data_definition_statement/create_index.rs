@@ -112,6 +112,7 @@ fn index(i: &str) -> IResult<&str, Index, VerboseError<&str>> {
 
 #[cfg(test)]
 mod test {
+    use data_definition_statement::create_index_parser;
     use data_definition_statement::drop_index::drop_index_parser;
 
     #[test]
@@ -119,13 +120,14 @@ mod test {
         let sqls = vec![
             "create index poster_order_employee_id_index on poster_order (employee_id);",
             "create index branch_id on poster_source (branch_id);",
+            "create index poster_order_employee_id_index on poster_order (employee_id)",
         ];
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_index_parser(sqls[i]);
-            assert!(res.is_ok());
+            let res = create_index_parser(sqls[i]);
             println!("{:?}", res);
+            assert!(res.is_ok());
         }
     }
 }

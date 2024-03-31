@@ -58,8 +58,7 @@ impl fmt::Display for CreateTableStatement {
 /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
 ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
 pub fn create_table_parser(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    //alt((create_simple, create_like_old_table, create_as_query))(i)
-    create_simple(i)
+    alt((create_simple, create_like_old_table, create_as_query))(i)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -566,6 +565,8 @@ mod test {
     #[test]
     fn test_create_table() {
         let create_sqls = vec![
+            r###"CREATE TABLE `process_type` (`last_update_tm` timestamp(0))"###,
+            r###"CREATE TABLE `process_type` (`last_update_tm` timestamp(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0))"###,
             "CREATE TABLE foo.order_items (order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product (id))",
             "CREATE TABLE employee (id INT, name VARCHAR(100), department_id INT, PRIMARY KEY(id), FOREIGN KEY (department_id) REFERENCES department(id))",
             "CREATE TABLE my_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT)",
@@ -597,10 +598,8 @@ mod test {
         for i in 0..create_sqls.len() {
             println!("{}/{}", i + 1, create_sqls.len());
             let res = create_table_parser(create_sqls[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
+            println!("{:?}", res);
             assert!(res.is_ok());
-            println!("{:#?}", res.unwrap().1);
         }
     }
 

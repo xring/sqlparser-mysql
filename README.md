@@ -30,7 +30,7 @@
 - [ ] CREATE TRIGGER Statement
 - [ ] CREATE VIEW Statement
 - [x] DROP DATABASE Statement
-- [ ] DROP EVENT Statement
+- [x] DROP EVENT Statement
 - [ ] DROP FUNCTION Statement --> "DROP PROCEDURE and DROP FUNCTION Statements" && "DROP FUNCTION Statement for Loadable Functions"
 - [x] DROP INDEX Statement
 - [x] DROP LOGFILE GROUP Statement
