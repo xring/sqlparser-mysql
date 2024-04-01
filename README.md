@@ -43,3 +43,6 @@
 - [x] DROP VIEW Statement
 - [x] RENAME TABLE Statement
 - [x] TRUNCATE TABLE Statement
+
+## Database Administration Statements
+- [x] SET Statements

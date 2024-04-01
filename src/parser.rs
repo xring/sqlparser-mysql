@@ -2,40 +2,44 @@ use std::fmt;
 use std::io::BufRead;
 use std::str;
 
-use common::Statement;
-use data_definition_statement::alter_database::{alter_database_parser, AlterDatabaseStatement};
-use data_definition_statement::alter_table::AlterTableStatement;
-use data_definition_statement::create_index::CreateIndexStatement;
-use data_definition_statement::create_table::CreateTableStatement;
-use data_definition_statement::drop_database::{drop_database_parser, DropDatabaseStatement};
-use data_definition_statement::drop_event::DropEventStatement;
-use data_definition_statement::drop_function::DropFunctionStatement;
-use data_definition_statement::drop_index::DropIndexStatement;
-use data_definition_statement::drop_logfile_group::DropLogfileGroupStatement;
-use data_definition_statement::drop_procedure::DropProcedureStatement;
-use data_definition_statement::drop_server::DropServerStatement;
-use data_definition_statement::drop_spatial_reference_system::DropSpatialReferenceSystemStatement;
-use data_definition_statement::drop_table::{drop_table_parser, DropTableStatement};
-use data_definition_statement::drop_tablespace::DropTablespaceStatement;
-use data_definition_statement::drop_trigger::DropTriggerStatement;
-use data_definition_statement::drop_view::DropViewStatement;
-use data_definition_statement::rename_table::{rename_table_parser, RenameTableStatement};
-use data_definition_statement::truncate_table::{truncate_table_parser, TruncateTableStatement};
-use data_definition_statement::{alter_table_parser, create_index_parser, create_table_parser, drop_index_parser};
-use nom::branch::alt;
+use das::set_statement::SetStatement;
 use nom::combinator::map;
-use nom::error::{VerboseError, VerboseErrorKind};
+use nom::error::VerboseError;
 use nom::{IResult, Offset};
-use zz_compound_select::{compound_selection, CompoundSelectStatement};
-use zz_create::{creation, view_creation, CreateViewStatement};
-use zz_delete::{deletion, DeleteStatement};
-use zz_insert::{insertion, InsertStatement};
-use zz_select::{selection, SelectStatement};
-use zz_set::{set, SetStatement};
-use zz_update::{updating, UpdateStatement};
+
+use dds::alter_database::AlterDatabaseStatement;
+use dds::alter_table::AlterTableStatement;
+use dds::create_index::CreateIndexStatement;
+use dds::create_table::CreateTableStatement;
+use dds::drop_database::DropDatabaseStatement;
+use dds::drop_event::DropEventStatement;
+use dds::drop_function::DropFunctionStatement;
+use dds::drop_index::DropIndexStatement;
+use dds::drop_logfile_group::DropLogfileGroupStatement;
+use dds::drop_procedure::DropProcedureStatement;
+use dds::drop_server::DropServerStatement;
+use dds::drop_spatial_reference_system::DropSpatialReferenceSystemStatement;
+use dds::drop_table::DropTableStatement;
+use dds::drop_tablespace::DropTablespaceStatement;
+use dds::drop_trigger::DropTriggerStatement;
+use dds::drop_view::DropViewStatement;
+use dds::rename_table::RenameTableStatement;
+use dds::truncate_table::TruncateTableStatement;
+use dds::{
+    alter_database, alter_table, create_index, create_table, drop_database, drop_event_parser,
+    drop_function, drop_index, drop_logfile_group, drop_procedure, drop_server,
+    drop_spatial_reference_system, drop_table, drop_tablespace, drop_trigger, drop_view,
+    rename_table, truncate_table,
+};
+use dms::compound_select::CompoundSelectStatement;
+use dms::delete::DeleteStatement;
+use dms::insert::InsertStatement;
+use dms::select::SelectStatement;
+use dms::update::UpdateStatement;
+use dms::zz_create::CreateViewStatement;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum SQLStatement {
+pub enum Statement {
     // DDS
     AlterDatabase(AlterDatabaseStatement),
     AlterTable(AlterTableStatement),
@@ -66,75 +70,59 @@ pub enum SQLStatement {
     Set(SetStatement),
 }
 
-impl fmt::Display for SQLStatement {
+impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SQLStatement::Select(ref select) => write!(f, "{}", select),
-            SQLStatement::Insert(ref insert) => write!(f, "{}", insert),
-            SQLStatement::CreateTable(ref create) => write!(f, "{}", create),
-            SQLStatement::CreateView(ref create) => write!(f, "{}", create),
-            SQLStatement::Delete(ref delete) => write!(f, "{}", delete),
-            SQLStatement::DropTable(ref drop) => write!(f, "{}", drop),
-            SQLStatement::DropDatabase(ref drop) => write!(f, "{}", drop),
-            SQLStatement::TruncateTable(ref drop) => write!(f, "{}", drop),
-            SQLStatement::Update(ref update) => write!(f, "{}", update),
-            SQLStatement::Set(ref set) => write!(f, "{}", set),
+            Statement::Select(ref select) => write!(f, "{}", select),
+            Statement::Insert(ref insert) => write!(f, "{}", insert),
+            Statement::CreateTable(ref create) => write!(f, "{}", create),
+            Statement::CreateView(ref create) => write!(f, "{}", create),
+            Statement::Delete(ref delete) => write!(f, "{}", delete),
+            Statement::DropTable(ref drop) => write!(f, "{}", drop),
+            Statement::DropDatabase(ref drop) => write!(f, "{}", drop),
+            Statement::TruncateTable(ref drop) => write!(f, "{}", drop),
+            Statement::Update(ref update) => write!(f, "{}", update),
+            Statement::Set(ref set) => write!(f, "{}", set),
             _ => unimplemented!(),
         }
     }
 }
 
-pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
-    let parsers = vec![
-        |i| {
-            map(alter_database_parser, |parsed| {
-                SQLStatement::AlterDatabase(parsed)
-            })(i)
-        },
-        |i| {
-            map(alter_table_parser, |parsed| {
-                SQLStatement::AlterTable(parsed)
-            })(i)
-        },
-        |i| {
-            map(create_table_parser, |parsed| {
-                SQLStatement::CreateTable(parsed)
-            })(i)
-        },
-        |i| {
-            map(create_index_parser, |parsed| {
-                SQLStatement::CreateIndex(parsed)
-            })(i)
-        },
-        |i| {
-            map(drop_database_parser, |parsed| {
-                SQLStatement::DropDatabase(parsed)
-            })(i)
-        },
-        |i| map(drop_table_parser, |parsed| SQLStatement::DropTable(parsed))(i),
-        |i| {
-            map(rename_table_parser, |parsed| {
-                SQLStatement::RenameTable(parsed)
-            })(i)
-        },
-        |i| {
-            map(drop_index_parser, |parsed| {
-                SQLStatement::DropIndex(parsed)
-            })(i)
-        },
-        |i| {
-            map(truncate_table_parser, |parsed| {
-                SQLStatement::TruncateTable(parsed)
-            })(i)
-        },
-        // TODO add all parsers
-        // TODO need parallel parse ?
-    ];
+const PARSERS: [fn(&str) -> IResult<&str, Statement, VerboseError<&str>>; 18] = [
+    |i| map(alter_database, |parsed| Statement::AlterDatabase(parsed))(i),
+    |i| map(alter_table, |parsed| Statement::AlterTable(parsed))(i),
+    |i| map(create_index, |parsed| Statement::CreateIndex(parsed))(i),
+    |i| map(create_table, |parsed| Statement::CreateTable(parsed))(i),
+    |i| map(drop_database, |parsed| Statement::DropDatabase(parsed))(i),
+    |i| map(drop_event_parser, |parsed| Statement::DropEvent(parsed))(i),
+    |i| map(drop_function, |parsed| Statement::DropFunction(parsed))(i),
+    |i| map(drop_index, |parsed| Statement::DropIndex(parsed))(i),
+    |i| {
+        map(drop_logfile_group, |parsed| {
+            Statement::DropLogfileGroup(parsed)
+        })(i)
+    },
+    |i| map(drop_procedure, |parsed| Statement::DropProcedure(parsed))(i),
+    |i| map(drop_server, |parsed| Statement::DropServer(parsed))(i),
+    |i| {
+        map(drop_spatial_reference_system, |parsed| {
+            Statement::DropSpatialReferenceSystem(parsed)
+        })(i)
+    },
+    |i| map(drop_table, |parsed| Statement::DropTable(parsed))(i),
+    |i| map(drop_tablespace, |parsed| Statement::DropTableSpace(parsed))(i),
+    |i| map(drop_trigger, |parsed| Statement::DropTrigger(parsed))(i),
+    |i| map(drop_view, |parsed| Statement::DropView(parsed))(i),
+    |i| map(rename_table, |parsed| Statement::RenameTable(parsed))(i),
+    |i| map(truncate_table, |parsed| Statement::TruncateTable(parsed))(i),
+];
 
+pub fn parse_sql(input: &str) -> Result<Statement, String> {
     let mut deepest_error = None;
     let mut max_consumed = 0;
 
-    for mut parser in parsers {
+    // TODO need parallel parse ?
+    for mut parser in PARSERS {
         match parser(input) {
             Ok(result) => return Ok(result.1),
             Err(nom::Err::Error(err)) => {
@@ -148,16 +136,22 @@ pub fn parse_sql(input: &str) -> Result<SQLStatement, String> {
         }
     }
     let err_msg = deepest_error.unwrap().split(" ").next().unwrap_or("");
-    let err_msg = format!("failed to parse sql, error in SQL syntax near `{}`", err_msg);
+    let err_msg = format!(
+        "failed to parse sql, error in SQL syntax near `{}`",
+        err_msg
+    );
     Err(err_msg)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use common::table::Table;
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
+
+    use base::table::Table;
+    use dms::insert::InsertStatement;
+
+    use super::*;
 
     #[test]
     fn hash_query() {
@@ -165,7 +159,7 @@ mod tests {
         let res = parse_sql(str);
         assert!(res.is_ok());
 
-        let expected = SQLStatement::Insert(InsertStatement {
+        let expected = Statement::Insert(InsertStatement {
             table: Table::from("users"),
             fields: None,
             data: vec![vec![42.into(), "test".into()]],
