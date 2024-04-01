@@ -165,7 +165,7 @@ fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseE
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use dds::alter_database;
 
     #[test]

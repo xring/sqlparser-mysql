@@ -1,25 +1,19 @@
 use std::fmt;
 use std::str;
 
-use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case};
+use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
-use nom::combinator::{map, opt};
+use nom::combinator::opt;
 use nom::error::VerboseError;
 use nom::IResult;
 use nom::multi::many0;
-use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::sequence::{delimited, terminated, tuple};
 
 use base::column::Column;
 use base::FieldDefinitionExpression;
 use base::table::Table;
-use common::{
-    as_alias, statement_terminator,
-    unsigned_number,
-};
-use dms::condition::{condition_expr, ConditionExpression};
-use dms::join::{join_operator, JoinConstraint, JoinOperator, JoinRightSide};
-use dms::order::{order_clause, OrderClause};
+use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, statement_terminator, unsigned_number};
+use common::condition::ConditionExpression;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct SelectStatement {
@@ -31,6 +25,46 @@ pub struct SelectStatement {
     pub group_by: Option<GroupByClause>,
     pub order: Option<OrderClause>,
     pub limit: Option<LimitClause>,
+}
+
+impl SelectStatement {
+    // Parse rule for a SQL selection query.
+    pub fn parse(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
+        terminated(Self::nested_selection, statement_terminator)(i)
+    }
+
+    pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
+        let (
+            remaining_input,
+            (_, _, distinct, _, fields, _, tables, join, where_clause, group_by, order, limit),
+        ) = tuple((
+            tag_no_case("SELECT"),
+            multispace1,
+            opt(tag_no_case("DISTINCT")),
+            multispace0,
+            FieldDefinitionExpression::parse,
+            delimited(multispace0, tag_no_case("FROM"), multispace0),
+            Table::table_list,
+            many0(JoinClause::parse),
+            opt(ConditionExpression::parse),
+            opt(GroupByClause::parse),
+            opt(OrderClause::parse),
+            opt(LimitClause::parse),
+        ))(i)?;
+        Ok((
+            remaining_input,
+            SelectStatement {
+                tables,
+                distinct: distinct.is_some(),
+                fields,
+                join,
+                where_clause,
+                group_by,
+                order,
+                limit,
+            },
+        ))
+    }
 }
 
 impl fmt::Display for SelectStatement {
@@ -87,6 +121,21 @@ pub struct GroupByClause {
     pub having: Option<ConditionExpression>,
 }
 
+impl GroupByClause {
+    // Parse GROUP BY clause
+    pub fn parse(i: &str) -> IResult<&str, GroupByClause, VerboseError<&str>> {
+        let (remaining_input, (_, _, _, columns, having)) = tuple((
+            multispace0,
+            tag_no_case("group by"),
+            multispace1,
+            Column::field_list,
+            opt(ConditionExpression::having_clause),
+        ))(i)?;
+
+        Ok((remaining_input, GroupByClause { columns, having }))
+    }
+}
+
 impl fmt::Display for GroupByClause {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "GROUP BY ")?;
@@ -113,6 +162,29 @@ pub struct JoinClause {
     pub constraint: JoinConstraint,
 }
 
+impl JoinClause {
+    pub fn parse(i: &str) -> IResult<&str, JoinClause, VerboseError<&str>> {
+        let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
+            multispace0,
+            opt(terminated(tag_no_case("natural"), multispace1)),
+            JoinOperator::parse,
+            multispace1,
+            JoinRightSide::parse,
+            multispace1,
+            JoinConstraint::parse,
+        ))(i)?;
+
+        Ok((
+            remaining_input,
+            JoinClause {
+                operator,
+                right,
+                constraint,
+            },
+        ))
+    }
+}
+
 impl fmt::Display for JoinClause {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.operator)?;
@@ -128,6 +200,21 @@ pub struct LimitClause {
     pub offset: u64,
 }
 
+impl LimitClause {
+    pub fn parse(i: &str) -> IResult<&str, LimitClause, VerboseError<&str>> {
+        let (remaining_input, (_, _, _, limit, opt_offset)) = tuple((
+            multispace0,
+            tag_no_case("limit"),
+            multispace1,
+            unsigned_number,
+            opt(offset),
+        ))(i)?;
+        let offset = opt_offset.unwrap_or_else(|| 0);
+
+        Ok((remaining_input, LimitClause { limit, offset }))
+    }
+}
+
 impl fmt::Display for LimitClause {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "LIMIT {}", self.limit)?;
@@ -138,174 +225,15 @@ impl fmt::Display for LimitClause {
     }
 }
 
-fn having_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let (remaining_input, (_, _, _, ce)) = tuple((
-        multispace0,
-        tag_no_case("having"),
-        multispace1,
-        condition_expr,
-    ))(i)?;
-
-    Ok((remaining_input, ce))
-}
-
-// Parse GROUP BY clause
-pub fn group_by_clause(i: &str) -> IResult<&str, GroupByClause, VerboseError<&str>> {
-    let (remaining_input, (_, _, _, columns, having)) = tuple((
-        multispace0,
-        tag_no_case("group by"),
-        multispace1,
-        Column::field_list,
-        opt(having_clause),
-    ))(i)?;
-
-    Ok((remaining_input, GroupByClause { columns, having }))
-}
-
 fn offset(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
     let (remaining_input, (_, _, _, val)) = tuple((
         multispace0,
-        tag_no_case("offset"),
+        tag_no_case("OFFSET"),
         multispace1,
         unsigned_number,
     ))(i)?;
 
     Ok((remaining_input, val))
-}
-
-// Parse LIMIT clause
-pub fn limit_clause(i: &str) -> IResult<&str, LimitClause, VerboseError<&str>> {
-    let (remaining_input, (_, _, _, limit, opt_offset)) = tuple((
-        multispace0,
-        tag_no_case("limit"),
-        multispace1,
-        unsigned_number,
-        opt(offset),
-    ))(i)?;
-    let offset = match opt_offset {
-        None => 0,
-        Some(v) => v,
-    };
-
-    Ok((remaining_input, LimitClause { limit, offset }))
-}
-
-fn join_constraint(i: &str) -> IResult<&str, JoinConstraint, VerboseError<&str>> {
-    let using_clause = map(
-        tuple((
-            tag_no_case("using"),
-            multispace1,
-            delimited(
-                terminated(tag("("), multispace0),
-                Column::field_list,
-                preceded(multispace0, tag(")")),
-            ),
-        )),
-        |t| JoinConstraint::Using(t.2),
-    );
-    let on_condition = alt((
-        delimited(
-            terminated(tag("("), multispace0),
-            condition_expr,
-            preceded(multispace0, tag(")")),
-        ),
-        condition_expr,
-    ));
-    let on_clause = map(tuple((tag_no_case("on"), multispace1, on_condition)), |t| {
-        JoinConstraint::On(t.2)
-    });
-
-    alt((using_clause, on_clause))(i)
-}
-
-// Parse JOIN clause
-fn join_clause(i: &str) -> IResult<&str, JoinClause, VerboseError<&str>> {
-    let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
-        multispace0,
-        opt(terminated(tag_no_case("natural"), multispace1)),
-        join_operator,
-        multispace1,
-        join_rhs,
-        multispace1,
-        join_constraint,
-    ))(i)?;
-
-    Ok((
-        remaining_input,
-        JoinClause {
-            operator,
-            right,
-            constraint,
-        },
-    ))
-}
-
-fn join_rhs(i: &str) -> IResult<&str, JoinRightSide, VerboseError<&str>> {
-    let nested_select = map(
-        tuple((
-            delimited(tag("("), nested_selection, tag(")")),
-            opt(as_alias),
-        )),
-        |t| JoinRightSide::NestedSelect(Box::new(t.0), t.1.map(String::from)),
-    );
-    let nested_join = map(delimited(tag("("), join_clause, tag(")")), |nj| {
-        JoinRightSide::NestedJoin(Box::new(nj))
-    });
-    let table = map(Table::table_reference, |t| JoinRightSide::Table(t));
-    let tables = map(delimited(tag("("), Table::table_list, tag(")")), |tables| {
-        JoinRightSide::Tables(tables)
-    });
-    alt((nested_select, nested_join, table, tables))(i)
-}
-
-// Parse WHERE clause of a selection
-pub fn where_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let (remaining_input, (_, _, _, where_condition)) = tuple((
-        multispace0,
-        tag_no_case("where"),
-        multispace1,
-        condition_expr,
-    ))(i)?;
-
-    Ok((remaining_input, where_condition))
-}
-
-// Parse rule for a SQL selection query.
-pub fn selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
-    terminated(nested_selection, statement_terminator)(i)
-}
-
-pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
-    let (
-        remaining_input,
-        (_, _, distinct, _, fields, _, tables, join, where_clause, group_by, order, limit),
-    ) = tuple((
-        tag_no_case("SELECT"),
-        multispace1,
-        opt(tag_no_case("DISTINCT")),
-        multispace0,
-        FieldDefinitionExpression::parse,
-        delimited(multispace0, tag_no_case("FROM"), multispace0),
-        Table::table_list,
-        many0(join_clause),
-        opt(where_clause),
-        opt(group_by_clause),
-        opt(order_clause),
-        opt(limit_clause),
-    ))(i)?;
-    Ok((
-        remaining_input,
-        SelectStatement {
-            tables,
-            distinct: distinct.is_some(),
-            fields,
-            join,
-            where_clause,
-            group_by,
-            order,
-            limit,
-        },
-    ))
 }
 
 #[cfg(test)]
@@ -314,15 +242,13 @@ mod tests {
     use base::column::{Column, FunctionArgument, FunctionArguments, FunctionExpression};
     use base::Literal;
     use base::table::Table;
-    use common::OrderType;
-    use dms::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
-    use dms::case::{CaseWhenExpression, ColumnOrLiteral};
-    use dms::condition::{ConditionExpression, ConditionTree};
-    use dms::condition::ConditionBase;
-    use dms::condition::ConditionBase::LiteralList;
-    use dms::condition::ConditionExpression::{Base, ComparisonOp, LogicalOp};
-    use dms::join::{JoinConstraint, JoinOperator, JoinRightSide};
-    use dms::order::OrderClause;
+    use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, OrderType};
+    use common::case::{CaseWhenExpression, ColumnOrLiteral};
+    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use common::condition::{ConditionExpression, ConditionTree};
+    use common::condition::ConditionBase;
+    use common::condition::ConditionBase::LiteralList;
+    use common::condition::ConditionExpression::{Base, ComparisonOp, LogicalOp};
 
     use super::*;
 
@@ -336,7 +262,7 @@ mod tests {
     fn simple_select() {
         let str = "SELECT id, name FROM users;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -351,7 +277,7 @@ mod tests {
     fn more_involved_select() {
         let str = "SELECT users.id, users.name FROM users;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -370,7 +296,7 @@ mod tests {
         // TODO: doesn't support selecting literals without a FROM clause, which is still valid SQL
         //        let str = "SELECT NULL, 1, \"foo\";";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -398,7 +324,7 @@ mod tests {
     fn select_all() {
         let str = "SELECT * FROM users;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -413,7 +339,7 @@ mod tests {
     fn select_all_in_table() {
         let str = "SELECT users.* FROM users, votes;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -428,7 +354,7 @@ mod tests {
     fn spaces_optional() {
         let str = "SELECT id,name FROM users;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SelectStatement {
@@ -444,7 +370,10 @@ mod tests {
         let str_lc = "select id, name from users;";
         let str_uc = "SELECT id, name FROM users;";
 
-        assert_eq!(selection(str_lc).unwrap(), selection(str_uc).unwrap());
+        assert_eq!(
+            SelectStatement::parse(str_lc).unwrap(),
+            SelectStatement::parse(str_uc).unwrap()
+        );
     }
 
     #[test]
@@ -453,9 +382,9 @@ mod tests {
         let str_nosem = "select id, name from users";
         let str_linebreak = "select id, name from users\n";
 
-        let r1 = selection(str_sem).unwrap();
-        let r2 = selection(str_nosem).unwrap();
-        let r3 = selection(str_linebreak).unwrap();
+        let r1 = SelectStatement::parse(str_sem).unwrap();
+        let r2 = SelectStatement::parse(str_nosem).unwrap();
+        let r3 = SelectStatement::parse(str_linebreak).unwrap();
         assert_eq!(r1, r2);
         assert_eq!(r2, r3);
     }
@@ -485,7 +414,7 @@ mod tests {
     }
 
     fn where_clause_with_variable_placeholder(str: &str, literal: Literal) {
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let expected_left = Base(ConditionBase::Field(Column::from("email")));
         let expected_where_cond = Some(ComparisonOp(ConditionTree {
@@ -518,8 +447,8 @@ mod tests {
             offset: 10,
         };
 
-        let res1 = selection(str1);
-        let res2 = selection(str2);
+        let res1 = SelectStatement::parse(str1);
+        let res2 = SelectStatement::parse(str2);
         assert_eq!(res1.unwrap().1.limit, Some(expected_lim1));
         assert_eq!(res2.unwrap().1.limit, Some(expected_lim2));
     }
@@ -529,7 +458,7 @@ mod tests {
         let str1 = "select * from PaperTag as t;";
         // let str2 = "select * from PaperTag t;";
 
-        let res1 = selection(str1);
+        let res1 = SelectStatement::parse(str1);
         assert_eq!(
             res1.unwrap().1,
             SelectStatement {
@@ -542,7 +471,7 @@ mod tests {
                 ..Default::default()
             }
         );
-        // let res2 = selection(str2);
+        // let res2 = SelectStatement::parse(str2);
         // assert_eq!(res1.unwrap().1, res2.unwrap().1);
     }
 
@@ -550,7 +479,7 @@ mod tests {
     fn table_schema() {
         let str1 = "select * from db1.PaperTag as t;";
 
-        let res1 = selection(str1);
+        let res1 = SelectStatement::parse(str1);
         assert_eq!(
             res1.unwrap().1,
             SelectStatement {
@@ -563,7 +492,7 @@ mod tests {
                 ..Default::default()
             }
         );
-        // let res2 = selection(str2);
+        // let res2 = SelectStatement::parse(str2);
         // assert_eq!(res1.unwrap().1, res2.unwrap().1);
     }
 
@@ -572,7 +501,7 @@ mod tests {
         let str1 = "select name as TagName from PaperTag;";
         let str2 = "select PaperTag.name as TagName from PaperTag;";
 
-        let res1 = selection(str1);
+        let res1 = SelectStatement::parse(str1);
         assert_eq!(
             res1.unwrap().1,
             SelectStatement {
@@ -586,7 +515,7 @@ mod tests {
                 ..Default::default()
             }
         );
-        let res2 = selection(str2);
+        let res2 = SelectStatement::parse(str2);
         assert_eq!(
             res2.unwrap().1,
             SelectStatement {
@@ -607,7 +536,7 @@ mod tests {
         let str1 = "select name TagName from PaperTag;";
         let str2 = "select PaperTag.name TagName from PaperTag;";
 
-        let res1 = selection(str1);
+        let res1 = SelectStatement::parse(str1);
         assert_eq!(
             res1.unwrap().1,
             SelectStatement {
@@ -621,7 +550,7 @@ mod tests {
                 ..Default::default()
             }
         );
-        let res2 = selection(str2);
+        let res2 = SelectStatement::parse(str2);
         assert_eq!(
             res2.unwrap().1,
             SelectStatement {
@@ -641,7 +570,7 @@ mod tests {
     fn distinct() {
         let str = "select distinct tag from PaperTag where paperId=?;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let expected_left = Base(ConditionBase::Field(Column::from("paperId")));
         let expected_where_cond = Some(ComparisonOp(ConditionTree {
             left: Box::new(expected_left),
@@ -666,7 +595,7 @@ mod tests {
     fn simple_condition_expr() {
         let str = "select infoJson from PaperStorage where paperId=? and paperStorageId=?;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let left_ct = ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from("paperId")))),
@@ -703,7 +632,7 @@ mod tests {
     #[test]
     fn where_and_limit_clauses() {
         let str = "select * from users where id = ? limit 10\n";
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let expected_lim = Some(LimitClause {
             limit: 10,
@@ -734,7 +663,7 @@ mod tests {
     fn aggregation_column() {
         let str = "SELECT max(addr_id) FROM address;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let agg_expr = FunctionExpression::Max(FunctionArgument::Column(Column::from("addr_id")));
         assert_eq!(
             res.unwrap().1,
@@ -755,7 +684,7 @@ mod tests {
     fn aggregation_column_with_alias() {
         let str = "SELECT max(addr_id) AS max_addr FROM address;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let agg_expr = FunctionExpression::Max(FunctionArgument::Column(Column::from("addr_id")));
         let expected_stmt = SelectStatement {
             tables: vec![Table::from("address")],
@@ -774,7 +703,7 @@ mod tests {
     fn count_all() {
         let str = "SELECT COUNT(*) FROM votes GROUP BY aid;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let agg_expr = FunctionExpression::CountStar;
         let expected_stmt = SelectStatement {
             tables: vec![Table::from("votes")],
@@ -797,7 +726,7 @@ mod tests {
     fn count_distinct() {
         let str = "SELECT COUNT(DISTINCT vote_id) FROM votes GROUP BY aid;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let agg_expr =
             FunctionExpression::Count(FunctionArgument::Column(Column::from("vote_id")), true);
         let expected_stmt = SelectStatement {
@@ -820,7 +749,7 @@ mod tests {
     #[test]
     fn count_filter() {
         let str = "SELECT COUNT(CASE WHEN vote_id > 10 THEN vote_id END) FROM votes GROUP BY aid;";
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let filter_cond = ComparisonOp(ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from("vote_id")))),
@@ -856,7 +785,7 @@ mod tests {
     fn sum_filter() {
         let str = "SELECT SUM(CASE WHEN sign = 1 THEN vote_id END) FROM votes GROUP BY aid;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let filter_cond = ComparisonOp(ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from("sign")))),
@@ -892,7 +821,7 @@ mod tests {
     fn sum_filter_else_literal() {
         let str = "SELECT SUM(CASE WHEN sign = 1 THEN vote_id ELSE 6 END) FROM votes GROUP BY aid;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let filter_cond = ComparisonOp(ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from("sign")))),
@@ -931,7 +860,7 @@ mod tests {
             FROM votes
             GROUP BY votes.comment_id;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
 
         let filter_cond = LogicalOp(ConditionTree {
             left: Box::new(ComparisonOp(ConditionTree {
@@ -975,7 +904,7 @@ mod tests {
     fn generic_function_query() {
         let str = "SELECT coalesce(a, b,c) as x,d FROM sometable;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let agg_expr = FunctionExpression::Generic(
             String::from("coalesce"),
             FunctionArguments {
@@ -1027,7 +956,7 @@ mod tests {
         let str = "SELECT * FROM item, author WHERE item.i_a_id = author.a_id AND \
                        item.i_subject = ? ORDER BY item.i_title limit 50;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let expected_where_cond = Some(LogicalOp(ConditionTree {
             left: Box::new(ComparisonOp(ConditionTree {
                 left: Box::new(Base(ConditionBase::Field(Column::from("item.i_a_id")))),
@@ -1065,7 +994,7 @@ mod tests {
     fn simple_joins() {
         let str = "select paperId from PaperConflict join PCMember using (contactId);";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let expected_stmt = SelectStatement {
             tables: vec![Table::from("PaperConflict")],
             fields: columns(&["paperId"]),
@@ -1087,7 +1016,7 @@ mod tests {
                        join PaperReview on (PCMember.contactId=PaperReview.contactId) \
                        order by contactId;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let ct = ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from(
                 "PCMember.contactId",
@@ -1118,7 +1047,7 @@ mod tests {
                        from PCMember \
                        join PaperReview on PCMember.contactId=PaperReview.contactId \
                        order by contactId;";
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         assert_eq!(res.unwrap().1, expected);
     }
 
@@ -1138,7 +1067,7 @@ mod tests {
                        (contactId) left join ChairAssistant using (contactId) left join Chair \
                        using (contactId) where ContactInfo.contactId=?;";
 
-        let res = selection(str);
+        let res = SelectStatement::parse(str);
         let ct = ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from(
                 "ContactInfo.contactId",
@@ -1184,7 +1113,7 @@ mod tests {
                     WHERE orders.o_c_id IN (SELECT o_c_id FROM orders, order_line \
                     WHERE orders.o_id = order_line.ol_o_id);";
 
-        let res = selection(qstr);
+        let res = SelectStatement::parse(qstr);
         let inner_where_clause = ComparisonOp(ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from("orders.o_id")))),
             right: Box::new(Base(ConditionBase::Field(Column::from(
@@ -1223,7 +1152,7 @@ mod tests {
                     WHERE orders.o_id = order_line.ol_o_id \
                     AND orders.o_id > (SELECT MAX(o_id) FROM orders));";
 
-        let res = selection(qstr);
+        let res = SelectStatement::parse(qstr);
 
         let agg_expr = FunctionExpression::Max(FunctionArgument::Column(Column::from("o_id")));
         let recursive_select = SelectStatement {
@@ -1287,19 +1216,19 @@ mod tests {
         let t0 = "(SELECT ol_i_id FROM order_line)";
         let t1 = "(SELECT ol_i_id FROM order_line) AS ids";
 
-        assert!(join_rhs(t0).is_ok());
-        assert!(join_rhs(t1).is_ok());
+        assert!(JoinRightSide::parse(t0).is_ok());
+        assert!(JoinRightSide::parse(t1).is_ok());
 
         let t0 = "JOIN (SELECT ol_i_id FROM order_line) ON (orders.o_id = ol_i_id)";
         let t1 = "JOIN (SELECT ol_i_id FROM order_line) AS ids ON (orders.o_id = ids.ol_i_id)";
 
-        assert!(join_clause(t0).is_ok());
-        assert!(join_clause(t1).is_ok());
+        assert!(JoinClause::parse(t0).is_ok());
+        assert!(JoinClause::parse(t1).is_ok());
 
         let qstr_with_alias = "SELECT o_id, ol_i_id FROM orders JOIN \
                                (SELECT ol_i_id FROM order_line) AS ids \
                                ON (orders.o_id = ids.ol_i_id);";
-        let res = selection(qstr_with_alias);
+        let res = SelectStatement::parse(qstr_with_alias);
 
         // N.B.: Don't alias the inner select to `inner`, which is, well, a SQL keyword!
         let inner_select = SelectStatement {
@@ -1329,7 +1258,7 @@ mod tests {
     #[test]
     fn project_arithmetic_expressions() {
         let qstr = "SELECT MAX(o_id)-3333 FROM orders;";
-        let res = selection(qstr);
+        let res = SelectStatement::parse(qstr);
 
         let expected = SelectStatement {
             tables: vec![Table::from("orders")],
@@ -1357,7 +1286,7 @@ mod tests {
     #[test]
     fn project_arithmetic_expressions_with_aliases() {
         let qstr = "SELECT max(o_id) * 2 as double_max FROM orders;";
-        let res = selection(qstr);
+        let res = SelectStatement::parse(qstr);
 
         let expected = SelectStatement {
             tables: vec![Table::from("orders")],
@@ -1389,7 +1318,7 @@ mod tests {
                     JOIN `django_content_type`
                       ON ( `auth_permission`.`content_type_id` = `django_content_type`.`id` )
                     WHERE `auth_permission`.`content_type_id` IN (0);";
-        let res = selection(qstr);
+        let res = SelectStatement::parse(qstr);
 
         let expected_where_clause = Some(ComparisonOp(ConditionTree {
             left: Box::new(Base(ConditionBase::Field(Column::from(

@@ -7,13 +7,13 @@ use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::IResult;
 
-use base::{Literal, Operator};
 use base::column::Column;
-use dms::arithmetic::{arithmetic_expression, ArithmeticExpression};
-use dms::select::{nested_selection, SelectStatement};
+use base::{Literal, Operator};
+use common::arithmetic::ArithmeticExpression;
+use dms::select::SelectStatement;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum ConditionBase {
@@ -83,6 +83,7 @@ impl fmt::Display for ConditionTree {
     }
 }
 
+/// WHERE CLAUSE
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum ConditionExpression {
     ComparisonOp(ConditionTree),
@@ -92,6 +93,248 @@ pub enum ConditionExpression {
     Base(ConditionBase),
     Arithmetic(Box<ArithmeticExpression>),
     Bracketed(Box<ConditionExpression>),
+}
+
+impl ConditionExpression {
+    pub fn parse(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let (remaining_input, (_, _, _, where_condition)) = tuple((
+            multispace0,
+            tag_no_case("where"),
+            multispace1,
+            Self::condition_expr,
+        ))(i)?;
+
+        Ok((remaining_input, where_condition))
+    }
+
+    pub fn having_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let (remaining_input, (_, _, _, ce)) = tuple((
+            multispace0,
+            tag_no_case("HAVING"),
+            multispace1,
+            Self::condition_expr,
+        ))(i)?;
+
+        Ok((remaining_input, ce))
+    }
+
+    // Parse a conditional expression into a condition tree structure
+    pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let cond = map(
+            separated_pair(
+                Self::and_expr,
+                delimited(multispace0, tag_no_case("OR"), multispace1),
+                Self::condition_expr,
+            ),
+            |p| {
+                ConditionExpression::LogicalOp(ConditionTree {
+                    operator: Operator::Or,
+                    left: Box::new(p.0),
+                    right: Box::new(p.1),
+                })
+            },
+        );
+
+        alt((cond, Self::and_expr))(i)
+    }
+
+    fn and_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let cond = map(
+            separated_pair(
+                Self::parenthetical_expr,
+                delimited(multispace0, tag_no_case("AND"), multispace1),
+                Self::and_expr,
+            ),
+            |p| {
+                ConditionExpression::LogicalOp(ConditionTree {
+                    operator: Operator::And,
+                    left: Box::new(p.0),
+                    right: Box::new(p.1),
+                })
+            },
+        );
+
+        alt((cond, Self::parenthetical_expr))(i)
+    }
+
+    fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let (remaining_input, (_, _, left_expr, _, _, _, operator, _, right_expr)) = tuple((
+            tag("("),
+            multispace0,
+            Self::simple_expr,
+            multispace0,
+            tag(")"),
+            multispace0,
+            Operator::parse,
+            multispace0,
+            Self::simple_expr,
+        ))(i)?;
+
+        let left = Box::new(ConditionExpression::Bracketed(Box::new(left_expr)));
+        let right = Box::new(right_expr);
+        let cond = ConditionExpression::ComparisonOp(ConditionTree {
+            operator,
+            left,
+            right,
+        });
+
+        Ok((remaining_input, cond))
+    }
+
+    pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        alt((
+            Self::parenthetical_expr_helper,
+            map(
+                delimited(
+                    terminated(tag("("), multispace0),
+                    ConditionExpression::condition_expr,
+                    delimited(multispace0, tag(")"), multispace0),
+                ),
+                |inner| ConditionExpression::Bracketed(Box::new(inner)),
+            ),
+            Self::not_expr,
+        ))(i)
+    }
+
+    fn not_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        alt((
+            map(
+                preceded(pair(tag_no_case("not"), multispace1), Self::parenthetical_expr),
+                |right| ConditionExpression::NegationOp(Box::new(right)),
+            ),
+            Self::boolean_primary,
+        ))(i)
+    }
+
+    fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+        let (remaining_input, (_, _, not, _, _)) = tuple((
+            tag_no_case("is"),
+            multispace0,
+            opt(tag_no_case("not")),
+            multispace0,
+            tag_no_case("null"),
+        ))(i)?;
+
+        // XXX(malte): bit of a hack; would consumers ever need to know
+        // about "IS NULL" vs. "= NULL"?
+        Ok((
+            remaining_input,
+            (
+                if not.is_some() {
+                    Operator::NotEqual
+                } else {
+                    Operator::Equal
+                },
+                ConditionExpression::Base(ConditionBase::Literal(Literal::Null)),
+            ),
+        ))
+    }
+
+    fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+        map(
+            separated_pair(
+                opt(terminated(tag_no_case("not"), multispace1)),
+                terminated(tag_no_case("in"), multispace0),
+                alt((
+                    map(
+                        delimited(tag("("), SelectStatement::nested_selection, tag(")")),
+                        |s| ConditionBase::NestedSelect(Box::new(s)),
+                    ),
+                    map(delimited(tag("("), Literal::value_list, tag(")")), |vs| {
+                        ConditionBase::LiteralList(vs)
+                    }),
+                )),
+            ),
+            |p| {
+                let nested = ConditionExpression::Base(p.1);
+                if (p.0).is_some() {
+                    (Operator::NotIn, nested)
+                } else {
+                    (Operator::In, nested)
+                }
+            },
+        )(i)
+    }
+
+    fn boolean_primary_rest(
+        i: &str,
+    ) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+        alt((
+            Self::is_null,
+            Self::in_operation,
+            separated_pair(Operator::parse, multispace0, Self::predicate),
+        ))(i)
+    }
+
+    fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        alt((
+            map(
+                separated_pair(Self::predicate, multispace0, Self::boolean_primary_rest),
+                |e: (ConditionExpression, (Operator, ConditionExpression))| {
+                    ConditionExpression::ComparisonOp(ConditionTree {
+                        operator: (e.1).0,
+                        left: Box::new(e.0),
+                        right: Box::new((e.1).1),
+                    })
+                },
+            ),
+            Self::predicate,
+        ))(i)
+    }
+
+    fn predicate(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        let nested_exists = map(
+            tuple((
+                opt(delimited(multispace0, tag_no_case("not"), multispace1)),
+                delimited(multispace0, tag_no_case("exists"), multispace0),
+                delimited(
+                    pair(tag("("), multispace0),
+                    SelectStatement::nested_selection,
+                    pair(multispace0, tag(")")),
+                ),
+            )),
+            |p| {
+                let nested = ConditionExpression::ExistsOp(Box::new(p.2));
+                if (p.0).is_some() {
+                    ConditionExpression::NegationOp(Box::new(nested))
+                } else {
+                    nested
+                }
+            },
+        );
+
+        alt((Self::simple_expr, nested_exists))(i)
+    }
+
+    pub fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+        alt((
+            map(
+                delimited(
+                    terminated(tag("("), multispace0),
+                    ArithmeticExpression::parse,
+                    preceded(multispace0, tag(")")),
+                ),
+                |e| {
+                    ConditionExpression::Bracketed(Box::new(ConditionExpression::Arithmetic(Box::new(
+                        e,
+                    ))))
+                },
+            ),
+            map(ArithmeticExpression::parse, |e| {
+                ConditionExpression::Arithmetic(Box::new(e))
+            }),
+            map(Literal::parse, |lit| {
+                ConditionExpression::Base(ConditionBase::Literal(lit))
+            }),
+            map(Column::parse, |f| {
+                ConditionExpression::Base(ConditionBase::Field(f))
+            }),
+            map(
+                delimited(tag("("), SelectStatement::nested_selection, tag(")")),
+                |s| ConditionExpression::Base(ConditionBase::NestedSelect(Box::new(s))),
+            ),
+        ))(i)
+    }
 }
 
 impl fmt::Display for ConditionExpression {
@@ -108,229 +351,13 @@ impl fmt::Display for ConditionExpression {
     }
 }
 
-// Parse a conditional expression into a condition tree structure
-pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let cond = map(
-        separated_pair(
-            and_expr,
-            delimited(multispace0, tag_no_case("or"), multispace1),
-            condition_expr,
-        ),
-        |p| {
-            ConditionExpression::LogicalOp(ConditionTree {
-                operator: Operator::Or,
-                left: Box::new(p.0),
-                right: Box::new(p.1),
-            })
-        },
-    );
-
-    alt((cond, and_expr))(i)
-}
-
-pub fn and_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let cond = map(
-        separated_pair(
-            parenthetical_expr,
-            delimited(multispace0, tag_no_case("and"), multispace1),
-            and_expr,
-        ),
-        |p| {
-            ConditionExpression::LogicalOp(ConditionTree {
-                operator: Operator::And,
-                left: Box::new(p.0),
-                right: Box::new(p.1),
-            })
-        },
-    );
-
-    alt((cond, parenthetical_expr))(i)
-}
-
-fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let (remaining_input, (_, _, left_expr, _, _, _, operator, _, right_expr)) = tuple((
-        tag("("),
-        multispace0,
-        simple_expr,
-        multispace0,
-        tag(")"),
-        multispace0,
-        Operator::parse,
-        multispace0,
-        simple_expr,
-    ))(i)?;
-
-    let left = Box::new(ConditionExpression::Bracketed(Box::new(left_expr)));
-    let right = Box::new(right_expr);
-    let cond = ConditionExpression::ComparisonOp(ConditionTree {
-        operator,
-        left,
-        right,
-    });
-
-    Ok((remaining_input, cond))
-}
-
-pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    alt((
-        parenthetical_expr_helper,
-        map(
-            delimited(
-                terminated(tag("("), multispace0),
-                condition_expr,
-                delimited(multispace0, tag(")"), multispace0),
-            ),
-            |inner| ConditionExpression::Bracketed(Box::new(inner)),
-        ),
-        not_expr,
-    ))(i)
-}
-
-pub fn not_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    alt((
-        map(
-            preceded(pair(tag_no_case("not"), multispace1), parenthetical_expr),
-            |right| ConditionExpression::NegationOp(Box::new(right)),
-        ),
-        boolean_primary,
-    ))(i)
-}
-
-fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
-    let (remaining_input, (_, _, not, _, _)) = tuple((
-        tag_no_case("is"),
-        multispace0,
-        opt(tag_no_case("not")),
-        multispace0,
-        tag_no_case("null"),
-    ))(i)?;
-
-    // XXX(malte): bit of a hack; would consumers ever need to know
-    // about "IS NULL" vs. "= NULL"?
-    Ok((
-        remaining_input,
-        (
-            if not.is_some() {
-                Operator::NotEqual
-            } else {
-                Operator::Equal
-            },
-            ConditionExpression::Base(ConditionBase::Literal(Literal::Null)),
-        ),
-    ))
-}
-
-fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
-    map(
-        separated_pair(
-            opt(terminated(tag_no_case("not"), multispace1)),
-            terminated(tag_no_case("in"), multispace0),
-            alt((
-                map(delimited(tag("("), nested_selection, tag(")")), |s| {
-                    ConditionBase::NestedSelect(Box::new(s))
-                }),
-                map(delimited(tag("("), Literal::value_list, tag(")")), |vs| {
-                    ConditionBase::LiteralList(vs)
-                }),
-            )),
-        ),
-        |p| {
-            let nested = ConditionExpression::Base(p.1);
-            if (p.0).is_some() {
-                (Operator::NotIn, nested)
-            } else {
-                (Operator::In, nested)
-            }
-        },
-    )(i)
-}
-
-fn boolean_primary_rest(
-    i: &str,
-) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
-    alt((
-        is_null,
-        in_operation,
-        separated_pair(Operator::parse, multispace0, predicate),
-    ))(i)
-}
-
-fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    alt((
-        map(
-            separated_pair(predicate, multispace0, boolean_primary_rest),
-            |e: (ConditionExpression, (Operator, ConditionExpression))| {
-                ConditionExpression::ComparisonOp(ConditionTree {
-                    operator: (e.1).0,
-                    left: Box::new(e.0),
-                    right: Box::new((e.1).1),
-                })
-            },
-        ),
-        predicate,
-    ))(i)
-}
-
-fn predicate(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    let nested_exists = map(
-        tuple((
-            opt(delimited(multispace0, tag_no_case("not"), multispace1)),
-            delimited(multispace0, tag_no_case("exists"), multispace0),
-            delimited(
-                pair(tag("("), multispace0),
-                nested_selection,
-                pair(multispace0, tag(")")),
-            ),
-        )),
-        |p| {
-            let nested = ConditionExpression::ExistsOp(Box::new(p.2));
-            if (p.0).is_some() {
-                ConditionExpression::NegationOp(Box::new(nested))
-            } else {
-                nested
-            }
-        },
-    );
-
-    alt((simple_expr, nested_exists))(i)
-}
-
-fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
-    alt((
-        map(
-            delimited(
-                terminated(tag("("), multispace0),
-                arithmetic_expression,
-                preceded(multispace0, tag(")")),
-            ),
-            |e| {
-                ConditionExpression::Bracketed(Box::new(ConditionExpression::Arithmetic(Box::new(
-                    e,
-                ))))
-            },
-        ),
-        map(arithmetic_expression, |e| {
-            ConditionExpression::Arithmetic(Box::new(e))
-        }),
-        map(Literal::parse, |lit| {
-            ConditionExpression::Base(ConditionBase::Literal(lit))
-        }),
-        map(Column::parse, |f| {
-            ConditionExpression::Base(ConditionBase::Field(f))
-        }),
-        map(delimited(tag("("), nested_selection, tag(")")), |s| {
-            ConditionExpression::Base(ConditionBase::NestedSelect(Box::new(s)))
-        }),
-    ))(i)
-}
-
 #[cfg(test)]
 mod tests {
-    use base::{FieldDefinitionExpression, ItemPlaceholder};
     use base::table::Table;
-    use dms::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
-    use dms::condition::ConditionBase::{Field, LiteralList, NestedSelect};
-    use dms::condition::ConditionExpression::{
+    use base::{FieldDefinitionExpression, ItemPlaceholder};
+    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use common::condition::ConditionBase::{Field, LiteralList, NestedSelect};
+    use common::condition::ConditionExpression::{
         Base, Bracketed, ComparisonOp, LogicalOp, NegationOp,
     };
     use dms::select::SelectStatement;
@@ -361,7 +388,7 @@ mod tests {
 
         let cond = "a.foo = ? and b.bar = 42";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         let c1 = Column::from("a.foo");
         let c2 = Column::from("b.bar");
         let mut expected_cols = HashSet::new();
@@ -400,7 +427,7 @@ mod tests {
     }
 
     fn x_equality_variable_placeholder(cond: &str, literal: Literal) {
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             flat_condition_tree(
@@ -424,7 +451,7 @@ mod tests {
     fn simple_arithmetic_expression() {
         let cond = "x + 3";
 
-        let res = simple_expr(cond);
+        let res = ConditionExpression::simple_expr(cond);
         assert_eq!(
             res.unwrap().1,
             x_operator_value(ArithmeticOperator::Add, 3.into())
@@ -435,7 +462,7 @@ mod tests {
     fn simple_arithmetic_expression_with_parenthesis() {
         let cond = "( x - 2 )";
 
-        let res = simple_expr(cond);
+        let res = ConditionExpression::simple_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::Bracketed(Box::new(x_operator_value(
@@ -449,7 +476,7 @@ mod tests {
     fn parenthetical_arithmetic_expression() {
         let cond = "( x * 5 )";
 
-        let res = parenthetical_expr(cond);
+        let res = ConditionExpression::parenthetical_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::Bracketed(Box::new(x_operator_value(
@@ -463,7 +490,7 @@ mod tests {
     fn condition_expression_with_arithmetics() {
         let cond = "x * 3 = 21";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::ComparisonOp(ConditionTree {
@@ -478,7 +505,7 @@ mod tests {
     fn condition_expression_with_arithmetics_and_parenthesis() {
         let cond = "(x - 7 = 15)";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::Bracketed(Box::new(ConditionExpression::ComparisonOp(
@@ -495,7 +522,7 @@ mod tests {
     fn condition_expression_with_arithmetics_in_parenthesis() {
         let cond = "( x + 2) = 15";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::ComparisonOp(ConditionTree {
@@ -513,7 +540,7 @@ mod tests {
     fn condition_expression_with_arithmetics_in_parenthesis_in_both_side() {
         let cond = "( x + 2) =(x*3)";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             ConditionExpression::ComparisonOp(ConditionTree {
@@ -535,7 +562,7 @@ mod tests {
         let cond1 = "foo = 42";
         let cond2 = "foo = \"hello\"";
 
-        let res1 = condition_expr(cond1);
+        let res1 = ConditionExpression::condition_expr(cond1);
         assert_eq!(
             res1.unwrap().1,
             flat_condition_tree(
@@ -545,7 +572,7 @@ mod tests {
             )
         );
 
-        let res2 = condition_expr(cond2);
+        let res2 = ConditionExpression::condition_expr(cond2);
         assert_eq!(
             res2.unwrap().1,
             flat_condition_tree(
@@ -561,7 +588,7 @@ mod tests {
         let cond1 = "foo >= 42";
         let cond2 = "foo <= 5";
 
-        let res1 = condition_expr(cond1);
+        let res1 = ConditionExpression::condition_expr(cond1);
         assert_eq!(
             res1.unwrap().1,
             flat_condition_tree(
@@ -571,7 +598,7 @@ mod tests {
             )
         );
 
-        let res2 = condition_expr(cond2);
+        let res2 = ConditionExpression::condition_expr(cond2);
         assert_eq!(
             res2.unwrap().1,
             flat_condition_tree(
@@ -586,7 +613,7 @@ mod tests {
     fn empty_string_literal() {
         let cond = "foo = ''";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(
             res.unwrap().1,
             flat_condition_tree(
@@ -633,7 +660,7 @@ mod tests {
             right: Box::new(right),
         });
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(res.unwrap().1, complete);
     }
 
@@ -673,7 +700,7 @@ mod tests {
             right: Box::new(right),
         });
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(res.unwrap().1, complete);
     }
 
@@ -700,7 +727,7 @@ mod tests {
             right: Box::new(right),
         });
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         assert_eq!(res.unwrap().1, complete);
     }
 
@@ -710,7 +737,7 @@ mod tests {
 
         let cond = "bar in (select col from foo)";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
@@ -734,7 +761,7 @@ mod tests {
 
         let cond = "exists (  select col from foo  )";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
@@ -754,7 +781,7 @@ mod tests {
 
         let cond = "not exists (select col from foo)";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
@@ -775,7 +802,7 @@ mod tests {
 
         let cond = "paperId in (select paperId from PaperConflict) and size > 0";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("PaperConflict")],
@@ -808,7 +835,7 @@ mod tests {
     fn in_list_of_values() {
         let cond = "bar in (0)";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
 
         let expected = flat_condition_tree(
             Operator::In,
@@ -825,7 +852,7 @@ mod tests {
 
         let cond = "bar IS NULL";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         let expected = flat_condition_tree(
             Operator::Equal,
             Field("bar".into()),
@@ -835,7 +862,7 @@ mod tests {
 
         let cond = "bar IS NOT NULL";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         let expected = flat_condition_tree(
             Operator::NotEqual,
             Field("bar".into()),
@@ -858,7 +885,7 @@ mod tests {
                     OR `saldo` >= 0 ) \
                     AND `read_ribbons`.`user_id` = ?";
 
-        let res = condition_expr(cond);
+        let res = ConditionExpression::condition_expr(cond);
         let expected = ConditionExpression::LogicalOp(ConditionTree {
             operator: Operator::And,
             left: Box::new(flat_condition_tree(
@@ -943,7 +970,7 @@ mod tests {
     #[test]
     fn not_in_comparison() {
         let qs1 = "id not in (1,2)";
-        let res1 = condition_expr(qs1);
+        let res1 = ConditionExpression::condition_expr(qs1);
 
         let c1 = res1.unwrap().1;
         let expected1 = flat_condition_tree(

@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
+
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
@@ -8,13 +9,14 @@ use nom::error::VerboseError;
 use nom::IResult;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, separated_pair, terminated};
+
 use base::column::Column;
-use common::keywords::escape_if_keyword;
 use base::Literal;
 use base::literal::LiteralExpression;
 use base::table::Table;
+use common::keywords::escape_if_keyword;
 use common::ws_sep_comma;
-use dms::arithmetic::{arithmetic_expression, ArithmeticExpression};
+use common::arithmetic::ArithmeticExpression;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldDefinitionExpression {
@@ -33,7 +35,7 @@ impl FieldDefinitionExpression {
                 map(terminated(Table::table_reference, tag(".*")), |t| {
                     FieldDefinitionExpression::AllInTable(t.name.clone())
                 }),
-                map(arithmetic_expression, |expr| {
+                map(ArithmeticExpression::parse, |expr| {
                     FieldDefinitionExpression::Value(FieldValueExpression::Arithmetic(expr))
                 }),
                 map(LiteralExpression::parse, |lit| {
@@ -80,7 +82,7 @@ impl FieldValueExpression {
                     alias: None,
                 })
             }),
-            map(arithmetic_expression, |ae| {
+            map(ArithmeticExpression::parse, |ae| {
                 FieldValueExpression::Arithmetic(ae)
             }),
         ))(i)

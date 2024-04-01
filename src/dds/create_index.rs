@@ -110,7 +110,7 @@ fn index(i: &str) -> IResult<&str, Index, VerboseError<&str>> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use dds::create_index;
 
     #[test]

@@ -565,7 +565,7 @@ pub fn create_table_partition_option(
 ///////////////////// TODO support create partition parser
 
 #[cfg(test)]
-mod test {
+mod tests {
     use dds::create_table::{create_definition_list, create_table};
 
     #[test]

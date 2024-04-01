@@ -1,20 +1,20 @@
 use std::{fmt, str};
 
+use nom::error::{VerboseError, VerboseErrorKind};
 use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case},
     character::complete::{multispace0, multispace1},
     combinator::{map, opt},
-    Err::Error,
-    IResult,
     lib::std::fmt::Formatter,
     multi::many0,
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+    Err::Error,
+    IResult,
 };
-use nom::error::{VerboseError, VerboseErrorKind};
 
-use base::{DataType, Literal};
 use base::column::Column;
+use base::{DataType, Literal};
 use common::as_alias;
 
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -25,6 +25,22 @@ pub enum ArithmeticOperator {
     Divide,
 }
 
+impl ArithmeticOperator {
+    fn add_sub_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
+        alt((
+            map(tag("+"), |_| ArithmeticOperator::Add),
+            map(tag("-"), |_| ArithmeticOperator::Subtract),
+        ))(i)
+    }
+
+    fn mul_div_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
+        alt((
+            map(tag("*"), |_| ArithmeticOperator::Multiply),
+            map(tag("/"), |_| ArithmeticOperator::Divide),
+        ))(i)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ArithmeticBase {
     Column(Column),
@@ -32,10 +48,112 @@ pub enum ArithmeticBase {
     Bracketed(Box<Arithmetic>),
 }
 
+impl ArithmeticBase {
+    // Base case for nested arithmetic expressions: column name or literal.
+    fn parse(i: &str) -> IResult<&str, ArithmeticBase, VerboseError<&str>> {
+        alt((
+            map(Literal::integer_literal, ArithmeticBase::Scalar),
+            map(Column::without_alias, ArithmeticBase::Column),
+            map(
+                delimited(
+                    terminated(tag("("), multispace0),
+                    Arithmetic::parse,
+                    preceded(multispace0, tag(")")),
+                ),
+                |ari| ArithmeticBase::Bracketed(Box::new(ari)),
+            ),
+        ))(i)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ArithmeticItem {
     Base(ArithmeticBase),
     Expr(Box<Arithmetic>),
+}
+
+impl ArithmeticItem {
+    fn term(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
+        map(
+            pair(Self::arithmetic_cast, many0(Self::term_rest)),
+            |(b, rs)| {
+                rs.into_iter()
+                    .fold(ArithmeticItem::Base(b.0), |acc, (o, r)| {
+                        ArithmeticItem::Expr(Box::new(Arithmetic {
+                            op: o,
+                            left: acc,
+                            right: r,
+                        }))
+                    })
+            },
+        )(i)
+    }
+
+    fn term_rest(
+        i: &str,
+    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
+        separated_pair(
+            preceded(multispace0, ArithmeticOperator::mul_div_operator),
+            multispace0,
+            map(Self::arithmetic_cast, |b| ArithmeticItem::Base(b.0)),
+        )(i)
+    }
+
+    fn expr(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
+        map(
+            pair(ArithmeticItem::term, many0(Self::expr_rest)),
+            |(item, rs)| {
+                rs.into_iter().fold(item, |acc, (o, r)| {
+                    ArithmeticItem::Expr(Box::new(Arithmetic {
+                        op: o,
+                        left: acc,
+                        right: r,
+                    }))
+                })
+            },
+        )(i)
+    }
+
+    fn expr_rest(
+        i: &str,
+    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
+        separated_pair(
+            preceded(multispace0, ArithmeticOperator::add_sub_operator),
+            multispace0,
+            ArithmeticItem::term,
+        )(i)
+    }
+
+    fn arithmetic_cast(
+        i: &str,
+    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
+        alt((
+            Self::arithmetic_cast_helper,
+            map(ArithmeticBase::parse, |v| (v, None)),
+        ))(i)
+    }
+
+    fn arithmetic_cast_helper(
+        i: &str,
+    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
+        let (remaining_input, (_, _, _, _, a_base, _, _, _, _sign, sql_type, _, _)) = tuple((
+            tag_no_case("CAST"),
+            multispace0,
+            tag("("),
+            multispace0,
+            // TODO(malte): should be arbitrary expr
+            ArithmeticBase::parse,
+            multispace1,
+            tag_no_case("AS"),
+            multispace1,
+            opt(terminated(tag_no_case("SIGNED"), multispace1)),
+            DataType::type_identifier,
+            multispace0,
+            tag(")"),
+        ))(i)?;
+
+        Ok((remaining_input, (a_base, Some(sql_type))))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -46,6 +164,19 @@ pub struct Arithmetic {
 }
 
 impl Arithmetic {
+    fn parse(i: &str) -> IResult<&str, Arithmetic, VerboseError<&str>> {
+        let res = ArithmeticItem::expr(i)?;
+        match res.1 {
+            ArithmeticItem::Base(ArithmeticBase::Column(_))
+            | ArithmeticItem::Base(ArithmeticBase::Scalar(_)) => {
+                let mut error: VerboseError<&str> = VerboseError { errors: vec![] };
+                error.errors.push((i, VerboseErrorKind::Context("Tag")));
+                Err(Error(error))
+            } // no operator
+            ArithmeticItem::Base(ArithmeticBase::Bracketed(expr)) => Ok((res.0, *expr)),
+            ArithmeticItem::Expr(expr) => Ok((res.0, *expr)),
+        }
+    }
     pub fn new(op: ArithmeticOperator, left: ArithmeticBase, right: ArithmeticBase) -> Self {
         Self {
             op,
@@ -59,6 +190,18 @@ impl Arithmetic {
 pub struct ArithmeticExpression {
     pub ari: Arithmetic,
     pub alias: Option<String>,
+}
+
+impl ArithmeticExpression {
+    pub fn parse(i: &str) -> IResult<&str, ArithmeticExpression, VerboseError<&str>> {
+        map(
+            pair(Arithmetic::parse, opt(as_alias)),
+            |(ari, opt_alias)| ArithmeticExpression {
+                ari,
+                alias: opt_alias.map(String::from),
+            },
+        )(i)
+    }
 }
 
 impl ArithmeticExpression {
@@ -124,130 +267,11 @@ impl fmt::Display for ArithmeticExpression {
     }
 }
 
-fn arithmetic_cast_helper(
-    i: &str,
-) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
-    let (remaining_input, (_, _, _, _, a_base, _, _, _, _sign, sql_type, _, _)) = tuple((
-        tag_no_case("cast"),
-        multispace0,
-        tag("("),
-        multispace0,
-        // TODO(malte): should be arbitrary expr
-        arithmetic_base,
-        multispace1,
-        tag_no_case("as"),
-        multispace1,
-        opt(terminated(tag_no_case("signed"), multispace1)),
-        DataType::type_identifier,
-        multispace0,
-        tag(")"),
-    ))(i)?;
-
-    Ok((remaining_input, (a_base, Some(sql_type))))
-}
-
-pub fn arithmetic_cast(
-    i: &str,
-) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
-    alt((arithmetic_cast_helper, map(arithmetic_base, |v| (v, None))))(i)
-}
-
-pub fn add_sub_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
-    alt((
-        map(tag("+"), |_| ArithmeticOperator::Add),
-        map(tag("-"), |_| ArithmeticOperator::Subtract),
-    ))(i)
-}
-
-pub fn mul_div_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
-    alt((
-        map(tag("*"), |_| ArithmeticOperator::Multiply),
-        map(tag("/"), |_| ArithmeticOperator::Divide),
-    ))(i)
-}
-
-// Base case for nested arithmetic expressions: column name or literal.
-pub fn arithmetic_base(i: &str) -> IResult<&str, ArithmeticBase, VerboseError<&str>> {
-    alt((
-        map(Literal::integer_literal, ArithmeticBase::Scalar),
-        map(Column::without_alias, ArithmeticBase::Column),
-        map(
-            delimited(
-                terminated(tag("("), multispace0),
-                arithmetic,
-                preceded(multispace0, tag(")")),
-            ),
-            |ari| ArithmeticBase::Bracketed(Box::new(ari)),
-        ),
-    ))(i)
-}
-
-fn arithmetic(i: &str) -> IResult<&str, Arithmetic, VerboseError<&str>> {
-    let res = expr(i)?;
-    match res.1 {
-        ArithmeticItem::Base(ArithmeticBase::Column(_))
-        | ArithmeticItem::Base(ArithmeticBase::Scalar(_)) => {
-            let mut error: VerboseError<&str> = VerboseError { errors: vec![] };
-            error.errors.push((i, VerboseErrorKind::Context("Tag")));
-            Err(Error(error))
-        } // no operator
-        ArithmeticItem::Base(ArithmeticBase::Bracketed(expr)) => Ok((res.0, *expr)),
-        ArithmeticItem::Expr(expr) => Ok((res.0, *expr)),
-    }
-}
-
-fn expr(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
-    map(pair(term, many0(expr_rest)), |(item, rs)| {
-        rs.into_iter().fold(item, |acc, (o, r)| {
-            ArithmeticItem::Expr(Box::new(Arithmetic {
-                op: o,
-                left: acc,
-                right: r,
-            }))
-        })
-    })(i)
-}
-
-fn expr_rest(i: &str) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
-    separated_pair(preceded(multispace0, add_sub_operator), multispace0, term)(i)
-}
-
-fn term(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
-    map(pair(arithmetic_cast, many0(term_rest)), |(b, rs)| {
-        rs.into_iter()
-            .fold(ArithmeticItem::Base(b.0), |acc, (o, r)| {
-                ArithmeticItem::Expr(Box::new(Arithmetic {
-                    op: o,
-                    left: acc,
-                    right: r,
-                }))
-            })
-    })(i)
-}
-
-fn term_rest(i: &str) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
-    separated_pair(
-        preceded(multispace0, mul_div_operator),
-        multispace0,
-        map(arithmetic_cast, |b| ArithmeticItem::Base(b.0)),
-    )(i)
-}
-
-// Parse simple arithmetic expressions combining literals, and columns and literals.
-pub fn arithmetic_expression(i: &str) -> IResult<&str, ArithmeticExpression, VerboseError<&str>> {
-    map(pair(arithmetic, opt(as_alias)), |(ari, opt_alias)| {
-        ArithmeticExpression {
-            ari,
-            alias: opt_alias.map(String::from),
-        }
-    })(i)
-}
-
 #[cfg(test)]
 mod tests {
     use base::column::{Column, FunctionArgument, FunctionExpression};
-    use dms::arithmetic::ArithmeticBase::Scalar;
-    use dms::arithmetic::ArithmeticOperator::{Add, Divide, Multiply, Subtract};
+    use common::arithmetic::ArithmeticBase::Scalar;
+    use common::arithmetic::ArithmeticOperator::{Add, Divide, Multiply, Subtract};
 
     use super::*;
 
@@ -317,13 +341,13 @@ mod tests {
         ];
 
         for (i, e) in lit_ae.iter().enumerate() {
-            let res = arithmetic_expression(e);
+            let res = ArithmeticExpression::parse(e);
             assert!(res.is_ok());
             assert_eq!(res.unwrap().1, expected_lit_ae[i]);
         }
 
         for (i, e) in col_lit_ae.iter().enumerate() {
-            let res = arithmetic_expression(e);
+            let res = ArithmeticExpression::parse(e);
             assert!(res.is_ok());
             assert_eq!(res.unwrap().1, expected_col_lit_ae[i]);
         }
@@ -391,7 +415,7 @@ mod tests {
         ];
 
         for (i, e) in exprs.iter().enumerate() {
-            let res = arithmetic_expression(e);
+            let res = ArithmeticExpression::parse(e);
             assert!(res.is_ok(), "{} failed to parse", e);
             assert_eq!(res.unwrap().1, expected[i]);
         }
@@ -451,7 +475,7 @@ mod tests {
             ];
 
         for (i, e) in qs.iter().enumerate() {
-            let res = arithmetic(e);
+            let res = Arithmetic::parse(e);
             let ari = res.unwrap().1;
             assert_eq!(ari, expects[i]);
             assert_eq!(format!("{}", ari), qs[i]);
@@ -461,7 +485,7 @@ mod tests {
     #[test]
     fn arithmetic_scalar() {
         let qs = "56";
-        let res = arithmetic(qs);
+        let res = Arithmetic::parse(qs);
         assert!(res.is_err());
         // assert_eq!(
         //     nom::Err::Error(nom::error::Error::new(qs, ErrorKind::Tag)),

@@ -1,42 +1,68 @@
-use nom::character::complete::{multispace0, multispace1};
 use std::fmt;
 use std::str;
 
-use common::{opt_delimited, statement_terminator};
-use dms::order::{order_clause, OrderClause};
-use dms::select::{limit_clause, nested_selection, LimitClause, SelectStatement};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
-pub enum CompoundSelectOperator {
-    Union,
-    DistinctUnion,
-    Intersect,
-    Except,
-}
+use common::{opt_delimited, OrderClause, statement_terminator};
+use dms::select::{LimitClause, SelectStatement};
 
-impl fmt::Display for CompoundSelectOperator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CompoundSelectOperator::Union => write!(f, "UNION"),
-            CompoundSelectOperator::DistinctUnion => write!(f, "UNION DISTINCT"),
-            CompoundSelectOperator::Intersect => write!(f, "INTERSECT"),
-            CompoundSelectOperator::Except => write!(f, "EXCEPT"),
-        }
-    }
-}
-
+// TODO 用于 create 语句的 select
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct CompoundSelectStatement {
     pub selects: Vec<(Option<CompoundSelectOperator>, SelectStatement)>,
     pub order: Option<OrderClause>,
     pub limit: Option<LimitClause>,
+}
+
+impl CompoundSelectStatement {
+
+    // Parse compound selection
+    pub fn parse(i: &str) -> IResult<&str, CompoundSelectStatement, VerboseError<&str>> {
+        let (remaining_input, (first_select, other_selects, _, order, limit, _)) = tuple((
+            opt_delimited(tag("("), SelectStatement::nested_selection, tag(")")),
+            many1(Self::other_selects),
+            multispace0,
+            opt(OrderClause::parse),
+            opt(LimitClause::parse),
+            statement_terminator,
+        ))(i)?;
+
+        let mut selects = vec![(None, first_select)];
+        selects.extend(other_selects);
+
+        Ok((
+            remaining_input,
+            CompoundSelectStatement {
+                selects,
+                order,
+                limit,
+            },
+        ))
+    }
+
+    fn other_selects(
+        i: &str,
+    ) -> IResult<&str, (Option<CompoundSelectOperator>, SelectStatement), VerboseError<&str>> {
+        let (remaining_input, (_, op, _, select)) = tuple((
+            multispace0,
+            CompoundSelectOperator::parse,
+            multispace1,
+            opt_delimited(
+                tag("("),
+                delimited(multispace0, SelectStatement::nested_selection, multispace0),
+                tag(")"),
+            ),
+        ))(i)?;
+
+        Ok((remaining_input, (Some(op), select)))
+    }
 }
 
 impl fmt::Display for CompoundSelectStatement {
@@ -57,94 +83,75 @@ impl fmt::Display for CompoundSelectStatement {
     }
 }
 
-// Parse compound operator
-fn compound_op(i: &str) -> IResult<&str, CompoundSelectOperator, VerboseError<&str>> {
-    alt((
-        map(
-            preceded(
-                tag_no_case("UNION"),
-                opt(preceded(
-                    multispace1,
-                    alt((
-                        map(tag_no_case("ALL"), |_| false),
-                        map(tag_no_case("DISTINCT"), |_| true),
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub enum CompoundSelectOperator {
+    Union,
+    DistinctUnion,
+    Intersect,
+    Except,
+}
+
+impl CompoundSelectOperator {
+    // Parse compound operator
+    fn parse(i: &str) -> IResult<&str, CompoundSelectOperator, VerboseError<&str>> {
+        alt((
+            map(
+                preceded(
+                    tag_no_case("UNION"),
+                    opt(preceded(
+                        multispace1,
+                        alt((
+                            map(tag_no_case("ALL"), |_| false),
+                            map(tag_no_case("DISTINCT"), |_| true),
+                        )),
                     )),
-                )),
-            ),
-            |distinct| match distinct {
-                // DISTINCT is the default in both MySQL and SQLite
-                None => CompoundSelectOperator::DistinctUnion,
-                Some(d) => {
-                    if d {
-                        CompoundSelectOperator::DistinctUnion
-                    } else {
-                        CompoundSelectOperator::Union
+                ),
+                |distinct| match distinct {
+                    // DISTINCT is the default in both MySQL and SQLite
+                    None => CompoundSelectOperator::DistinctUnion,
+                    Some(d) => {
+                        if d {
+                            CompoundSelectOperator::DistinctUnion
+                        } else {
+                            CompoundSelectOperator::Union
+                        }
                     }
-                }
-            },
-        ),
-        map(tag_no_case("INTERSECT"), |_| {
-            CompoundSelectOperator::Intersect
-        }),
-        map(tag_no_case("EXCEPT"), |_| CompoundSelectOperator::Except),
-    ))(i)
+                },
+            ),
+            map(tag_no_case("INTERSECT"), |_| {
+                CompoundSelectOperator::Intersect
+            }),
+            map(tag_no_case("EXCEPT"), |_| CompoundSelectOperator::Except),
+        ))(i)
+    }
 }
 
-fn other_selects(
-    i: &str,
-) -> IResult<&str, (Option<CompoundSelectOperator>, SelectStatement), VerboseError<&str>> {
-    let (remaining_input, (_, op, _, select)) = tuple((
-        multispace0,
-        compound_op,
-        multispace1,
-        opt_delimited(
-            tag("("),
-            delimited(multispace0, nested_selection, multispace0),
-            tag(")"),
-        ),
-    ))(i)?;
-
-    Ok((remaining_input, (Some(op), select)))
-}
-
-// Parse compound selection
-pub fn compound_selection(i: &str) -> IResult<&str, CompoundSelectStatement, VerboseError<&str>> {
-    let (remaining_input, (first_select, other_selects, _, order, limit, _)) = tuple((
-        opt_delimited(tag("("), nested_selection, tag(")")),
-        many1(other_selects),
-        multispace0,
-        opt(order_clause),
-        opt(limit_clause),
-        statement_terminator,
-    ))(i)?;
-
-    let mut selects = vec![(None, first_select)];
-    selects.extend(other_selects);
-
-    Ok((
-        remaining_input,
-        CompoundSelectStatement {
-            selects,
-            order,
-            limit,
-        },
-    ))
+impl fmt::Display for CompoundSelectOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CompoundSelectOperator::Union => write!(f, "UNION"),
+            CompoundSelectOperator::DistinctUnion => write!(f, "UNION DISTINCT"),
+            CompoundSelectOperator::Intersect => write!(f, "INTERSECT"),
+            CompoundSelectOperator::Except => write!(f, "EXCEPT"),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use base::column::Column;
     use base::table::Table;
     use base::{FieldDefinitionExpression, FieldValueExpression, Literal};
     use dms::select::SelectStatement;
 
+    use super::*;
+
     #[test]
     fn union() {
         let qstr = "SELECT id, 1 FROM Vote UNION SELECT id, stars from Rating;";
         let qstr2 = "(SELECT id, 1 FROM Vote) UNION (SELECT id, stars from Rating);";
-        let res = compound_selection(qstr);
-        let res2 = compound_selection(qstr2);
+        let res = CompoundSelectStatement::parse(qstr);
+        let res2 = CompoundSelectStatement::parse(qstr2);
 
         let first_select = SelectStatement {
             tables: vec![Table::from("Vote")],
@@ -182,9 +189,9 @@ mod tests {
         let qstr = "SELECT id, 1 FROM Vote);";
         let qstr2 = "(SELECT id, 1 FROM Vote;";
         let qstr3 = "SELECT id, 1 FROM Vote) UNION (SELECT id, stars from Rating;";
-        let res = compound_selection(qstr);
-        let res2 = compound_selection(qstr2);
-        let res3 = compound_selection(qstr3);
+        let res = CompoundSelectStatement::parse(qstr);
+        let res2 = CompoundSelectStatement::parse(qstr2);
+        let res3 = CompoundSelectStatement::parse(qstr3);
 
         assert!(&res.is_err());
         // assert_eq!(
@@ -211,7 +218,7 @@ mod tests {
         let qstr = "SELECT id, 1 FROM Vote \
                     UNION SELECT id, stars from Rating \
                     UNION DISTINCT SELECT 42, 5 FROM Vote;";
-        let res = compound_selection(qstr);
+        let res = CompoundSelectStatement::parse(qstr);
 
         let first_select = SelectStatement {
             tables: vec![Table::from("Vote")],
@@ -260,7 +267,7 @@ mod tests {
     #[test]
     fn union_all() {
         let qstr = "SELECT id, 1 FROM Vote UNION ALL SELECT id, stars from Rating;";
-        let res = compound_selection(qstr);
+        let res = CompoundSelectStatement::parse(qstr);
 
         let first_select = SelectStatement {
             tables: vec![Table::from("Vote")],

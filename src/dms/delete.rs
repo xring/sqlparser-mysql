@@ -4,15 +4,15 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, tuple};
+use nom::IResult;
 
-use common::keywords::escape_if_keyword;
 use base::table::Table;
+use common::keywords::escape_if_keyword;
 use common::statement_terminator;
-use dms::condition::ConditionExpression;
-use dms::select::where_clause;
+use common::condition::ConditionExpression;
 
+// FIXME TODO
 /// DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM tbl_name [[AS] tbl_alias]
 ///     [PARTITION (partition_name [, partition_name] ...)]
 ///     [WHERE where_condition]
@@ -22,6 +22,26 @@ use dms::select::where_clause;
 pub struct DeleteStatement {
     pub table: Table,
     pub where_clause: Option<ConditionExpression>,
+}
+
+impl DeleteStatement {
+    pub fn parse(i: &str) -> IResult<&str, DeleteStatement, VerboseError<&str>> {
+        let (remaining_input, (_, _, table, where_clause, _)) = tuple((
+            tag_no_case("DELETE"),
+            delimited(multispace1, tag_no_case("FROM"), multispace1),
+            Table::schema_table_reference,
+            opt(ConditionExpression::parse),
+            statement_terminator,
+        ))(i)?;
+
+        Ok((
+            remaining_input,
+            DeleteStatement {
+                table,
+                where_clause,
+            },
+        ))
+    }
 }
 
 impl fmt::Display for DeleteStatement {
@@ -36,40 +56,21 @@ impl fmt::Display for DeleteStatement {
     }
 }
 
-pub fn deletion(i: &str) -> IResult<&str, DeleteStatement, VerboseError<&str>> {
-    let (remaining_input, (_, _, table, where_clause, _)) = tuple((
-        tag_no_case("DELETE"),
-        delimited(multispace1, tag_no_case("FROM"), multispace1),
-        Table::schema_table_reference,
-        opt(where_clause),
-        statement_terminator,
-    ))(i)?;
-
-    Ok((
-        remaining_input,
-        DeleteStatement {
-            table,
-            where_clause,
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use base::column::Column;
     use base::Literal;
     use base::Operator;
-    use dms::condition::ConditionBase::*;
-    use dms::condition::ConditionExpression::*;
-    use dms::condition::ConditionExpression::ComparisonOp;
-    use dms::condition::ConditionTree;
+    use common::condition::ConditionBase::*;
+    use common::condition::ConditionExpression::*;
+    use common::condition::ConditionTree;
 
     use super::*;
 
     #[test]
     fn simple_delete() {
         let str = "DELETE FROM users;";
-        let res = deletion(str);
+        let res = DeleteStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             DeleteStatement {
@@ -82,7 +83,7 @@ mod tests {
     #[test]
     fn simple_delete_schema() {
         let str = "DELETE FROM db1.users;";
-        let res = deletion(str);
+        let res = DeleteStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             DeleteStatement {
@@ -95,7 +96,7 @@ mod tests {
     #[test]
     fn delete_with_where_clause() {
         let str = "DELETE FROM users WHERE id = 1;";
-        let res = deletion(str);
+        let res = DeleteStatement::parse(str);
 
         let expected_left = Base(Field(Column::from("id")));
         let expected_where_cond = Some(ComparisonOp(ConditionTree {
@@ -117,7 +118,7 @@ mod tests {
     fn format_delete() {
         let str = "DELETE FROM users WHERE id = 1";
         let expected = "DELETE FROM users WHERE id = 1";
-        let res = deletion(str);
+        let res = DeleteStatement::parse(str);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 }

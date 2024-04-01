@@ -48,7 +48,7 @@ pub fn drop_index(i: &str) -> IResult<&str, DropIndexStatement, VerboseError<&st
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use common::LockType;
     use dds::drop_index::drop_index;
 

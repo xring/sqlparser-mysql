@@ -5,18 +5,15 @@ use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
+use nom::IResult;
 
-use base::{FieldValueExpression, Literal};
 use base::column::Column;
-use common::keywords::escape_if_keyword;
 use base::table::Table;
-use common::{
-    statement_terminator,
-    ws_sep_comma,
-};
+use base::{FieldValueExpression, Literal};
+use common::keywords::escape_if_keyword;
+use common::{statement_terminator, ws_sep_comma};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct InsertStatement {
@@ -25,6 +22,80 @@ pub struct InsertStatement {
     pub data: Vec<Vec<Literal>>,
     pub ignore: bool,
     pub on_duplicate: Option<Vec<(Column, FieldValueExpression)>>,
+}
+
+impl InsertStatement {
+    // Parse rule for a SQL insert query.
+    // TODO(malte): support REPLACE, nested selection, DEFAULT VALUES
+    pub fn parse(i: &str) -> IResult<&str, InsertStatement, VerboseError<&str>> {
+        let (
+            remaining_input,
+            (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _),
+        ) = tuple((
+            tag_no_case("INSERT"),
+            opt(preceded(multispace1, tag_no_case("IGNORE"))),
+            multispace1,
+            tag_no_case("INTO"),
+            multispace1,
+            Table::schema_table_reference,
+            multispace0,
+            opt(Self::fields),
+            tag_no_case("VALUES"),
+            multispace0,
+            many1(Self::data),
+            opt(Self::on_duplicate),
+            statement_terminator,
+        ))(i)?;
+        assert!(table.alias.is_none());
+        let ignore = ignore_res.is_some();
+
+        Ok((
+            remaining_input,
+            InsertStatement {
+                table,
+                fields,
+                data,
+                ignore,
+                on_duplicate,
+            },
+        ))
+    }
+
+    fn fields(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
+        delimited(
+            preceded(tag("("), multispace0),
+            Column::field_list,
+            delimited(multispace0, tag(")"), multispace1),
+        )(i)
+    }
+
+    fn data(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
+        delimited(
+            tag("("),
+            Literal::value_list,
+            preceded(tag(")"), opt(ws_sep_comma)),
+        )(i)
+    }
+
+    fn on_duplicate(
+        i: &str,
+    ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
+        preceded(
+            multispace0,
+            preceded(
+                tuple((
+                    tag_no_case("ON"),
+                    multispace1,
+                    tag_no_case("DUPLICATE"),
+                    multispace1,
+                    tag_no_case("KYE"),
+                    multispace1,
+                    tag_no_case("UPDATE"),
+                )),
+                preceded(multispace1, FieldValueExpression::assignment_expr_list),
+            ),
+        )(i)
+    }
 }
 
 impl fmt::Display for InsertStatement {
@@ -46,10 +117,9 @@ impl fmt::Display for InsertStatement {
             " VALUES {}",
             self.data
                 .iter()
-                .map(|datas| format!(
+                .map(|data| format!(
                     "({})",
-                    datas
-                        .into_iter()
+                    data.into_iter()
                         .map(|l| l.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
@@ -60,66 +130,10 @@ impl fmt::Display for InsertStatement {
     }
 }
 
-fn fields(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
-    delimited(
-        preceded(tag("("), multispace0),
-        Column::field_list,
-        delimited(multispace0, tag(")"), multispace1),
-    )(i)
-}
-
-fn data(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
-    delimited(tag("("), Literal::value_list, preceded(tag(")"), opt(ws_sep_comma)))(i)
-}
-
-fn on_duplicate(i: &str) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
-    preceded(
-        multispace0,
-        preceded(
-            tag_no_case("on duplicate key update"),
-            preceded(multispace1, FieldValueExpression::assignment_expr_list),
-        ),
-    )(i)
-}
-
-// Parse rule for a SQL insert query.
-// TODO(malte): support REPLACE, nested selection, DEFAULT VALUES
-pub fn insertion(i: &str) -> IResult<&str, InsertStatement, VerboseError<&str>> {
-    let (remaining_input, (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _)) =
-        tuple((
-            tag_no_case("insert"),
-            opt(preceded(multispace1, tag_no_case("ignore"))),
-            multispace1,
-            tag_no_case("into"),
-            multispace1,
-            Table::schema_table_reference,
-            multispace0,
-            opt(fields),
-            tag_no_case("values"),
-            multispace0,
-            many1(data),
-            opt(on_duplicate),
-            statement_terminator,
-        ))(i)?;
-    assert!(table.alias.is_none());
-    let ignore = ignore_res.is_some();
-
-    Ok((
-        remaining_input,
-        InsertStatement {
-            table,
-            fields,
-            data,
-            ignore,
-            on_duplicate,
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use base::{FieldValueExpression, ItemPlaceholder};
-    use dms::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
 
     use super::*;
 
@@ -127,7 +141,7 @@ mod tests {
     fn simple_insert() {
         let str = "INSERT INTO users VALUES (42, \"test\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -143,7 +157,7 @@ mod tests {
     fn simple_insert_schema() {
         let str = "INSERT INTO db1.users VALUES (42, \"test\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -159,7 +173,7 @@ mod tests {
     fn complex_insert() {
         let str = "INSERT INTO users VALUES (42, 'test', \"test\", CURRENT_TIMESTAMP);";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -180,7 +194,7 @@ mod tests {
     fn insert_with_field_names() {
         let str = "INSERT INTO users (id, name) VALUES (42, \"test\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -197,7 +211,7 @@ mod tests {
     fn insert_without_spaces() {
         let str = "INSERT INTO users(id, name) VALUES(42, \"test\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -213,7 +227,7 @@ mod tests {
     fn multi_insert() {
         let str = "INSERT INTO users (id, name) VALUES (42, \"test\"),(21, \"test2\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -232,7 +246,7 @@ mod tests {
     fn insert_with_parameters() {
         let str = "INSERT INTO users (id, name) VALUES (?, ?);";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {
@@ -252,7 +266,7 @@ mod tests {
         let str = "INSERT INTO keystores (`key`, `value`) VALUES ($1, :2) \
                        ON DUPLICATE KEY UPDATE `value` = `value` + 1";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         let expected_ae = ArithmeticExpression::new(
             ArithmeticOperator::Add,
             ArithmeticBase::Column(Column::from("value")),
@@ -281,7 +295,7 @@ mod tests {
     fn insert_with_leading_value_whitespace() {
         let str = "INSERT INTO users (id, name) VALUES ( 42, \"test\");";
 
-        let res = insertion(str);
+        let res = InsertStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             InsertStatement {

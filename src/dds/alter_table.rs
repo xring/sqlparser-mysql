@@ -1091,7 +1091,7 @@ pub fn alter_table_partition_option(
 ////////////// TODO support alter partition parser
 
 #[cfg(test)]
-mod test {
+mod tests {
     use base::column::{ColumnConstraint, ColumnPosition, ColumnSpecification};
     use base::Literal;
     use common::index_option::IndexOption;

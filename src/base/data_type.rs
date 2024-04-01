@@ -305,7 +305,7 @@ impl DataType {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use base::DataType;
 
     #[test]

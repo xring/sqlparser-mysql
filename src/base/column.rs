@@ -14,9 +14,9 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 
 use base::{DataType, Literal, Real};
 use common::{as_alias, delim_digit, parse_comment, sql_identifier, ws_sep_comma};
+use common::case::CaseWhenExpression;
 use common::index_col_name;
 use common::keywords::escape_if_keyword;
-use dms::case::{case_when_column, CaseWhenExpression};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FunctionExpression {
@@ -161,7 +161,7 @@ impl FunctionArgument {
     // Parses the argument for an aggregation function
     pub fn parse(i: &str) -> IResult<&str, FunctionArgument, VerboseError<&str>> {
         alt((
-            map(case_when_column, |cw| FunctionArgument::Conditional(cw)),
+            map(CaseWhenExpression::parse, |cw| FunctionArgument::Conditional(cw)),
             map(Column::without_alias, |c| FunctionArgument::Column(c)),
         ))(i)
     }

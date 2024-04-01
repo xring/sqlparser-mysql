@@ -3,7 +3,6 @@ use core::fmt;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
-use nom::{InputLength, IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until, take_while, take_while1};
 use nom::character::complete::{alpha1, digit1, line_ending, multispace0, multispace1};
@@ -11,10 +10,14 @@ use nom::character::is_alphanumeric;
 use nom::combinator::{map, not, opt, peek, recognize};
 use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
+use nom::{IResult, InputLength, Parser};
 
 use base::column::Column;
 use common::keywords::sql_keyword;
+pub use common::order::{OrderClause, OrderType};
 
+pub use self::case::{CaseWhenExpression, ColumnOrLiteral};
+pub use self::join::{JoinConstraint, JoinOperator, JoinRightSide};
 pub use self::key_part::{KeyPart, KeyPartType};
 pub use self::partition_definition::PartitionDefinition;
 pub use self::reference_definition::ReferenceDefinition;
@@ -22,11 +25,21 @@ pub use self::reference_definition::ReferenceDefinition;
 pub mod index_option;
 pub mod table_option;
 
+pub mod arithmetic;
+
 #[macro_use]
 pub mod keywords;
 mod key_part;
 mod partition_definition;
 mod reference_definition;
+
+pub mod condition;
+
+mod order;
+
+pub mod case;
+
+mod join;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlgorithmType {
@@ -329,31 +342,6 @@ impl VisibleType {
             map(tag_no_case("VISIBLE"), |_| VisibleType::Visible),
             map(tag_no_case("INVISIBLE"), |_| VisibleType::Invisible),
         ))(i)
-    }
-}
-
-/// [ASC | DESC]
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum OrderType {
-    Asc,
-    Desc,
-}
-
-impl OrderType {
-    pub fn parse(i: &str) -> IResult<&str, OrderType, VerboseError<&str>> {
-        alt((
-            map(tag_no_case("DESC"), |_| OrderType::Desc),
-            map(tag_no_case("ASC"), |_| OrderType::Asc),
-        ))(i)
-    }
-}
-
-impl std::fmt::Display for OrderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            OrderType::Asc => write!(f, "ASC"),
-            OrderType::Desc => write!(f, "DESC"),
-        }
     }
 }
 

@@ -13,15 +13,15 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 
 use base::{DataType, FieldDefinitionExpression, Literal, Operator, Real, TableKey};
 use base::column::{Column, ColumnConstraint, ColumnSpecification};
-use common::keywords::escape_if_keyword;
 use base::table::Table;
 use common::{
     parse_comment, sql_identifier,
     statement_terminator, ws_sep_comma,
 };
-use common::{index_col_name, OrderType};
-use dms::compound_select::{compound_selection, CompoundSelectStatement};
-use dms::select::{nested_selection, SelectStatement};
+use common::index_col_name;
+use common::keywords::escape_if_keyword;
+use dms::compound_select::CompoundSelectStatement;
+use dms::select::SelectStatement;
 use dms::zz_create_table_options::table_options;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -423,8 +423,8 @@ pub fn view_creation(i: &str) -> IResult<&str, CreateViewStatement, VerboseError
         tag_no_case("as"),
         multispace1,
         alt((
-            map(compound_selection, |s| SelectSpecification::Compound(s)),
-            map(nested_selection, |s| SelectSpecification::Simple(s)),
+            map(CompoundSelectStatement::parse, |s| SelectSpecification::Compound(s)),
+            map(SelectStatement::nested_selection, |s| SelectSpecification::Simple(s)),
         )),
         statement_terminator,
     ))(i)?;
@@ -448,7 +448,7 @@ mod tests {
     use base::{DataType, FieldDefinitionExpression, Literal, Operator, TableKey};
     use base::column::{ColumnConstraint, ColumnSpecification};
     use dms::compound_select::{CompoundSelectOperator, CompoundSelectStatement};
-    use dms::condition::{ConditionBase, ConditionExpression, ConditionTree};
+    use common::condition::{ConditionBase, ConditionExpression, ConditionTree};
     use dms::select::SelectStatement;
 
     use super::*;
