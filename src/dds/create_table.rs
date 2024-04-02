@@ -12,13 +12,13 @@ use nom::IResult;
 
 use base::column::{Column, ColumnSpecification};
 use base::table::Table;
-use common::{KeyPart, sql_identifier, statement_terminator, ws_sep_comma};
 use common::index_option::IndexOption;
 use common::table_option::TableOption;
 use common::{
     opt_index_name, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType,
     ReferenceDefinition,
 };
+use common::{sql_identifier, statement_terminator, ws_sep_comma, KeyPart};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
@@ -178,7 +178,9 @@ fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<
             ))),
             multispace0,
             opt(tag_no_case("AS")),
-            multispace0,
+            multispace1,
+            tag_no_case("SELECT"),
+            multispace1,
             map(rest, |x| String::from(x)),
             statement_terminator,
         )),
@@ -186,7 +188,7 @@ fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<
             let table = x.0 .2;
             let if_not_exists = x.0 .1;
             let temporary = x.0 .0;
-            let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.12);
+            let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.14);
             CreateTableStatement {
                 table,
                 temporary,
@@ -420,7 +422,7 @@ fn primary_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
                 tag_no_case("KEY"),
             )), // PRIMARY KEY
             IndexType::opt_index_type,      // [index_type]
-            KeyPart::key_part_list,                 // (key_part,...)
+            KeyPart::key_part_list,         // (key_part,...)
             IndexOption::opt_index_option,  // [index_option]
         )),
         |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
@@ -445,7 +447,7 @@ fn unique(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
             ), // UNIQUE [INDEX | KEY]
             opt_index_name,                 // [index_name]
             IndexType::opt_index_type,      // [index_type]
-            KeyPart::key_part_list,                 // (key_part,...)
+            KeyPart::key_part_list,         // (key_part,...)
             IndexOption::opt_index_option,  // [index_option]
         )),
         |(

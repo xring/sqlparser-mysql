@@ -36,7 +36,6 @@ use dms::delete::DeleteStatement;
 use dms::insert::InsertStatement;
 use dms::select::SelectStatement;
 use dms::update::UpdateStatement;
-use dms::zz_create::CreateViewStatement;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Statement {
@@ -61,7 +60,6 @@ pub enum Statement {
     TruncateTable(TruncateTableStatement),
 
     // HISTORY
-    CreateView(CreateViewStatement),
     Insert(InsertStatement),
     CompoundSelect(CompoundSelectStatement),
     Select(SelectStatement),
@@ -76,7 +74,6 @@ impl fmt::Display for Statement {
             Statement::Select(ref select) => write!(f, "{}", select),
             Statement::Insert(ref insert) => write!(f, "{}", insert),
             Statement::CreateTable(ref create) => write!(f, "{}", create),
-            Statement::CreateView(ref create) => write!(f, "{}", create),
             Statement::Delete(ref delete) => write!(f, "{}", delete),
             Statement::DropTable(ref drop) => write!(f, "{}", drop),
             Statement::DropDatabase(ref drop) => write!(f, "{}", drop),

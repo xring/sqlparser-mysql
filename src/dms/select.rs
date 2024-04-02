@@ -12,7 +12,9 @@ use nom::sequence::{delimited, terminated, tuple};
 use base::column::Column;
 use base::FieldDefinitionExpression;
 use base::table::Table;
-use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, statement_terminator, unsigned_number};
+use common::{
+    JoinConstraint, JoinOperator, JoinRightSide, OrderClause, statement_terminator, unsigned_number,
+};
 use common::condition::ConditionExpression;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -126,7 +128,7 @@ impl GroupByClause {
     pub fn parse(i: &str) -> IResult<&str, GroupByClause, VerboseError<&str>> {
         let (remaining_input, (_, _, _, columns, having)) = tuple((
             multispace0,
-            tag_no_case("group by"),
+            tag_no_case("GROUP BY"),
             multispace1,
             Column::field_list,
             opt(ConditionExpression::having_clause),
@@ -166,7 +168,7 @@ impl JoinClause {
     pub fn parse(i: &str) -> IResult<&str, JoinClause, VerboseError<&str>> {
         let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
             multispace0,
-            opt(terminated(tag_no_case("natural"), multispace1)),
+            opt(terminated(tag_no_case("NATURAL"), multispace1)),
             JoinOperator::parse,
             multispace1,
             JoinRightSide::parse,
@@ -204,14 +206,25 @@ impl LimitClause {
     pub fn parse(i: &str) -> IResult<&str, LimitClause, VerboseError<&str>> {
         let (remaining_input, (_, _, _, limit, opt_offset)) = tuple((
             multispace0,
-            tag_no_case("limit"),
+            tag_no_case("LIMIT"),
             multispace1,
             unsigned_number,
-            opt(offset),
+            opt(Self::offset),
         ))(i)?;
         let offset = opt_offset.unwrap_or_else(|| 0);
 
         Ok((remaining_input, LimitClause { limit, offset }))
+    }
+
+    fn offset(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
+        let (remaining_input, (_, _, _, val)) = tuple((
+            multispace0,
+            tag_no_case("OFFSET"),
+            multispace1,
+            unsigned_number,
+        ))(i)?;
+
+        Ok((remaining_input, val))
     }
 }
 
@@ -225,17 +238,6 @@ impl fmt::Display for LimitClause {
     }
 }
 
-fn offset(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
-    let (remaining_input, (_, _, _, val)) = tuple((
-        multispace0,
-        tag_no_case("OFFSET"),
-        multispace1,
-        unsigned_number,
-    ))(i)?;
-
-    Ok((remaining_input, val))
-}
-
 #[cfg(test)]
 mod tests {
     use base::{FieldValueExpression, ItemPlaceholder, Operator};
@@ -243,8 +245,8 @@ mod tests {
     use base::Literal;
     use base::table::Table;
     use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, OrderType};
-    use common::case::{CaseWhenExpression, ColumnOrLiteral};
     use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use common::case::{CaseWhenExpression, ColumnOrLiteral};
     use common::condition::{ConditionExpression, ConditionTree};
     use common::condition::ConditionBase;
     use common::condition::ConditionBase::LiteralList;
