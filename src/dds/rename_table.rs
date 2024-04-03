@@ -6,14 +6,12 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
+use nom::IResult;
 
 use base::table::Table;
-use common::{
-    statement_terminator, ws_sep_comma,
-};
+use common::{statement_terminator, ws_sep_comma};
 
 /// RENAME TABLE
 //     tbl_name TO new_tbl_name
@@ -21,6 +19,33 @@ use common::{
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RenameTableStatement {
     pub tables: Vec<(Table, Table)>,
+}
+
+impl RenameTableStatement {
+    /// RENAME TABLE
+    //     tbl_name TO new_tbl_name
+    //     [, tbl_name2 TO new_tbl_name2] ...
+    pub fn parse(i: &str) -> IResult<&str, RenameTableStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("RENAME "),
+            multispace0,
+            tag_no_case("TABLE "),
+            multispace0,
+            many0(terminated(
+                Table::schema_table_reference_to_schema_table_reference,
+                opt(ws_sep_comma),
+            )),
+            statement_terminator,
+        ));
+        let (remaining_input, (_, _, _, _, table_pairs, _)) = parser(i)?;
+
+        Ok((
+            remaining_input,
+            RenameTableStatement {
+                tables: table_pairs,
+            },
+        ))
+    }
 }
 
 impl fmt::Display for RenameTableStatement {
@@ -47,32 +72,10 @@ impl fmt::Display for RenameTableStatement {
     }
 }
 
-pub fn rename_table(i: &str) -> IResult<&str, RenameTableStatement, VerboseError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("RENAME "),
-        multispace0,
-        tag_no_case("TABLE "),
-        multispace0,
-        many0(terminated(
-            Table::schema_table_reference_to_schema_table_reference,
-            opt(ws_sep_comma),
-        )),
-        statement_terminator,
-    ));
-    let (remaining_input, (_, _, _, _, table_pairs, _)) = parser(i)?;
-
-    Ok((
-        remaining_input,
-        RenameTableStatement {
-            tables: table_pairs,
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use base::table::Table;
-    use dds::rename_table::{rename_table, RenameTableStatement};
+    use dds::rename_table::RenameTableStatement;
 
     #[test]
     fn test_parse_drop_table() {
@@ -237,7 +240,10 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(rename_table(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(
+                RenameTableStatement::parse(good_sqls[i]).unwrap().1,
+                good_statements[i]
+            );
         }
 
         let bad_sqls = vec![
@@ -251,7 +257,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(rename_table(bad_sqls[i]).is_err())
+            assert!(RenameTableStatement::parse(bad_sqls[i]).is_err())
         }
     }
 }

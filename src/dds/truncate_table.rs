@@ -6,8 +6,8 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use base::table::Table;
 use common::statement_terminator;
@@ -16,6 +16,23 @@ use common::statement_terminator;
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct TruncateTableStatement {
     pub table: Table,
+}
+
+impl TruncateTableStatement {
+    /// TRUNCATE [TABLE] tbl_name
+    pub fn parse(i: &str) -> IResult<&str, TruncateTableStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("TRUNCATE "),
+            multispace0,
+            opt(tag_no_case("TABLE ")),
+            multispace0,
+            Table::without_alias,
+            statement_terminator,
+        ));
+        let (remaining_input, (_, _, _, _, table, _)) = parser(i)?;
+
+        Ok((remaining_input, TruncateTableStatement { table }))
+    }
 }
 
 impl fmt::Display for TruncateTableStatement {
@@ -29,24 +46,10 @@ impl fmt::Display for TruncateTableStatement {
     }
 }
 
-pub fn truncate_table(i: &str) -> IResult<&str, TruncateTableStatement, VerboseError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("TRUNCATE "),
-        multispace0,
-        opt(tag_no_case("TABLE ")),
-        multispace0,
-        Table::without_alias,
-        statement_terminator,
-    ));
-    let (remaining_input, (_, _, _, _, table, _)) = parser(i)?;
-
-    Ok((remaining_input, TruncateTableStatement { table }))
-}
-
 #[cfg(test)]
 mod tests {
     use base::table::Table;
-    use dds::truncate_table::{truncate_table, TruncateTableStatement};
+    use dds::truncate_table::TruncateTableStatement;
 
     #[test]
     fn test_parse_truncate_table() {
@@ -76,7 +79,10 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(truncate_table(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(
+                TruncateTableStatement::parse(good_sqls[i]).unwrap().1,
+                good_statements[i]
+            );
         }
 
         let bad_sqls = vec![
@@ -88,7 +94,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(truncate_table(bad_sqls[i]).is_err())
+            assert!(TruncateTableStatement::parse(bad_sqls[i]).is_err())
         }
     }
 }

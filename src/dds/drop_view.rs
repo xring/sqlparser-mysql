@@ -25,6 +25,39 @@ pub struct DropViewStatement {
     pub if_cascade: bool,
 }
 
+impl DropViewStatement {
+    /// DROP VIEW [IF EXISTS]
+    ///     view_name [, view_name] ...
+    ///     [RESTRICT | CASCADE]
+    pub fn parse(i: &str) -> IResult<&str, DropViewStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("DROP "),
+            multispace0,
+            tag_no_case("VIEW "),
+            parse_if_exists,
+            multispace0,
+            map(many0(terminated(sql_identifier, opt(ws_sep_comma))), |x| {
+                x.iter().map(|v| String::from(*v)).collect::<Vec<String>>()
+            }),
+            opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
+            opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
+            statement_terminator,
+        ));
+        let (remaining_input, (_, _, _, opt_if_exists, _, views, opt_if_restrict, opt_if_cascade, _)) =
+            parser(i)?;
+
+        Ok((
+            remaining_input,
+            DropViewStatement {
+                views,
+                if_exists: opt_if_exists.is_some(),
+                if_restrict: opt_if_restrict.is_some(),
+                if_cascade: opt_if_cascade.is_some(),
+            },
+        ))
+    }
+}
+
 impl Default for DropViewStatement {
     fn default() -> Self {
         DropViewStatement {
@@ -56,40 +89,9 @@ impl fmt::Display for DropViewStatement {
     }
 }
 
-/// DROP VIEW [IF EXISTS]
-///     view_name [, view_name] ...
-///     [RESTRICT | CASCADE]
-pub fn drop_view(i: &str) -> IResult<&str, DropViewStatement, VerboseError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("DROP "),
-        multispace0,
-        tag_no_case("VIEW "),
-        parse_if_exists,
-        multispace0,
-        map(many0(terminated(sql_identifier, opt(ws_sep_comma))), |x| {
-            x.iter().map(|v| String::from(*v)).collect::<Vec<String>>()
-        }),
-        opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
-        opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
-        statement_terminator,
-    ));
-    let (remaining_input, (_, _, _, opt_if_exists, _, views, opt_if_restrict, opt_if_cascade, _)) =
-        parser(i)?;
-
-    Ok((
-        remaining_input,
-        DropViewStatement {
-            views,
-            if_exists: opt_if_exists.is_some(),
-            if_restrict: opt_if_restrict.is_some(),
-            if_cascade: opt_if_cascade.is_some(),
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
-    use dds::drop_view::drop_view;
+    use dds::drop_view::DropViewStatement;
 
     #[test]
     fn test_drop_view() {
@@ -103,7 +105,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_view(sqls[i]);
+            let res = DropViewStatement::parse(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

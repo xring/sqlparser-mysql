@@ -2,11 +2,11 @@ use std::fmt;
 use std::io::BufRead;
 use std::str;
 
-use das::set_statement::SetStatement;
 use nom::combinator::map;
 use nom::error::VerboseError;
 use nom::{IResult, Offset};
 
+use das::set_statement::SetStatement;
 use dds::alter_database::AlterDatabaseStatement;
 use dds::alter_table::AlterTableStatement;
 use dds::create_index::CreateIndexStatement;
@@ -25,12 +25,6 @@ use dds::drop_trigger::DropTriggerStatement;
 use dds::drop_view::DropViewStatement;
 use dds::rename_table::RenameTableStatement;
 use dds::truncate_table::TruncateTableStatement;
-use dds::{
-    alter_database, alter_table, create_index, create_table, drop_database, drop_event_parser,
-    drop_function, drop_index, drop_logfile_group, drop_procedure, drop_server,
-    drop_spatial_reference_system, drop_table, drop_tablespace, drop_trigger, drop_view,
-    rename_table, truncate_table,
-};
 use dms::compound_select::CompoundSelectStatement;
 use dms::delete::DeleteStatement;
 use dms::insert::InsertStatement;
@@ -86,32 +80,96 @@ impl fmt::Display for Statement {
 }
 
 const PARSERS: [fn(&str) -> IResult<&str, Statement, VerboseError<&str>>; 18] = [
-    |i| map(alter_database, |parsed| Statement::AlterDatabase(parsed))(i),
-    |i| map(alter_table, |parsed| Statement::AlterTable(parsed))(i),
-    |i| map(create_index, |parsed| Statement::CreateIndex(parsed))(i),
-    |i| map(create_table, |parsed| Statement::CreateTable(parsed))(i),
-    |i| map(drop_database, |parsed| Statement::DropDatabase(parsed))(i),
-    |i| map(drop_event_parser, |parsed| Statement::DropEvent(parsed))(i),
-    |i| map(drop_function, |parsed| Statement::DropFunction(parsed))(i),
-    |i| map(drop_index, |parsed| Statement::DropIndex(parsed))(i),
     |i| {
-        map(drop_logfile_group, |parsed| {
+        map(AlterDatabaseStatement::parse, |parsed| {
+            Statement::AlterDatabase(parsed)
+        })(i)
+    },
+    |i| {
+        map(AlterTableStatement::parse, |parsed| {
+            Statement::AlterTable(parsed)
+        })(i)
+    },
+    |i| {
+        map(CreateIndexStatement::parse, |parsed| {
+            Statement::CreateIndex(parsed)
+        })(i)
+    },
+    |i| {
+        map(CreateTableStatement::parse, |parsed| {
+            Statement::CreateTable(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropDatabaseStatement::parse, |parsed| {
+            Statement::DropDatabase(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropEventStatement::parse, |parsed| {
+            Statement::DropEvent(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropFunctionStatement::parse, |parsed| {
+            Statement::DropFunction(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropIndexStatement::parse, |parsed| {
+            Statement::DropIndex(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropLogfileGroupStatement::parse, |parsed| {
             Statement::DropLogfileGroup(parsed)
         })(i)
     },
-    |i| map(drop_procedure, |parsed| Statement::DropProcedure(parsed))(i),
-    |i| map(drop_server, |parsed| Statement::DropServer(parsed))(i),
     |i| {
-        map(drop_spatial_reference_system, |parsed| {
+        map(DropProcedureStatement::parse, |parsed| {
+            Statement::DropProcedure(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropServerStatement::parse, |parsed| {
+            Statement::DropServer(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropSpatialReferenceSystemStatement::parse, |parsed| {
             Statement::DropSpatialReferenceSystem(parsed)
         })(i)
     },
-    |i| map(drop_table, |parsed| Statement::DropTable(parsed))(i),
-    |i| map(drop_tablespace, |parsed| Statement::DropTableSpace(parsed))(i),
-    |i| map(drop_trigger, |parsed| Statement::DropTrigger(parsed))(i),
-    |i| map(drop_view, |parsed| Statement::DropView(parsed))(i),
-    |i| map(rename_table, |parsed| Statement::RenameTable(parsed))(i),
-    |i| map(truncate_table, |parsed| Statement::TruncateTable(parsed))(i),
+    |i| {
+        map(DropTableStatement::parse, |parsed| {
+            Statement::DropTable(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropTablespaceStatement::parse, |parsed| {
+            Statement::DropTableSpace(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropTriggerStatement::parse, |parsed| {
+            Statement::DropTrigger(parsed)
+        })(i)
+    },
+    |i| {
+        map(DropViewStatement::parse, |parsed| {
+            Statement::DropView(parsed)
+        })(i)
+    },
+    |i| {
+        map(RenameTableStatement::parse, |parsed| {
+            Statement::RenameTable(parsed)
+        })(i)
+    },
+    |i| {
+        map(TruncateTableStatement::parse, |parsed| {
+            Statement::TruncateTable(parsed)
+        })(i)
+    },
 ];
 
 pub fn parse_sql(input: &str) -> Result<Statement, String> {

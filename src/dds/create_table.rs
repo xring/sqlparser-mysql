@@ -6,19 +6,19 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt, rest};
 use nom::error::VerboseError;
+use nom::IResult;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::IResult;
 
 use base::column::{Column, ColumnSpecification};
 use base::table::Table;
-use common::index_option::IndexOption;
-use common::table_option::TableOption;
 use common::{
-    opt_index_name, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType,
+    CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, opt_index_name,
     ReferenceDefinition,
 };
-use common::{sql_identifier, statement_terminator, ws_sep_comma, KeyPart};
+use common::{KeyPart, sql_identifier, statement_terminator, ws_sep_comma};
+use common::index_option::IndexOption;
+use common::table_option::TableOption;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
@@ -26,6 +26,30 @@ pub struct CreateTableStatement {
     pub temporary: bool,
     pub if_not_exists: bool,
     pub create_type: CreateTableType,
+}
+
+impl CreateTableStatement {
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     (create_definition,...)
+    ///     [table_options]
+    ///     [partition_options]
+    ///
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     [(create_definition,...)]
+    ///     [table_options]
+    ///     [partition_options]
+    ///     [IGNORE | REPLACE]
+    ///     [AS] query_expression
+    ///
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
+    pub fn parse(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
+        alt((
+            CreateTableType::create_simple,
+            CreateTableType::create_like_old_table,
+            CreateTableType::create_as_query,
+        ))(i)
+    }
 }
 
 impl fmt::Display for CreateTableStatement {
@@ -37,24 +61,6 @@ impl fmt::Display for CreateTableStatement {
         write!(f, "CREATE TABLE {} ", table_name)?;
         Ok(())
     }
-}
-
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     (create_definition,...)
-///     [table_options]
-///     [partition_options]
-///
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     [(create_definition,...)]
-///     [table_options]
-///     [partition_options]
-///     [IGNORE | REPLACE]
-///     [AS] query_expression
-///
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-pub fn create_table(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    alt((create_simple, create_like_old_table, create_as_query))(i)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -94,213 +100,169 @@ pub enum CreateTableType {
     LikeOldTable(Table),
 }
 
-fn create_table_options(i: &str) -> IResult<&str, Vec<TableOption>, VerboseError<&str>> {
-    map(
-        many1(terminated(TableOption::parse, opt(ws_sep_comma))),
-        |x| x,
-    )(i)
-}
-
-fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>, VerboseError<&str>> {
-    delimited(
-        tag("("),
-        many1(map(
+impl CreateTableType {
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     (create_definition,...)
+    ///     [table_options]
+    ///     [partition_options]
+    fn create_simple(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
+        map(
             tuple((
+                Self::create_table_with_name,
                 multispace0,
-                create_definition,
+                // (create_definition,...)
+                CreateDefinition::create_definition_list,
                 multispace0,
-                opt(ws_sep_comma),
+                // [table_options]
+                opt(Self::create_table_options),
                 multispace0,
+                // [partition_options]
+                opt(CreatePartitionOption::parse),
+                statement_terminator,
             )),
-            |x| x.1,
-        )),
-        tag(")"),
-    )(i)
-}
+            |(x)| {
+                let temporary = x.0 .0;
+                let if_not_exists = x.0 .1;
+                let table = x.0 .2;
+                let create_type = CreateTableType::Simple(x.2, x.4, x.6);
+                CreateTableStatement {
+                    table,
+                    temporary,
+                    if_not_exists,
+                    create_type,
+                }
+            },
+        )(i)
+    }
 
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     (create_definition,...)
-///     [table_options]
-///     [partition_options]
-fn create_simple(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    map(
-        tuple((
-            create_table_with_name,
-            multispace0,
-            // (create_definition,...)
-            create_definition_list,
-            multispace0,
-            // [table_options]
-            opt(create_table_options),
-            multispace0,
-            // [partition_options]
-            opt(create_table_partition_option),
-            statement_terminator,
-        )),
-        |(x)| {
-            let temporary = x.0 .0;
-            let if_not_exists = x.0 .1;
-            let table = x.0 .2;
-            let create_type = CreateTableType::Simple(x.2, x.4, x.6);
-            CreateTableStatement {
-                table,
-                temporary,
-                if_not_exists,
-                create_type,
-            }
-        },
-    )(i)
-}
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     [(create_definition,...)]
+    ///     [table_options]
+    ///     [partition_options]
+    ///     [IGNORE | REPLACE]
+    ///     [AS] query_expression
+    fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
+        map(
+            tuple((
+                Self::create_table_with_name,
+                multispace0,
+                // [(create_definition,...)]
+                opt(CreateDefinition::create_definition_list),
+                multispace0,
+                // [table_options]
+                opt(Self::create_table_options),
+                multispace0,
+                // [partition_options]
+                opt(CreatePartitionOption::parse),
+                multispace0,
+                opt(alt((
+                    map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
+                    map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
+                ))),
+                multispace0,
+                opt(tag_no_case("AS")),
+                multispace1,
+                tag_no_case("SELECT"),
+                multispace1,
+                map(rest, |x| String::from(x)),
+                statement_terminator,
+            )),
+            |(x)| {
+                let table = x.0 .2;
+                let if_not_exists = x.0 .1;
+                let temporary = x.0 .0;
+                let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.14);
+                CreateTableStatement {
+                    table,
+                    temporary,
+                    if_not_exists,
+                    create_type,
+                }
+            },
+        )(i)
+    }
 
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     [(create_definition,...)]
-///     [table_options]
-///     [partition_options]
-///     [IGNORE | REPLACE]
-///     [AS] query_expression
-fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    map(
-        tuple((
-            create_table_with_name,
-            multispace0,
-            // [(create_definition,...)]
-            opt(create_definition_list),
-            multispace0,
-            // [table_options]
-            opt(create_table_options),
-            multispace0,
-            // [partition_options]
-            opt(create_table_partition_option),
-            multispace0,
-            opt(alt((
-                map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
-                map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
+    fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
+        map(
+            tuple((
+                Self::create_table_with_name,
+                multispace0,
+                // { LIKE old_tbl_name | (LIKE old_tbl_name) }
+                map(
+                    alt((
+                        map(
+                            tuple((
+                                tag_no_case("LIKE"),
+                                multispace1,
+                                Table::schema_table_reference,
+                            )),
+                            |x| x.2,
+                        ),
+                        map(
+                            delimited(tag("("), Table::schema_table_reference, tag(")")),
+                            |x| x,
+                        ),
+                    )),
+                    |x| CreateTableType::LikeOldTable(x),
+                ),
+                statement_terminator,
+            )),
+            |(x, _, create_type, _)| {
+                let table = x.2;
+                let if_not_exists = x.1;
+                let temporary = x.0;
+                CreateTableStatement {
+                    table,
+                    temporary,
+                    if_not_exists,
+                    create_type,
+                }
+            },
+        )(i)
+    }
+
+
+
+    fn create_table_options(i: &str) -> IResult<&str, Vec<TableOption>, VerboseError<&str>> {
+        map(
+            many1(terminated(TableOption::parse, opt(ws_sep_comma))),
+            |x| x,
+        )(i)
+    }
+
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table), VerboseError<&str>> {
+        map(
+            tuple((
+                tuple((tag_no_case("CREATE"), multispace1)),
+                opt(tag_no_case("TEMPORARY")),
+                multispace0,
+                tuple((tag_no_case("TABLE"), multispace1)),
+                // [IF NOT EXISTS]
+                Self::if_not_exists,
+                multispace0,
+                // tbl_name
+                Table::schema_table_reference,
+            )),
+            |x| (x.1.is_some(), x.4, x.6),
+        )(i)
+    }
+
+    /// [IF NOT EXISTS]
+    fn if_not_exists(i: &str) -> IResult<&str, bool, VerboseError<&str>> {
+        map(
+            opt(tuple((
+                tag_no_case("IF"),
+                multispace1,
+                tag_no_case("NOT"),
+                multispace1,
+                tag_no_case("EXISTS"),
             ))),
-            multispace0,
-            opt(tag_no_case("AS")),
-            multispace1,
-            tag_no_case("SELECT"),
-            multispace1,
-            map(rest, |x| String::from(x)),
-            statement_terminator,
-        )),
-        |(x)| {
-            let table = x.0 .2;
-            let if_not_exists = x.0 .1;
-            let temporary = x.0 .0;
-            let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.14);
-            CreateTableStatement {
-                table,
-                temporary,
-                if_not_exists,
-                create_type,
-            }
-        },
-    )(i)
-}
-
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
-fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement, VerboseError<&str>> {
-    map(
-        tuple((
-            create_table_with_name,
-            multispace0,
-            // { LIKE old_tbl_name | (LIKE old_tbl_name) }
-            map(
-                alt((
-                    map(
-                        tuple((
-                            tag_no_case("LIKE"),
-                            multispace1,
-                            Table::schema_table_reference,
-                        )),
-                        |x| x.2,
-                    ),
-                    map(
-                        delimited(tag("("), Table::schema_table_reference, tag(")")),
-                        |x| x,
-                    ),
-                )),
-                |x| CreateTableType::LikeOldTable(x),
-            ),
-            statement_terminator,
-        )),
-        |(x, _, create_type, _)| {
-            let table = x.2;
-            let if_not_exists = x.1;
-            let temporary = x.0;
-            CreateTableStatement {
-                table,
-                temporary,
-                if_not_exists,
-                create_type,
-            }
-        },
-    )(i)
-}
-
-/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table), VerboseError<&str>> {
-    map(
-        tuple((
-            tuple((tag_no_case("CREATE"), multispace1)),
-            opt(tag_no_case("TEMPORARY")),
-            multispace0,
-            tuple((tag_no_case("TABLE"), multispace1)),
-            // [IF NOT EXISTS]
-            if_not_exists,
-            multispace0,
-            // tbl_name
-            Table::schema_table_reference,
-        )),
-        |x| (x.1.is_some(), x.4, x.6),
-    )(i)
-}
-
-/// [IF NOT EXISTS]
-fn if_not_exists(i: &str) -> IResult<&str, bool, VerboseError<&str>> {
-    map(
-        opt(tuple((
-            tag_no_case("IF"),
-            multispace1,
-            tag_no_case("NOT"),
-            multispace1,
-            tag_no_case("EXISTS"),
-        ))),
-        |x| x.is_some(),
-    )(i)
-}
-
-/// create_definition: {
-///     col_name column_definition
-///   | {INDEX | KEY} [index_name] [index_type] (key_part,...)
-///       [index_option] ...
-///   | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...)
-///       [index_option] ...
-///   | [CONSTRAINT [symbol]] PRIMARY KEY
-///       [index_type] (key_part,...)
-///       [index_option] ...
-///   | [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
-///       [index_name] [index_type] (key_part,...)
-///       [index_option] ...
-///   | [CONSTRAINT [symbol]] FOREIGN KEY
-///       [index_name] (col_name,...)
-///       reference_definition
-///   | check_constraint_definition
-/// }
-pub fn create_definition(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    alt((
-        map(ColumnSpecification::parse, |x| {
-            CreateDefinition::ColumnDefinition(x)
-        }),
-        index_or_key,
-        fulltext_or_spatial,
-        primary_key,
-        unique,
-        foreign_key,
-        check_constraint_definition,
-    ))(i)
+            |x| x.is_some(),
+        )(i)
+    }
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -356,219 +318,274 @@ pub enum CreateDefinition {
     Check(CheckConstraintDefinition),
 }
 
-/// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
-fn index_or_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            // {INDEX | KEY}
-            IndexOrKeyType::parse,
-            // [index_name]
-            opt_index_name,
-            // [index_type]
-            IndexType::opt_index_type,
-            // (key_part,...)
-            KeyPart::key_part_list,
-            // [index_option]
-            IndexOption::opt_index_option,
-        )),
-        |(index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option)| {
-            CreateDefinition::IndexOrKey(
-                index_or_key,
-                opt_index_name,
-                opt_index_type,
-                key_part,
-                opt_index_option,
-            )
-        },
-    )(i)
-}
+impl CreateDefinition {
 
-/// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
-fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            // {FULLTEXT | SPATIAL}
-            FulltextOrSpatialType::parse,
-            // [INDEX | KEY]
-            preceded(multispace1, opt(IndexOrKeyType::parse)),
-            // [index_name]
-            opt_index_name,
-            // (key_part,...)
-            KeyPart::key_part_list,
-            // [index_option]
-            IndexOption::opt_index_option,
-        )),
-        |(fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
-            CreateDefinition::FulltextOrSpatial(
-                fulltext_or_spatial,
-                index_or_key,
-                index_name,
-                key_part,
-                opt_index_option,
-            )
-        },
-    )(i)
-}
+    /// create_definition: {
+    ///     col_name column_definition
+    ///   | {INDEX | KEY} [index_name] [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] PRIMARY KEY
+    ///       [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
+    ///       [index_name] [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] FOREIGN KEY
+    ///       [index_name] (col_name,...)
+    ///       reference_definition
+    ///   | check_constraint_definition
+    /// }
+    pub fn parse(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        alt((
+            map(ColumnSpecification::parse, |x| {
+                CreateDefinition::ColumnDefinition(x)
+            }),
+            CreateDefinition::index_or_key,
+            CreateDefinition::fulltext_or_spatial,
+            CreateDefinition::primary_key,
+            CreateDefinition::unique,
+            CreateDefinition::foreign_key,
+            CreateDefinition::check_constraint_definition,
+        ))(i)
+    }
 
-/// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
-fn primary_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
-            tuple((
-                multispace0,
-                tag_no_case("PRIMARY"),
-                multispace1,
-                tag_no_case("KEY"),
-            )), // PRIMARY KEY
-            IndexType::opt_index_type,      // [index_type]
-            KeyPart::key_part_list,         // (key_part,...)
-            IndexOption::opt_index_option,  // [index_option]
-        )),
-        |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
-            CreateDefinition::PrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option)
-        },
-    )(i)
-}
-
-/// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
-fn unique(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
-            map(
+    fn create_definition_list(i: &str) -> IResult<&str, Vec<CreateDefinition>, VerboseError<&str>> {
+        delimited(
+            tag("("),
+            many1(map(
                 tuple((
                     multispace0,
-                    tag_no_case("UNIQUE"),
-                    multispace1,
-                    opt(IndexOrKeyType::parse),
+                    CreateDefinition::parse,
+                    multispace0,
+                    opt(ws_sep_comma),
+                    multispace0,
                 )),
-                |(_, _, _, value)| value,
-            ), // UNIQUE [INDEX | KEY]
-            opt_index_name,                 // [index_name]
-            IndexType::opt_index_type,      // [index_type]
-            KeyPart::key_part_list,         // (key_part,...)
-            IndexOption::opt_index_option,  // [index_option]
-        )),
-        |(
-            opt_symbol,
-            opt_index_or_key,
-            opt_index_name,
-            opt_index_type,
-            key_part,
-            opt_index_option,
-        )| {
-            CreateDefinition::Unique(
-                opt_symbol,
-                opt_index_or_key,
-                opt_index_name,
-                opt_index_type,
-                key_part,
-                opt_index_option,
-            )
-        },
-    )(i)
-}
-
-/// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
-fn foreign_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            // [CONSTRAINT [symbol]]
-            opt_constraint_with_opt_symbol,
-            // FOREIGN KEY
-            tuple((
-                multispace0,
-                tag_no_case("FOREIGN"),
-                multispace1,
-                tag_no_case("KEY"),
+                |x| x.1,
             )),
-            // [index_name]
-            opt_index_name,
-            // (col_name,...)
-            map(
+            tag(")"),
+        )(i)
+    }
+
+    /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
+    fn index_or_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                // {INDEX | KEY}
+                IndexOrKeyType::parse,
+                // [index_name]
+                opt_index_name,
+                // [index_type]
+                IndexType::opt_index_type,
+                // (key_part,...)
+                KeyPart::key_part_list,
+                // [index_option]
+                IndexOption::opt_index_option,
+            )),
+            |(index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option)| {
+                CreateDefinition::IndexOrKey(
+                    index_or_key,
+                    opt_index_name,
+                    opt_index_type,
+                    key_part,
+                    opt_index_option,
+                )
+            },
+        )(i)
+    }
+
+    /// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
+    fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                // {FULLTEXT | SPATIAL}
+                FulltextOrSpatialType::parse,
+                // [INDEX | KEY]
+                preceded(multispace1, opt(IndexOrKeyType::parse)),
+                // [index_name]
+                opt_index_name,
+                // (key_part,...)
+                KeyPart::key_part_list,
+                // [index_option]
+                IndexOption::opt_index_option,
+            )),
+            |(fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
+                CreateDefinition::FulltextOrSpatial(
+                    fulltext_or_spatial,
+                    index_or_key,
+                    index_name,
+                    key_part,
+                    opt_index_option,
+                )
+            },
+        )(i)
+    }
+
+    /// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
+    fn primary_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                Self::opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
                 tuple((
                     multispace0,
-                    delimited(
-                        tag("("),
-                        delimited(multispace0, Column::index_col_list, multispace0),
-                        tag(")"),
-                    ),
+                    tag_no_case("PRIMARY"),
+                    multispace1,
+                    tag_no_case("KEY"),
+                )), // PRIMARY KEY
+                IndexType::opt_index_type,      // [index_type]
+                KeyPart::key_part_list,         // (key_part,...)
+                IndexOption::opt_index_option,  // [index_option]
+            )),
+            |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
+                CreateDefinition::PrimaryKey(opt_symbol, opt_index_type, key_part, opt_index_option)
+            },
+        )(i)
+    }
+
+    /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
+    fn unique(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                Self::opt_constraint_with_opt_symbol, // [CONSTRAINT [symbol]]
+                map(
+                    tuple((
+                        multispace0,
+                        tag_no_case("UNIQUE"),
+                        multispace1,
+                        opt(IndexOrKeyType::parse),
+                    )),
+                    |(_, _, _, value)| value,
+                ), // UNIQUE [INDEX | KEY]
+                opt_index_name,                 // [index_name]
+                IndexType::opt_index_type,      // [index_type]
+                KeyPart::key_part_list,         // (key_part,...)
+                IndexOption::opt_index_option,  // [index_option]
+            )),
+            |(
+                 opt_symbol,
+                 opt_index_or_key,
+                 opt_index_name,
+                 opt_index_type,
+                 key_part,
+                 opt_index_option,
+             )| {
+                CreateDefinition::Unique(
+                    opt_symbol,
+                    opt_index_or_key,
+                    opt_index_name,
+                    opt_index_type,
+                    key_part,
+                    opt_index_option,
+                )
+            },
+        )(i)
+    }
+
+    /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
+    fn foreign_key(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                // [CONSTRAINT [symbol]]
+                Self::opt_constraint_with_opt_symbol,
+                // FOREIGN KEY
+                tuple((
                     multispace0,
+                    tag_no_case("FOREIGN"),
+                    multispace1,
+                    tag_no_case("KEY"),
                 )),
-                |(_, value, _)| value.iter().map(|x| x.name.clone()).collect(),
-            ),
-            // reference_definition
-            ReferenceDefinition::parse,
-        )),
-        |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
-            CreateDefinition::ForeignKey(opt_symbol, opt_index_name, columns, reference_definition)
-        },
-    )(i)
+                // [index_name]
+                opt_index_name,
+                // (col_name,...)
+                map(
+                    tuple((
+                        multispace0,
+                        delimited(
+                            tag("("),
+                            delimited(multispace0, Column::index_col_list, multispace0),
+                            tag(")"),
+                        ),
+                        multispace0,
+                    )),
+                    |(_, value, _)| value.iter().map(|x| x.name.clone()).collect(),
+                ),
+                // reference_definition
+                ReferenceDefinition::parse,
+            )),
+            |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
+                CreateDefinition::ForeignKey(opt_symbol, opt_index_name, columns, reference_definition)
+            },
+        )(i)
+    }
+
+    /// check_constraint_definition
+    /// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
+    fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
+        map(
+            tuple((
+                // [CONSTRAINT [symbol]]
+                Self::opt_constraint_with_opt_symbol,
+                // CHECK
+                tuple((multispace1, tag_no_case("CHECK"), multispace0)),
+                // (expr)
+                delimited(tag("("), take_until(")"), tag(")")),
+                // [[NOT] ENFORCED]
+                opt(tuple((
+                    multispace0,
+                    opt(tag_no_case("NOT")),
+                    multispace1,
+                    tag_no_case("ENFORCED"),
+                    multispace0,
+                ))),
+            )),
+            |(symbol, _, expr, opt_whether_enforced)| {
+                let expr = String::from(expr);
+                let enforced =
+                    opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
+                CreateDefinition::Check(CheckConstraintDefinition {
+                    symbol,
+                    expr,
+                    enforced,
+                })
+            },
+        )(i)
+    }
+
+    /// [CONSTRAINT [symbol]]
+    fn opt_constraint_with_opt_symbol(i: &str) -> IResult<&str, Option<String>, VerboseError<&str>> {
+        map(
+            opt(preceded(
+                tag_no_case("CONSTRAINT"),
+                opt(preceded(multispace1, sql_identifier)),
+            )),
+            |(x)| x.and_then(|inner| inner.map(|value| String::from(value))),
+        )(i)
+    }
 }
 
-/// check_constraint_definition
-/// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-fn check_constraint_definition(i: &str) -> IResult<&str, CreateDefinition, VerboseError<&str>> {
-    map(
-        tuple((
-            // [CONSTRAINT [symbol]]
-            opt_constraint_with_opt_symbol,
-            // CHECK
-            tuple((multispace1, tag_no_case("CHECK"), multispace0)),
-            // (expr)
-            delimited(tag("("), take_until(")"), tag(")")),
-            // [[NOT] ENFORCED]
-            opt(tuple((
-                multispace0,
-                opt(tag_no_case("NOT")),
-                multispace1,
-                tag_no_case("ENFORCED"),
-                multispace0,
-            ))),
-        )),
-        |(symbol, _, expr, opt_whether_enforced)| {
-            let expr = String::from(expr);
-            let enforced =
-                opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
-            CreateDefinition::Check(CheckConstraintDefinition {
-                symbol,
-                expr,
-                enforced,
-            })
-        },
-    )(i)
-}
 
-/// [CONSTRAINT [symbol]]
-fn opt_constraint_with_opt_symbol(i: &str) -> IResult<&str, Option<String>, VerboseError<&str>> {
-    map(
-        opt(preceded(
-            tag_no_case("CONSTRAINT"),
-            opt(preceded(multispace1, sql_identifier)),
-        )),
-        |(x)| x.and_then(|inner| inner.map(|value| String::from(value))),
-    )(i)
-}
+
+
 
 ///////////////////// TODO support create partition parser
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CreatePartitionOption {
     None,
 }
 
-pub fn create_table_partition_option(
-    i: &str,
-) -> IResult<&str, CreatePartitionOption, VerboseError<&str>> {
-    map(tag_no_case(""), |_| CreatePartitionOption::None)(i)
+impl CreatePartitionOption {
+    fn parse(
+        i: &str,
+    ) -> IResult<&str, CreatePartitionOption, VerboseError<&str>> {
+        map(tag_no_case(""), |_| CreatePartitionOption::None)(i)
+    }
 }
-
 ///////////////////// TODO support create partition parser
 
 #[cfg(test)]
 mod tests {
-    use dds::create_table::{create_definition_list, create_table};
+    use dds::create_table::{CreateDefinition, CreateTableStatement};
 
     #[test]
     fn test_create_table() {
@@ -605,7 +622,7 @@ mod tests {
 
         for i in 0..create_sqls.len() {
             println!("{}/{}", i + 1, create_sqls.len());
-            let res = create_table(create_sqls[i]);
+            let res = CreateTableStatement::parse(create_sqls[i]);
             println!("{:?}", res);
             assert!(res.is_ok());
         }
@@ -614,7 +631,7 @@ mod tests {
     #[test]
     fn test_create_definition_list() {
         let part = "(order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))";
-        let res = create_definition_list(part);
+        let res = CreateDefinition::create_definition_list(part);
         assert!(res.is_ok());
     }
 }

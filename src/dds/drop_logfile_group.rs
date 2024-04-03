@@ -7,8 +7,8 @@ use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
 use nom::error::VerboseError;
-use nom::sequence::tuple;
 use nom::IResult;
+use nom::sequence::tuple;
 
 use common::{sql_identifier, statement_terminator};
 
@@ -20,6 +20,46 @@ pub struct DropLogfileGroupStatement {
     pub engine_name: String,
 }
 
+impl DropLogfileGroupStatement {
+
+    /// DROP LOGFILE GROUP logfile_group
+    ///     ENGINE [=] engine_name
+    pub fn parse(i: &str) -> IResult<&str, DropLogfileGroupStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("DROP "),
+            multispace0,
+            tag_no_case("LOGFILE "),
+            multispace0,
+            tag_no_case("GROUP"),
+            multispace0,
+            map(sql_identifier, |logfile_group| String::from(logfile_group)),
+            multispace0,
+            map(
+                tuple((
+                    tag_no_case("ENGINE"),
+                    multispace1,
+                    opt(tag("=")),
+                    multispace0,
+                    sql_identifier,
+                    multispace0,
+                )),
+                |(_, _, _, _, engine, _)| String::from(engine),
+            ),
+            multispace0,
+            statement_terminator,
+        ));
+        let (remaining_input, (_, _, _, _, _, _, logfile_group, _, engine_name, _, _)) = parser(i)?;
+
+        Ok((
+            remaining_input,
+            DropLogfileGroupStatement {
+                logfile_group,
+                engine_name,
+            },
+        ))
+    }
+}
+
 impl fmt::Display for DropLogfileGroupStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP LOGFILE GROUP")?;
@@ -29,46 +69,9 @@ impl fmt::Display for DropLogfileGroupStatement {
     }
 }
 
-/// DROP LOGFILE GROUP logfile_group
-///     ENGINE [=] engine_name
-pub fn drop_logfile_group(i: &str) -> IResult<&str, DropLogfileGroupStatement, VerboseError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("DROP "),
-        multispace0,
-        tag_no_case("LOGFILE "),
-        multispace0,
-        tag_no_case("GROUP"),
-        multispace0,
-        map(sql_identifier, |logfile_group| String::from(logfile_group)),
-        multispace0,
-        map(
-            tuple((
-                tag_no_case("ENGINE"),
-                multispace1,
-                opt(tag("=")),
-                multispace0,
-                sql_identifier,
-                multispace0,
-            )),
-            |(_, _, _, _, engine, _)| String::from(engine),
-        ),
-        multispace0,
-        statement_terminator,
-    ));
-    let (remaining_input, (_, _, _, _, _, _, logfile_group, _, engine_name, _, _)) = parser(i)?;
-
-    Ok((
-        remaining_input,
-        DropLogfileGroupStatement {
-            logfile_group,
-            engine_name,
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
-    use dds::drop_logfile_group;
+    use dds::drop_logfile_group::DropLogfileGroupStatement;
 
     #[test]
     fn test_drop_logfile_group_parser() {
@@ -76,7 +79,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_logfile_group(sqls[i]);
+            let res = DropLogfileGroupStatement::parse(sqls[i]);
             println!("{:?}", res);
             assert!(res.is_ok());
         }

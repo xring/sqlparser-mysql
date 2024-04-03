@@ -2,14 +2,12 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use base::table::Table;
+use common::{sql_identifier, statement_terminator};
 use common::{AlgorithmType, LockType};
-use common::{
-    sql_identifier, statement_terminator,
-};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropIndexStatement {
@@ -19,38 +17,42 @@ pub struct DropIndexStatement {
     pub lock_option: Option<LockType>,
 }
 
-/// DROP INDEX index_name ON tbl_name
-///     [algorithm_option | lock_option] ...
-pub fn drop_index(i: &str) -> IResult<&str, DropIndexStatement, VerboseError<&str>> {
-    map(
-        tuple((
-            tuple((tag_no_case("DROP"), multispace1)),
-            tuple((tag_no_case("INDEX"), multispace1)),
-            map(
-                tuple((sql_identifier, multispace1, tag_no_case("ON"), multispace1)),
-                |x| String::from(x.0),
-            ),
-            Table::without_alias, // tbl_name
-            multispace0,
-            opt(AlgorithmType::parse), // algorithm_option
-            multispace0,
-            opt(LockType::parse), // lock_option
-            multispace0,
-            statement_terminator,
-        )),
-        |(_, _, index_name, table, _, algorithm_option, _, lock_option, _, _)| DropIndexStatement {
-            index_name,
-            table,
-            algorithm_option,
-            lock_option,
-        },
-    )(i)
+impl DropIndexStatement {
+    /// DROP INDEX index_name ON tbl_name
+    ///     [algorithm_option | lock_option] ...
+    pub fn parse(i: &str) -> IResult<&str, DropIndexStatement, VerboseError<&str>> {
+        map(
+            tuple((
+                tuple((tag_no_case("DROP"), multispace1)),
+                tuple((tag_no_case("INDEX"), multispace1)),
+                map(
+                    tuple((sql_identifier, multispace1, tag_no_case("ON"), multispace1)),
+                    |x| String::from(x.0),
+                ),
+                Table::without_alias, // tbl_name
+                multispace0,
+                opt(AlgorithmType::parse), // algorithm_option
+                multispace0,
+                opt(LockType::parse), // lock_option
+                multispace0,
+                statement_terminator,
+            )),
+            |(_, _, index_name, table, _, algorithm_option, _, lock_option, _, _)| {
+                DropIndexStatement {
+                    index_name,
+                    table,
+                    algorithm_option,
+                    lock_option,
+                }
+            },
+        )(i)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use common::LockType;
-    use dds::drop_index::drop_index;
+    use dds::drop_index::DropIndexStatement;
 
     #[test]
     fn test_lock_option() {
@@ -71,7 +73,7 @@ mod tests {
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = drop_index(sqls[i]);
+            let res = DropIndexStatement::parse(sqls[i]);
             // res.unwrap();
             println!("{:?}", res);
             // assert!(res.is_ok());

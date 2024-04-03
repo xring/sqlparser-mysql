@@ -29,6 +29,26 @@ pub struct AlterDatabaseStatement {
     pub alter_options: Vec<AlterDatabaseOption>,
 }
 
+impl AlterDatabaseStatement {
+    pub fn parse(i: &str) -> IResult<&str, AlterDatabaseStatement, VerboseError<&str>> {
+        map(
+            tuple((
+                tag_no_case("ALTER "),
+                multispace0,
+                alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
+                multispace0,
+                map(sql_identifier, |x| String::from(x)),
+                multispace1,
+                many1(terminated(AlterDatabaseOption::parse, multispace0)),
+            )),
+            |x| AlterDatabaseStatement {
+                name: x.4,
+                alter_options: x.6,
+            },
+        )(i)
+    }
+}
+
 impl fmt::Display for AlterDatabaseStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "ALTER DATABASE")?;
@@ -39,24 +59,6 @@ impl fmt::Display for AlterDatabaseStatement {
         }
         Ok(())
     }
-}
-
-pub fn alter_database(i: &str) -> IResult<&str, AlterDatabaseStatement, VerboseError<&str>> {
-    map(
-        tuple((
-            tag_no_case("ALTER "),
-            multispace0,
-            alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
-            multispace0,
-            map(sql_identifier, |x| String::from(x)),
-            multispace1,
-            many1(terminated(alter_database_option, multispace0)),
-        )),
-        |x| AlterDatabaseStatement {
-            name: x.4,
-            alter_options: x.6,
-        },
-    )(i)
 }
 
 /// alter_option: {
@@ -71,6 +73,81 @@ pub enum AlterDatabaseOption {
     Collate(String),
     Encryption(bool),
     ReadOnly(DefaultOrZeroOrOne),
+}
+
+impl AlterDatabaseOption {
+    fn parse(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseError<&str>> {
+        // [DEFAULT] CHARACTER SET [=] charset_name
+        let character = map(
+            tuple((
+                opt(tag_no_case("DEFAULT")),
+                multispace1,
+                tuple((
+                    tag_no_case("CHARACTER"),
+                    multispace1,
+                    tag_no_case("SET"),
+                    multispace0,
+                    opt(tag("=")),
+                    multispace0,
+                )),
+                map(sql_identifier, |x| String::from(x)),
+                multispace0,
+            )),
+            |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
+        );
+
+        // [DEFAULT] COLLATE [=] collation_name
+        let collate = map(
+            tuple((
+                opt(tag_no_case("DEFAULT")),
+                multispace1,
+                map(
+                    tuple((
+                        tag_no_case("COLLATE"),
+                        multispace0,
+                        opt(tag("=")),
+                        multispace0,
+                        sql_identifier,
+                        multispace0,
+                    )),
+                    |(_, _, _, _, collation_name, _)| String::from(collation_name),
+                ),
+                multispace0,
+            )),
+            |(_, _, collation_name, _)| AlterDatabaseOption::Collate(collation_name),
+        );
+
+        // [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
+        let encryption = map(
+            tuple((
+                opt(tag_no_case("DEFAULT")),
+                multispace1,
+                tag_no_case("ENCRYPTION"),
+                multispace1,
+                opt(tag("=")),
+                multispace0,
+                alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
+                multispace0,
+            )),
+            |x| AlterDatabaseOption::Encryption(x.6),
+        );
+
+        // READ ONLY [=] {DEFAULT | 0 | 1}
+        let read_only = map(
+            tuple((
+                opt(tag_no_case("READ")),
+                multispace1,
+                tag_no_case("ONLY "),
+                multispace0,
+                opt(tag("=")),
+                multispace0,
+                DefaultOrZeroOrOne::parse,
+            )),
+            |x| AlterDatabaseOption::ReadOnly(x.6),
+        );
+
+        alt((character, collate, encryption, read_only))(i)
+    }
 }
 
 impl fmt::Display for AlterDatabaseOption {
@@ -91,82 +168,9 @@ impl fmt::Display for AlterDatabaseOption {
     }
 }
 
-fn alter_database_option(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseError<&str>> {
-    // [DEFAULT] CHARACTER SET [=] charset_name
-    let character = map(
-        tuple((
-            opt(tag_no_case("DEFAULT")),
-            multispace1,
-            tuple((
-                tag_no_case("CHARACTER"),
-                multispace1,
-                tag_no_case("SET"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-            )),
-            map(sql_identifier, |x| String::from(x)),
-            multispace0,
-        )),
-        |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
-    );
-
-    // [DEFAULT] COLLATE [=] collation_name
-    let collate = map(
-        tuple((
-            opt(tag_no_case("DEFAULT")),
-            multispace1,
-            map(
-                tuple((
-                    tag_no_case("COLLATE"),
-                    multispace0,
-                    opt(tag("=")),
-                    multispace0,
-                    sql_identifier,
-                    multispace0,
-                )),
-                |(_, _, _, _, collation_name, _)| String::from(collation_name),
-            ),
-            multispace0,
-        )),
-        |(_, _, collation_name, _)| AlterDatabaseOption::Collate(collation_name),
-    );
-
-    // [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
-    let encryption = map(
-        tuple((
-            opt(tag_no_case("DEFAULT")),
-            multispace1,
-            tag_no_case("ENCRYPTION"),
-            multispace1,
-            opt(tag("=")),
-            multispace0,
-            alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
-            multispace0,
-        )),
-        |x| AlterDatabaseOption::Encryption(x.6),
-    );
-
-    // READ ONLY [=] {DEFAULT | 0 | 1}
-    let read_only = map(
-        tuple((
-            opt(tag_no_case("READ")),
-            multispace1,
-            tag_no_case("ONLY "),
-            multispace0,
-            opt(tag("=")),
-            multispace0,
-            DefaultOrZeroOrOne::parse,
-        )),
-        |x| AlterDatabaseOption::ReadOnly(x.6),
-    );
-
-    alt((character, collate, encryption, read_only))(i)
-}
-
 #[cfg(test)]
 mod tests {
-    use dds::alter_database;
+    use dds::alter_database::AlterDatabaseStatement;
 
     #[test]
     fn test_alter_database() {
@@ -180,7 +184,7 @@ mod tests {
         ];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
-            let res = alter_database(sqls[i]);
+            let res = AlterDatabaseStatement::parse(sqls[i]);
             assert!(res.is_ok());
         }
     }

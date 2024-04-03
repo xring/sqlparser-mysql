@@ -30,6 +30,48 @@ pub struct DropTableStatement {
     pub if_cascade: bool,
 }
 
+impl DropTableStatement {
+    /// DROP [TEMPORARY] TABLE [IF EXISTS]
+    ///     tbl_name [, tbl_name] ...
+    ///     [RESTRICT | CASCADE]
+    pub fn parse(i: &str) -> IResult<&str, DropTableStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("DROP "),
+            opt(delimited(
+                multispace0,
+                tag_no_case("TEMPORARY"),
+                multispace0,
+            )),
+            multispace0,
+            tag_no_case("TABLE "),
+            parse_if_exists,
+            multispace0,
+            many0(terminated(
+                Table::without_alias,
+                opt(ws_sep_comma),
+            )),
+            opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
+            opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
+            statement_terminator,
+        ));
+        let (
+            remaining_input,
+            (_, opt_if_temporary, _, _, opt_if_exists, _, tables, opt_if_restrict, opt_if_cascade, _),
+        ) = parser(i)?;
+
+        Ok((
+            remaining_input,
+            DropTableStatement {
+                if_temporary: opt_if_temporary.is_some(),
+                tables,
+                if_exists: opt_if_exists.is_some(),
+                if_restrict: opt_if_restrict.is_some(),
+                if_cascade: opt_if_cascade.is_some(),
+            },
+        ))
+    }
+}
+
 impl Default for DropTableStatement {
     fn default() -> Self {
         DropTableStatement {
@@ -71,50 +113,10 @@ impl fmt::Display for DropTableStatement {
     }
 }
 
-/// DROP [TEMPORARY] TABLE [IF EXISTS]
-///     tbl_name [, tbl_name] ...
-///     [RESTRICT | CASCADE]
-pub fn drop_table(i: &str) -> IResult<&str, DropTableStatement, VerboseError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("DROP "),
-        opt(delimited(
-            multispace0,
-            tag_no_case("TEMPORARY"),
-            multispace0,
-        )),
-        multispace0,
-        tag_no_case("TABLE "),
-        parse_if_exists,
-        multispace0,
-        many0(terminated(
-            Table::without_alias,
-            opt(ws_sep_comma),
-        )),
-        opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
-        opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
-        statement_terminator,
-    ));
-    let (
-        remaining_input,
-        (_, opt_if_temporary, _, _, opt_if_exists, _, tables, opt_if_restrict, opt_if_cascade, _),
-    ) = parser(i)?;
-
-    Ok((
-        remaining_input,
-        DropTableStatement {
-            if_temporary: opt_if_temporary.is_some(),
-            tables,
-            if_exists: opt_if_exists.is_some(),
-            if_restrict: opt_if_restrict.is_some(),
-            if_cascade: opt_if_cascade.is_some(),
-        },
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use base::table::Table;
-    use dds::drop_table::{drop_table, DropTableStatement};
+    use dds::drop_table::DropTableStatement;
 
     #[test]
     fn test_parse_drop_table() {
@@ -291,7 +293,7 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(drop_table(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(DropTableStatement::parse(good_sqls[i]).unwrap().1, good_statements[i]);
         }
 
         let bad_sqls = vec![
@@ -305,7 +307,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(drop_table(bad_sqls[i]).is_err())
+            assert!(DropTableStatement::parse(bad_sqls[i]).is_err())
         }
     }
 }

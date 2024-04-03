@@ -6,8 +6,8 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::error::VerboseError;
-use nom::sequence::tuple;
 use nom::IResult;
+use nom::sequence::tuple;
 
 use common::{parse_if_exists, sql_identifier, statement_terminator};
 
@@ -16,6 +16,31 @@ use common::{parse_if_exists, sql_identifier, statement_terminator};
 pub struct DropDatabaseStatement {
     pub if_exists: bool,
     pub name: String,
+}
+
+impl DropDatabaseStatement {
+    pub fn parse(i: &str) -> IResult<&str, DropDatabaseStatement, VerboseError<&str>> {
+        let mut parser = tuple((
+            tag_no_case("DROP "),
+            multispace0,
+            alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
+            parse_if_exists,
+            multispace0,
+            sql_identifier,
+            statement_terminator,
+        ));
+        let (remaining_input, (_, _, _, opt_if_exists, _, database, _)) = parser(i)?;
+
+        let name = String::from(database);
+
+        Ok((
+            remaining_input,
+            DropDatabaseStatement {
+                name,
+                if_exists: opt_if_exists.is_some(),
+            },
+        ))
+    }
 }
 
 impl fmt::Display for DropDatabaseStatement {
@@ -55,7 +80,7 @@ pub fn drop_database(i: &str) -> IResult<&str, DropDatabaseStatement, VerboseErr
 
 #[cfg(test)]
 mod tests {
-    use dds::drop_database::{drop_database, DropDatabaseStatement};
+    use dds::drop_database::DropDatabaseStatement;
 
     #[test]
     fn test_parse_drop_database() {
@@ -98,7 +123,7 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(drop_database(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(DropDatabaseStatement::parse(good_sqls[i]).unwrap().1, good_statements[i]);
         }
 
         let bad_sqls = vec![
@@ -113,7 +138,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
-            assert!(drop_database(bad_sqls[i]).is_err())
+            assert!(DropDatabaseStatement::parse(bad_sqls[i]).is_err())
         }
     }
 }
