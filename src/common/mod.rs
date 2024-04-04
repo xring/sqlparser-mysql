@@ -414,6 +414,7 @@ fn is_sql_identifier(chr: char) -> bool {
     is_alphanumeric(chr as u8) || chr == '_' || chr == '@'
 }
 
+/// first and third are opt
 pub(crate) fn opt_delimited<I: Clone, O1, O2, O3, E: ParseError<I>, F, G, H>(
     mut first: F,
     mut second: G,

@@ -146,6 +146,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn simple() {
+        let sql = "SELECT * FROM my_table WHERE age < 30;";
+        let res = CompoundSelectStatement::parse(sql);
+        println!("{:?}", res);
+    }
+
+    #[test]
     fn union() {
         let qstr = "SELECT id, 1 FROM Vote UNION SELECT id, stars from Rating;";
         let qstr2 = "(SELECT id, 1 FROM Vote) UNION (SELECT id, stars from Rating);";

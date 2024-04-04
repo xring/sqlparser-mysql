@@ -1,9 +1,9 @@
 use std::fmt;
 use std::str;
 
-use nom::bytes::complete::tag_no_case;
+use nom::bytes::complete::{tag_no_case, take_till, take_until};
 use nom::character::complete::{multispace0, multispace1};
-use nom::combinator::opt;
+use nom::combinator::{map, opt};
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
@@ -14,7 +14,8 @@ use base::table::Table;
 use base::FieldDefinitionExpression;
 use common::condition::ConditionExpression;
 use common::{
-    statement_terminator, unsigned_number, JoinConstraint, JoinOperator, JoinRightSide, OrderClause,
+    sql_identifier, statement_terminator, unsigned_number, JoinConstraint, JoinOperator,
+    JoinRightSide, OrderClause,
 };
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -197,6 +198,42 @@ impl fmt::Display for JoinClause {
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct BetweenAndClause {
+    pub left: String,
+    pub right: String,
+}
+
+impl BetweenAndClause {
+    pub fn parse(i: &str) -> IResult<&str, BetweenAndClause, ParseSQLError<&str>> {
+        map(
+            tuple((
+                sql_identifier,
+                multispace1,
+                tag_no_case("BETWEEN"),
+                multispace1,
+                take_until(" "),
+                multispace1,
+                tag_no_case("AND"),
+                multispace1,
+                take_till(|c| c == ' '),
+            )),
+            |x| BetweenAndClause {
+                left: String::from(x.4),
+                right: String::from(x.8),
+            },
+        )(i)
+    }
+}
+
+impl fmt::Display for BetweenAndClause {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, " BETWEEN {}", self.left)?;
+        write!(f, " AND {}", self.right)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct LimitClause {
     pub limit: u64,
     pub offset: u64,
@@ -258,6 +295,13 @@ mod tests {
         cols.iter()
             .map(|c| FieldDefinitionExpression::Col(Column::from(*c)))
             .collect()
+    }
+
+    #[test]
+    fn between_and() {
+        let str = "age between 10 and 20";
+        let res = BetweenAndClause::parse(str);
+        println!("{:?}", res);
     }
 
     #[test]

@@ -4,21 +4,22 @@ use std::fmt::Formatter;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{multispace0, multispace1};
-use nom::combinator::{map, opt, rest};
+use nom::combinator::{map, opt};
+use nom::IResult;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::IResult;
 
 use base::column::{Column, ColumnSpecification};
 use base::error::ParseSQLError;
 use base::table::Table;
-use common::index_option::IndexOption;
-use common::table_option::TableOption;
 use common::{
-    opt_index_name, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType,
+    CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType, opt_index_name,
     ReferenceDefinition,
 };
-use common::{sql_identifier, statement_terminator, ws_sep_comma, KeyPart};
+use common::{KeyPart, sql_identifier, statement_terminator, ws_sep_comma};
+use common::index_option::IndexOption;
+use common::table_option::TableOption;
+use dms::select::SelectStatement;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
@@ -46,8 +47,8 @@ impl CreateTableStatement {
     pub fn parse(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         alt((
             CreateTableType::create_simple,
-            CreateTableType::create_like_old_table,
             CreateTableType::create_as_query,
+            CreateTableType::create_like_old_table,
         ))(i)
     }
 }
@@ -92,7 +93,7 @@ pub enum CreateTableType {
         Option<Vec<TableOption>>,      // [table_options]
         Option<CreatePartitionOption>, // [partition_options]
         Option<IgnoreOrReplaceType>,   // [IGNORE | REPLACE]
-        String,                        // [AS] query_expression
+        SelectStatement,               // [AS] query_expression
     ),
 
     /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
@@ -161,17 +162,14 @@ impl CreateTableType {
                 ))),
                 multispace0,
                 opt(tag_no_case("AS")),
-                multispace1,
-                tag_no_case("SELECT"),
-                multispace1,
-                map(rest, |x| String::from(x)),
-                statement_terminator,
+                multispace0,
+                SelectStatement::parse,
             )),
             |(x)| {
                 let table = x.0 .2;
                 let if_not_exists = x.0 .1;
                 let temporary = x.0 .0;
-                let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.14);
+                let create_type = CreateTableType::AsQuery(x.2, x.4, x.6, x.8, x.12);
                 CreateTableStatement {
                     table,
                     temporary,
@@ -601,26 +599,26 @@ mod tests {
             "CREATE TABLE IF NOT EXISTS my_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT)",
             "CREATE TABLE department (id INT AUTO_INCREMENT, name VARCHAR(100), PRIMARY KEY(id))",
             "CREATE TABLE product (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category_id INT, INDEX(category_id))",
-            "CREATE TABLE new_table AS SELECT name, age FROM my_table WHERE age > 18",
-            "CREATE TABLE unique_names IGNORE AS SELECT DISTINCT name FROM my_table",
-            "CREATE TABLE employee_summary AS SELECT department_id, COUNT(*) AS employee_count FROM employee GROUP BY department_id",
-            "CREATE TEMPORARY TABLE temp_employee AS SELECT * FROM employee WHERE department_id = 3",
-            "CREATE TABLE IF NOT EXISTS employee_backup AS SELECT * FROM employee",
             "CREATE TABLE my_table_copy LIKE my_table",
             "CREATE TABLE IF NOT EXISTS my_table_copy LIKE my_table",
             "CREATE TEMPORARY TABLE temp_table_copy LIKE temp_table;",
             "CREATE TABLE department_copy LIKE department",
             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_table_copy LIKE my_table",
-            "CREATE TABLE my_table_filtered AS SELECT * FROM my_table WHERE age < 30;",
-            "CREATE TABLE employee_dept_10 AS SELECT * FROM employee WHERE department_id = 10",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_dept_20 AS SELECT * FROM department WHERE id = 20",
-            "CREATE TABLE active_products AS SELECT * FROM product WHERE price > 0",
-            "CREATE TABLE sales_by_product AS SELECT product_id, SUM(quantity) AS total_sales FROM order_items GROUP BY product_id",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_order_summary AS SELECT order_id, SUM(quantity) AS total_items FROM order_items GROUP BY order_id",
-            "CREATE TABLE employee_names AS SELECT name FROM employee",
-            "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100",
             "CREATE TABLE IF NOT EXISTS bar.employee_archives LIKE foo.employee",
-            "CREATE TABLE product (id INT AUTO_INCREMEN PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category_id INT, INDEX(category_id))"
+            "CREATE TABLE product (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category_id INT, INDEX(category_id))",
+            "CREATE TABLE my_table_filtered AS SELECT * FROM my_table WHERE age < 30;",
+             "CREATE TABLE employee_dept_10 AS SELECT * FROM employee WHERE department_id = 10",
+             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_dept_20 AS SELECT * FROM department WHERE id = 20",
+             "CREATE TABLE active_products AS SELECT * FROM product WHERE price > 0",
+             "CREATE TABLE sales_by_product AS SELECT product_id, SUM(quantity) AS total_sales FROM order_items GROUP BY product_id",
+             "CREATE TEMPORARY TABLE IF NOT EXISTS temp_order_summary AS SELECT order_id, SUM(quantity) AS total_items FROM order_items GROUP BY order_id",
+             "CREATE TABLE employee_names AS SELECT name FROM employee",
+            "CREATE TABLE new_table AS SELECT name, age FROM my_table WHERE age > 18",
+             "CREATE TABLE unique_names IGNORE AS SELECT DISTINCT name FROM my_table",
+             "CREATE TABLE employee_summary AS SELECT department_id, COUNT(*) AS employee_count FROM employee GROUP BY department_id",
+             "CREATE TEMPORARY TABLE temp_employee AS SELECT * FROM employee WHERE department_id = 3",
+             "CREATE TABLE IF NOT EXISTS employee_backup AS SELECT * FROM employee",
+            "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100",
         ];
 
         for i in 0..create_sqls.len() {

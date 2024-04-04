@@ -13,7 +13,7 @@ use base::column::Column;
 use base::error::ParseSQLError;
 use base::{Literal, Operator};
 use common::arithmetic::ArithmeticExpression;
-use dms::select::SelectStatement;
+use dms::select::{BetweenAndClause, SelectStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum ConditionBase {
@@ -93,13 +93,14 @@ pub enum ConditionExpression {
     Base(ConditionBase),
     Arithmetic(Box<ArithmeticExpression>),
     Bracketed(Box<ConditionExpression>),
+    BetweenAnd(BetweenAndClause),
 }
 
 impl ConditionExpression {
     pub fn parse(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, where_condition)) = tuple((
             multispace0,
-            tag_no_case("where"),
+            tag_no_case("WHERE"),
             multispace1,
             Self::condition_expr,
         ))(i)?;
@@ -202,7 +203,7 @@ impl ConditionExpression {
         alt((
             map(
                 preceded(
-                    pair(tag_no_case("not"), multispace1),
+                    pair(tag_no_case("NOT"), multispace1),
                     Self::parenthetical_expr,
                 ),
                 |right| ConditionExpression::NegationOp(Box::new(right)),
@@ -213,11 +214,11 @@ impl ConditionExpression {
 
     fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), ParseSQLError<&str>> {
         let (remaining_input, (_, _, not, _, _)) = tuple((
-            tag_no_case("is"),
+            tag_no_case("IS"),
             multispace0,
-            opt(tag_no_case("not")),
+            opt(tag_no_case("NOT")),
             multispace0,
-            tag_no_case("null"),
+            tag_no_case("NULL"),
         ))(i)?;
 
         // XXX(malte): bit of a hack; would consumers ever need to know
@@ -240,8 +241,8 @@ impl ConditionExpression {
     ) -> IResult<&str, (Operator, ConditionExpression), ParseSQLError<&str>> {
         map(
             separated_pair(
-                opt(terminated(tag_no_case("not"), multispace1)),
-                terminated(tag_no_case("in"), multispace0),
+                opt(terminated(tag_no_case("NOT"), multispace1)),
+                terminated(tag_no_case("IN"), multispace0),
                 alt((
                     map(
                         delimited(tag("("), SelectStatement::nested_selection, tag(")")),
@@ -292,8 +293,8 @@ impl ConditionExpression {
     fn predicate(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let nested_exists = map(
             tuple((
-                opt(delimited(multispace0, tag_no_case("not"), multispace1)),
-                delimited(multispace0, tag_no_case("exists"), multispace0),
+                opt(delimited(multispace0, tag_no_case("NOT"), multispace1)),
+                delimited(multispace0, tag_no_case("EXISTS"), multispace0),
                 delimited(
                     pair(tag("("), multispace0),
                     SelectStatement::nested_selection,
@@ -314,7 +315,7 @@ impl ConditionExpression {
     }
 
     pub fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
-        alt((
+        let simple_expr = alt((
             map(
                 delimited(
                     terminated(tag("("), multispace0),
@@ -340,7 +341,15 @@ impl ConditionExpression {
                 delimited(tag("("), SelectStatement::nested_selection, tag(")")),
                 |s| ConditionExpression::Base(ConditionBase::NestedSelect(Box::new(s))),
             ),
-        ))(i)
+        ));
+
+        alt((Self::between_and, simple_expr))(i)
+    }
+
+    fn between_and(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
+        map(BetweenAndClause::parse, |x| {
+            ConditionExpression::BetweenAnd(x)
+        })(i)
     }
 }
 
@@ -354,6 +363,7 @@ impl fmt::Display for ConditionExpression {
             ConditionExpression::Bracketed(ref expr) => write!(f, "({})", expr),
             ConditionExpression::Base(ref base) => write!(f, "{}", base),
             ConditionExpression::Arithmetic(ref expr) => write!(f, "{}", expr),
+            ConditionExpression::BetweenAnd(ref expr) => write!(f, "{}", expr),
         }
     }
 }
