@@ -3,16 +3,16 @@ use std::{fmt, str};
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use base::column::Column;
-use base::FieldValueExpression;
+use base::error::ParseSQLError;
 use base::table::Table;
+use base::FieldValueExpression;
+use common::condition::ConditionExpression;
 use common::keywords::escape_if_keyword;
 use common::statement_terminator;
-use common::condition::ConditionExpression;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct UpdateStatement {
@@ -22,7 +22,7 @@ pub struct UpdateStatement {
 }
 
 impl UpdateStatement {
-    pub fn parse(i: &str) -> IResult<&str, UpdateStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, UpdateStatement, ParseSQLError<&str>> {
         let (remaining_input, (_, _, table, _, _, _, fields, _, where_clause, _)) = tuple((
             tag_no_case("UPDATE"),
             multispace1,

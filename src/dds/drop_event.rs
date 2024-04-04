@@ -4,10 +4,10 @@ use std::fmt::Formatter;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::map;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{terminated, tuple};
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::{parse_if_exists, sql_identifier, statement_terminator};
 
 /// DROP EVENT [IF EXISTS] event_name
@@ -19,7 +19,7 @@ pub struct DropEventStatement {
 
 impl DropEventStatement {
     /// DROP EVENT [IF EXISTS] event_name
-    pub fn parse(i: &str) -> IResult<&str, DropEventStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropEventStatement, ParseSQLError<&str>> {
         map(
             tuple((
                 terminated(tag_no_case("DROP"), multispace1),

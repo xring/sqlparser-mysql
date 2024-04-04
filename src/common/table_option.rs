@@ -1,17 +1,16 @@
-use nom::{IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::sequence::{delimited, tuple};
+use nom::{IResult, Parser};
 
 use base::column::Column;
-use common::{
-    CompressionType, DefaultOrZeroOrOne, InsertMethodType, RowFormatType,
-    TablespaceType,
-};
+use base::error::ParseSQLError;
 use common::sql_identifier;
+use common::{
+    CompressionType, DefaultOrZeroOrOne, InsertMethodType, RowFormatType, TablespaceType,
+};
 
 /// table_option: {
 ///     AUTOEXTEND_SIZE [=] value
@@ -105,11 +104,11 @@ impl TableOption {
     ///   | TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
     ///   | UNION [=] (tbl_name[,tbl_name]...)
     ///  }
-    pub fn parse(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((Self::table_option_part_1, Self::table_option_part_2))(i)
     }
 
-    fn table_option_part_1(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn table_option_part_1(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((
             Self::autoextend_size,
             Self::auto_increment,
@@ -129,7 +128,7 @@ impl TableOption {
         ))(i)
     }
 
-    fn table_option_part_2(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn table_option_part_2(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((
             Self::insert_method,
             Self::key_block_size,
@@ -148,7 +147,7 @@ impl TableOption {
     }
 
     /// AUTOEXTEND_SIZE [=] value
-    fn autoextend_size(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn autoextend_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("AUTOEXTEND_SIZE "),
@@ -165,7 +164,7 @@ impl TableOption {
     }
 
     /// AUTO_INCREMENT [=] value
-    fn auto_increment(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn auto_increment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("AUTO_INCREMENT "),
@@ -182,7 +181,7 @@ impl TableOption {
     }
 
     /// AVG_ROW_LENGTH [=] value
-    fn avg_row_length(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn avg_row_length(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("AVG_ROW_LENGTH "),
@@ -199,7 +198,7 @@ impl TableOption {
     }
 
     /// [DEFAULT] CHARACTER SET [=] charset_name
-    fn default_character_set(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn default_character_set(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 opt(tag_no_case("DEFAULT ")),
@@ -221,7 +220,7 @@ impl TableOption {
     }
 
     /// CHECKSUM [=] {0 | 1}
-    fn checksum(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn checksum(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("CHECKSUM "),
@@ -236,7 +235,7 @@ impl TableOption {
     }
 
     /// [DEFAULT] COLLATE [=] collation_name
-    fn default_collate(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn default_collate(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 opt(tag_no_case("DEFAULT ")),
@@ -262,7 +261,7 @@ impl TableOption {
     }
 
     /// COMMENT [=] 'string'
-    fn comment(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn comment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("COMMENT "),
@@ -279,7 +278,7 @@ impl TableOption {
     }
 
     /// COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
-    fn compression(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn compression(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("COMPRESSION "),
@@ -294,7 +293,7 @@ impl TableOption {
     }
 
     /// CONNECTION [=] 'connect_string'
-    fn connection(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn connection(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("CONNECTION "),
@@ -311,7 +310,7 @@ impl TableOption {
     }
 
     /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-    fn data_directory(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn data_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DATA"),
@@ -330,7 +329,7 @@ impl TableOption {
     }
 
     /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-    fn index_directory(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn index_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("INDEX"),
@@ -349,7 +348,7 @@ impl TableOption {
     }
 
     /// DELAY_KEY_WRITE [=] {0 | 1}
-    fn delay_key_write(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn delay_key_write(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DELAY_KEY_RITE "),
@@ -364,7 +363,7 @@ impl TableOption {
     }
 
     /// ENCRYPTION [=] {'Y' | 'N'}
-    fn encryption(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn encryption(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ENCRYPTION "),
@@ -379,7 +378,7 @@ impl TableOption {
     }
 
     /// ENGINE [=] engine_name
-    fn engine(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn engine(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ENGINE"),
@@ -394,7 +393,7 @@ impl TableOption {
     }
 
     /// ENGINE_ATTRIBUTE [=] 'string'
-    fn engine_attribute(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ENGINE_ATTRIBUTE "),
@@ -411,7 +410,7 @@ impl TableOption {
     }
 
     /// INSERT_METHOD [=] { NO | FIRST | LAST }
-    fn insert_method(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn insert_method(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("INSERT METHOD "),
@@ -426,7 +425,7 @@ impl TableOption {
     }
 
     /// KEY_BLOCK_SIZE [=] value
-    fn key_block_size(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn key_block_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("KEY_BLOCK_SIZE "),
@@ -443,7 +442,7 @@ impl TableOption {
     }
 
     /// MAX_ROWS [=] value
-    fn max_rows(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn max_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("MAX_ROWS "),
@@ -460,7 +459,7 @@ impl TableOption {
     }
 
     /// MIN_ROWS [=] value
-    fn min_rows(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn min_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("MIN_ROWS "),
@@ -477,7 +476,7 @@ impl TableOption {
     }
 
     /// PACK_KEYS [=] {0 | 1 | DEFAULT}
-    fn pack_keys(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn pack_keys(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("INSERT_METHOD "),
@@ -492,7 +491,7 @@ impl TableOption {
     }
 
     /// PASSWORD [=] 'string'
-    fn password(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn password(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("PASSWORD "),
@@ -509,7 +508,7 @@ impl TableOption {
     }
 
     /// ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-    fn row_format(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn row_format(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("INSERT METHOD "),
@@ -525,7 +524,7 @@ impl TableOption {
 
     /// START TRANSACTION
     /// create table only
-    fn start_transaction(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn start_transaction(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("START"),
@@ -537,7 +536,7 @@ impl TableOption {
     }
 
     /// SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
-    fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
@@ -554,7 +553,7 @@ impl TableOption {
     }
 
     /// STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
-    fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("STATS_AUTO_RECALC "),
@@ -569,7 +568,7 @@ impl TableOption {
     }
 
     /// STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
-    fn stats_persistent(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn stats_persistent(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("STATS_PERSISTENT "),
@@ -584,7 +583,7 @@ impl TableOption {
     }
 
     /// STATS_SAMPLE_PAGES [=] value
-    fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("STATS_SAMPLE_PAGES "),
@@ -601,7 +600,7 @@ impl TableOption {
     }
 
     /// TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
-    fn tablespace(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn tablespace(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("TABLESPACE"),
@@ -621,7 +620,7 @@ impl TableOption {
     }
 
     /// UNION [=] (tbl_name[,tbl_name]...)
-    fn union(i: &str) -> IResult<&str, TableOption, VerboseError<&str>> {
+    fn union(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("UNION "),

@@ -4,12 +4,12 @@ use std::str;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
-use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::error::ParseSQLError;
 use base::table::Table;
 use base::{FieldValueExpression, Literal};
 use common::keywords::escape_if_keyword;
@@ -27,7 +27,7 @@ pub struct InsertStatement {
 impl InsertStatement {
     // Parse rule for a SQL insert query.
     // TODO(malte): support REPLACE, nested selection, DEFAULT VALUES
-    pub fn parse(i: &str) -> IResult<&str, InsertStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, InsertStatement, ParseSQLError<&str>> {
         let (
             remaining_input,
             (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _),
@@ -61,7 +61,7 @@ impl InsertStatement {
         ))
     }
 
-    fn fields(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
+    fn fields(i: &str) -> IResult<&str, Vec<Column>, ParseSQLError<&str>> {
         delimited(
             preceded(tag("("), multispace0),
             Column::field_list,
@@ -69,7 +69,7 @@ impl InsertStatement {
         )(i)
     }
 
-    fn data(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
+    fn data(i: &str) -> IResult<&str, Vec<Literal>, ParseSQLError<&str>> {
         delimited(
             tag("("),
             Literal::value_list,
@@ -79,7 +79,7 @@ impl InsertStatement {
 
     fn on_duplicate(
         i: &str,
-    ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
+    ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, ParseSQLError<&str>> {
         preceded(
             multispace0,
             preceded(

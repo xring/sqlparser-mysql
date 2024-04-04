@@ -4,15 +4,12 @@ use std::str;
 
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::trigger::Trigger;
-use common::{
-    parse_if_exists, statement_terminator
-    ,
-};
+use common::{parse_if_exists, statement_terminator};
 
 /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -23,7 +20,7 @@ pub struct DropTriggerStatement {
 
 impl DropTriggerStatement {
     /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
-    pub fn parse(i: &str) -> IResult<&str, DropTriggerStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropTriggerStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
             multispace0,

@@ -1,10 +1,12 @@
 use std::fmt;
 use std::fmt::Display;
+
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
-use nom::error::VerboseError;
 use nom::IResult;
+
+use base::error::ParseSQLError;
 
 /// Parse binary comparison operators
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -26,7 +28,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn parse(i: &str) -> IResult<&str, Operator, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Operator, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("NOT_LIKE"), |_| Operator::NotLike),
             map(tag_no_case("LIKE"), |_| Operator::Like),

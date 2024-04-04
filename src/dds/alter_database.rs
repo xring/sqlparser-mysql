@@ -5,11 +5,11 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::sql_identifier;
 use common::DefaultOrZeroOrOne;
 
@@ -30,7 +30,7 @@ pub struct AlterDatabaseStatement {
 }
 
 impl AlterDatabaseStatement {
-    pub fn parse(i: &str) -> IResult<&str, AlterDatabaseStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, AlterDatabaseStatement, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ALTER "),
@@ -76,7 +76,7 @@ pub enum AlterDatabaseOption {
 }
 
 impl AlterDatabaseOption {
-    fn parse(i: &str) -> IResult<&str, AlterDatabaseOption, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, AlterDatabaseOption, ParseSQLError<&str>> {
         // [DEFAULT] CHARACTER SET [=] charset_name
         let character = map(
             tuple((

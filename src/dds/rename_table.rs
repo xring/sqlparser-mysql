@@ -5,11 +5,11 @@ use std::str;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
-use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
 use common::{statement_terminator, ws_sep_comma};
 
@@ -25,7 +25,7 @@ impl RenameTableStatement {
     /// RENAME TABLE
     //     tbl_name TO new_tbl_name
     //     [, tbl_name2 TO new_tbl_name2] ...
-    pub fn parse(i: &str) -> IResult<&str, RenameTableStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, RenameTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("RENAME "),
             multispace0,

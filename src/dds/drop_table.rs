@@ -6,15 +6,13 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
-use common::{
-    parse_if_exists, statement_terminator, ws_sep_comma,
-};
+use common::{parse_if_exists, statement_terminator, ws_sep_comma};
 
 /// https://dev.mysql.com/doc/refman/8.0/en/drop-table.html
 /// DROP [TEMPORARY] TABLE [IF EXISTS]
@@ -34,7 +32,7 @@ impl DropTableStatement {
     /// DROP [TEMPORARY] TABLE [IF EXISTS]
     ///     tbl_name [, tbl_name] ...
     ///     [RESTRICT | CASCADE]
-    pub fn parse(i: &str) -> IResult<&str, DropTableStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
             opt(delimited(
@@ -46,17 +44,25 @@ impl DropTableStatement {
             tag_no_case("TABLE "),
             parse_if_exists,
             multispace0,
-            many0(terminated(
-                Table::without_alias,
-                opt(ws_sep_comma),
-            )),
+            many0(terminated(Table::without_alias, opt(ws_sep_comma))),
             opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
             opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
             statement_terminator,
         ));
         let (
             remaining_input,
-            (_, opt_if_temporary, _, _, opt_if_exists, _, tables, opt_if_restrict, opt_if_cascade, _),
+            (
+                _,
+                opt_if_temporary,
+                _,
+                _,
+                opt_if_exists,
+                _,
+                tables,
+                opt_if_restrict,
+                opt_if_cascade,
+                _,
+            ),
         ) = parser(i)?;
 
         Ok((
@@ -293,7 +299,10 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(DropTableStatement::parse(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(
+                DropTableStatement::parse(good_sqls[i]).unwrap().1,
+                good_statements[i]
+            );
         }
 
         let bad_sqls = vec![

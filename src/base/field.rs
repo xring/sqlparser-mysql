@@ -5,18 +5,18 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, separated_pair, terminated};
+use nom::IResult;
 
 use base::column::Column;
-use base::Literal;
+use base::error::ParseSQLError;
 use base::literal::LiteralExpression;
 use base::table::Table;
+use base::Literal;
+use common::arithmetic::ArithmeticExpression;
 use common::keywords::escape_if_keyword;
 use common::ws_sep_comma;
-use common::arithmetic::ArithmeticExpression;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldDefinitionExpression {
@@ -28,7 +28,7 @@ pub enum FieldDefinitionExpression {
 
 impl FieldDefinitionExpression {
     // Parse list of column/field definitions.
-    pub fn parse(i: &str) -> IResult<&str, Vec<FieldDefinitionExpression>, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Vec<FieldDefinitionExpression>, ParseSQLError<&str>> {
         many0(terminated(
             alt((
                 map(tag("*"), |_| FieldDefinitionExpression::All),
@@ -74,7 +74,7 @@ pub enum FieldValueExpression {
 }
 
 impl FieldValueExpression {
-    fn parse(i: &str) -> IResult<&str, FieldValueExpression, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, FieldValueExpression, ParseSQLError<&str>> {
         alt((
             map(Literal::parse, |l| {
                 FieldValueExpression::Literal(LiteralExpression {
@@ -90,7 +90,7 @@ impl FieldValueExpression {
 
     fn assignment_expr(
         i: &str,
-    ) -> IResult<&str, (Column, FieldValueExpression), VerboseError<&str>> {
+    ) -> IResult<&str, (Column, FieldValueExpression), ParseSQLError<&str>> {
         separated_pair(
             Column::without_alias,
             delimited(multispace0, tag("="), multispace0),
@@ -100,7 +100,7 @@ impl FieldValueExpression {
 
     pub fn assignment_expr_list(
         i: &str,
-    ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, VerboseError<&str>> {
+    ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, ParseSQLError<&str>> {
         many1(terminated(Self::assignment_expr, opt(ws_sep_comma)))(i)
     }
 }

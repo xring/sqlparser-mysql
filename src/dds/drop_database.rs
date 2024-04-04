@@ -5,10 +5,10 @@ use std::str;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::{parse_if_exists, sql_identifier, statement_terminator};
 
 /// DROP {DATABASE | SCHEMA} [IF EXISTS] db_name
@@ -19,7 +19,7 @@ pub struct DropDatabaseStatement {
 }
 
 impl DropDatabaseStatement {
-    pub fn parse(i: &str) -> IResult<&str, DropDatabaseStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropDatabaseStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
             multispace0,
@@ -55,7 +55,7 @@ impl fmt::Display for DropDatabaseStatement {
     }
 }
 
-pub fn drop_database(i: &str) -> IResult<&str, DropDatabaseStatement, VerboseError<&str>> {
+pub fn drop_database(i: &str) -> IResult<&str, DropDatabaseStatement, ParseSQLError<&str>> {
     let mut parser = tuple((
         tag_no_case("DROP "),
         multispace0,
@@ -123,7 +123,10 @@ mod tests {
         ];
 
         for i in 0..good_sqls.len() {
-            assert_eq!(DropDatabaseStatement::parse(good_sqls[i]).unwrap().1, good_statements[i]);
+            assert_eq!(
+                DropDatabaseStatement::parse(good_sqls[i]).unwrap().1,
+                good_statements[i]
+            );
         }
 
         let bad_sqls = vec![

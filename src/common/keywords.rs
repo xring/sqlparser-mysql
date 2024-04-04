@@ -1,12 +1,13 @@
-use common::eof;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::peek;
-use nom::error::VerboseError;
 use nom::sequence::terminated;
 use nom::IResult;
 
-fn keyword_follow_char(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+use base::error::ParseSQLError;
+use common::eof;
+
+fn keyword_follow_char(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     peek(alt((
         tag(" "),
         tag("\n"),
@@ -20,7 +21,7 @@ fn keyword_follow_char(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     )))(i)
 }
 
-fn keywords_part_1(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_1(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("ABORT"), keyword_follow_char),
         terminated(tag_no_case("ACTION"), keyword_follow_char),
@@ -46,7 +47,7 @@ fn keywords_part_1(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     ))(i)
 }
 
-fn keywords_part_2(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_2(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("COLUMN"), keyword_follow_char),
         terminated(tag_no_case("COMMIT"), keyword_follow_char),
@@ -72,7 +73,7 @@ fn keywords_part_2(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     ))(i)
 }
 
-fn keywords_part_3(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_3(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("ESCAPE"), keyword_follow_char),
         terminated(tag_no_case("EXCEPT"), keyword_follow_char),
@@ -98,7 +99,7 @@ fn keywords_part_3(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     ))(i)
 }
 
-fn keywords_part_4(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_4(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("INNER"), keyword_follow_char),
         terminated(tag_no_case("INSERT"), keyword_follow_char),
@@ -124,7 +125,7 @@ fn keywords_part_4(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     ))(i)
 }
 
-fn keywords_part_5(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_5(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("ON"), keyword_follow_char),
         terminated(tag_no_case("OR"), keyword_follow_char),
@@ -150,7 +151,7 @@ fn keywords_part_5(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     ))(i)
 }
 
-fn keywords_part_6(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+fn keywords_part_6(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         terminated(tag_no_case("SET"), keyword_follow_char),
         terminated(tag_no_case("SPATIAL"), keyword_follow_char),
@@ -177,7 +178,7 @@ fn keywords_part_6(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
 }
 
 // Matches any SQL reserved keyword
-pub fn sql_keyword(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn sql_keyword(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         keywords_part_1,
         keywords_part_2,

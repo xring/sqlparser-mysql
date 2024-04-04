@@ -1,4 +1,3 @@
-use base::FieldValueExpression;
 use std::fmt;
 use std::fmt::Display;
 

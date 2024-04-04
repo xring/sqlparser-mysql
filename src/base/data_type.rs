@@ -1,12 +1,14 @@
 use std::fmt;
 use std::str::FromStr;
+
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::IResult;
+
+use base::error::ParseSQLError;
 use base::Literal;
 use common::{delim_digit, precision};
 
@@ -79,14 +81,14 @@ impl fmt::Display for DataType {
 
 impl DataType {
     // A SQL type specifier.
-    pub fn type_identifier(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    pub fn type_identifier(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         alt((
             Self::type_identifier_first_half,
             Self::type_identifier_second_half,
         ))(i)
     }
 
-    fn type_identifier_first_half(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn type_identifier_first_half(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         alt((
             Self::tiny_int,
             Self::big_int,
@@ -154,7 +156,7 @@ impl DataType {
         ))(i)
     }
 
-    fn type_identifier_second_half(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn type_identifier_second_half(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         alt((
             map(
                 tuple((tag_no_case("binary"), delim_digit, multispace0)),
@@ -176,7 +178,7 @@ impl DataType {
 
     // TODO: rather than copy paste these functions, should create a function that returns a parser
     // based on the sql int type, just like nom does
-    fn tiny_int(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn tiny_int(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             tag_no_case("tinyint"),
             multispace0,
@@ -208,7 +210,7 @@ impl DataType {
 
     // TODO: rather than copy paste these functions, should create a function that returns a parser
     // based on the sql int type, just like nom does
-    fn big_int(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn big_int(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             tag_no_case("bigint"),
             multispace0,
@@ -240,7 +242,7 @@ impl DataType {
 
     // TODO: rather than copy paste these functions, should create a function that returns a parser
     // based on the sql int type, just like nom does
-    fn sql_int_type(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn sql_int_type(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             alt((
                 tag_no_case("integer"),
@@ -277,7 +279,7 @@ impl DataType {
     // TODO(malte): not strictly ok to treat DECIMAL and NUMERIC as identical; the
     // former has "at least" M precision, the latter "exactly".
     // See https://dev.mysql.com/doc/refman/5.7/en/precision-math-decimal-characteristics.html
-    fn decimal_or_numeric(i: &str) -> IResult<&str, DataType, VerboseError<&str>> {
+    fn decimal_or_numeric(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, precision) = delimited(
             alt((tag_no_case("decimal"), tag_no_case("numeric"))),
             opt(precision),
@@ -291,7 +293,7 @@ impl DataType {
         }
     }
 
-    fn opt_signed(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {
+    fn opt_signed(i: &str) -> IResult<&str, Option<&str>, ParseSQLError<&str>> {
         opt(alt((tag_no_case("unsigned"), tag_no_case("signed"))))(i)
     }
 

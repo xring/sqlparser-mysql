@@ -5,12 +5,12 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
-use common::{opt_delimited, OrderClause, statement_terminator};
+use base::error::ParseSQLError;
+use common::{opt_delimited, statement_terminator, OrderClause};
 use dms::select::{LimitClause, SelectStatement};
 
 // TODO 用于 create 语句的 select
@@ -22,9 +22,8 @@ pub struct CompoundSelectStatement {
 }
 
 impl CompoundSelectStatement {
-
     // Parse compound selection
-    pub fn parse(i: &str) -> IResult<&str, CompoundSelectStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, CompoundSelectStatement, ParseSQLError<&str>> {
         let (remaining_input, (first_select, other_selects, _, order, limit, _)) = tuple((
             opt_delimited(tag("("), SelectStatement::nested_selection, tag(")")),
             many1(Self::other_selects),
@@ -49,7 +48,7 @@ impl CompoundSelectStatement {
 
     fn other_selects(
         i: &str,
-    ) -> IResult<&str, (Option<CompoundSelectOperator>, SelectStatement), VerboseError<&str>> {
+    ) -> IResult<&str, (Option<CompoundSelectOperator>, SelectStatement), ParseSQLError<&str>> {
         let (remaining_input, (_, op, _, select)) = tuple((
             multispace0,
             CompoundSelectOperator::parse,
@@ -93,7 +92,7 @@ pub enum CompoundSelectOperator {
 
 impl CompoundSelectOperator {
     // Parse compound operator
-    fn parse(i: &str) -> IResult<&str, CompoundSelectOperator, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, CompoundSelectOperator, ParseSQLError<&str>> {
         alt((
             map(
                 preceded(

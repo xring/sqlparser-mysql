@@ -1,4 +1,5 @@
 use std::fmt;
+
 use base::column::Column;
 use common::keywords::escape_if_keyword;
 

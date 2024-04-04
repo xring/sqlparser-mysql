@@ -1,10 +1,10 @@
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
 use common::{sql_identifier, statement_terminator};
 use common::{AlgorithmType, LockType};
@@ -20,7 +20,7 @@ pub struct DropIndexStatement {
 impl DropIndexStatement {
     /// DROP INDEX index_name ON tbl_name
     ///     [algorithm_option | lock_option] ...
-    pub fn parse(i: &str) -> IResult<&str, DropIndexStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropIndexStatement, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("DROP"), multispace1)),

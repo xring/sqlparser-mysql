@@ -6,11 +6,11 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::error::ParseSQLError;
 use base::{Literal, Operator};
 use common::arithmetic::ArithmeticExpression;
 use dms::select::SelectStatement;
@@ -96,7 +96,7 @@ pub enum ConditionExpression {
 }
 
 impl ConditionExpression {
-    pub fn parse(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, where_condition)) = tuple((
             multispace0,
             tag_no_case("where"),
@@ -107,7 +107,7 @@ impl ConditionExpression {
         Ok((remaining_input, where_condition))
     }
 
-    pub fn having_clause(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    pub fn having_clause(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, ce)) = tuple((
             multispace0,
             tag_no_case("HAVING"),
@@ -119,7 +119,7 @@ impl ConditionExpression {
     }
 
     // Parse a conditional expression into a condition tree structure
-    pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    pub fn condition_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let cond = map(
             separated_pair(
                 Self::and_expr,
@@ -138,7 +138,7 @@ impl ConditionExpression {
         alt((cond, Self::and_expr))(i)
     }
 
-    fn and_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    fn and_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let cond = map(
             separated_pair(
                 Self::parenthetical_expr,
@@ -157,7 +157,9 @@ impl ConditionExpression {
         alt((cond, Self::parenthetical_expr))(i)
     }
 
-    fn parenthetical_expr_helper(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    fn parenthetical_expr_helper(
+        i: &str,
+    ) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let (remaining_input, (_, _, left_expr, _, _, _, operator, _, right_expr)) = tuple((
             tag("("),
             multispace0,
@@ -181,7 +183,7 @@ impl ConditionExpression {
         Ok((remaining_input, cond))
     }
 
-    pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    pub fn parenthetical_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         alt((
             Self::parenthetical_expr_helper,
             map(
@@ -196,17 +198,20 @@ impl ConditionExpression {
         ))(i)
     }
 
-    fn not_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    fn not_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         alt((
             map(
-                preceded(pair(tag_no_case("not"), multispace1), Self::parenthetical_expr),
+                preceded(
+                    pair(tag_no_case("not"), multispace1),
+                    Self::parenthetical_expr,
+                ),
                 |right| ConditionExpression::NegationOp(Box::new(right)),
             ),
             Self::boolean_primary,
         ))(i)
     }
 
-    fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+    fn is_null(i: &str) -> IResult<&str, (Operator, ConditionExpression), ParseSQLError<&str>> {
         let (remaining_input, (_, _, not, _, _)) = tuple((
             tag_no_case("is"),
             multispace0,
@@ -230,7 +235,9 @@ impl ConditionExpression {
         ))
     }
 
-    fn in_operation(i: &str) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+    fn in_operation(
+        i: &str,
+    ) -> IResult<&str, (Operator, ConditionExpression), ParseSQLError<&str>> {
         map(
             separated_pair(
                 opt(terminated(tag_no_case("not"), multispace1)),
@@ -258,7 +265,7 @@ impl ConditionExpression {
 
     fn boolean_primary_rest(
         i: &str,
-    ) -> IResult<&str, (Operator, ConditionExpression), VerboseError<&str>> {
+    ) -> IResult<&str, (Operator, ConditionExpression), ParseSQLError<&str>> {
         alt((
             Self::is_null,
             Self::in_operation,
@@ -266,7 +273,7 @@ impl ConditionExpression {
         ))(i)
     }
 
-    fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    fn boolean_primary(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         alt((
             map(
                 separated_pair(Self::predicate, multispace0, Self::boolean_primary_rest),
@@ -282,7 +289,7 @@ impl ConditionExpression {
         ))(i)
     }
 
-    fn predicate(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    fn predicate(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         let nested_exists = map(
             tuple((
                 opt(delimited(multispace0, tag_no_case("not"), multispace1)),
@@ -306,7 +313,7 @@ impl ConditionExpression {
         alt((Self::simple_expr, nested_exists))(i)
     }
 
-    pub fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, VerboseError<&str>> {
+    pub fn simple_expr(i: &str) -> IResult<&str, ConditionExpression, ParseSQLError<&str>> {
         alt((
             map(
                 delimited(
@@ -315,9 +322,9 @@ impl ConditionExpression {
                     preceded(multispace0, tag(")")),
                 ),
                 |e| {
-                    ConditionExpression::Bracketed(Box::new(ConditionExpression::Arithmetic(Box::new(
-                        e,
-                    ))))
+                    ConditionExpression::Bracketed(Box::new(ConditionExpression::Arithmetic(
+                        Box::new(e),
+                    )))
                 },
             ),
             map(ArithmeticExpression::parse, |e| {

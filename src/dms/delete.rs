@@ -3,14 +3,14 @@ use std::{fmt, str};
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace1;
 use nom::combinator::opt;
-use nom::error::VerboseError;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
+use common::condition::ConditionExpression;
 use common::keywords::escape_if_keyword;
 use common::statement_terminator;
-use common::condition::ConditionExpression;
 
 // FIXME TODO
 /// DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM tbl_name [[AS] tbl_alias]
@@ -25,7 +25,7 @@ pub struct DeleteStatement {
 }
 
 impl DeleteStatement {
-    pub fn parse(i: &str) -> IResult<&str, DeleteStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DeleteStatement, ParseSQLError<&str>> {
         let (remaining_input, (_, _, table, where_clause, _)) = tuple((
             tag_no_case("DELETE"),
             delimited(multispace1, tag_no_case("FROM"), multispace1),

@@ -4,11 +4,11 @@ use std::str;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{pair, terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::keywords::escape_if_keyword;
 use common::{as_alias, sql_identifier, ws_sep_comma};
 
@@ -22,12 +22,12 @@ pub struct Table {
 impl Table {
     // Parse list of table names.
     // XXX(malte): add support for aliases
-    pub fn table_list(i: &str) -> IResult<&str, Vec<Table>, VerboseError<&str>> {
+    pub fn table_list(i: &str) -> IResult<&str, Vec<Table>, ParseSQLError<&str>> {
         many0(terminated(Table::schema_table_reference, opt(ws_sep_comma)))(i)
     }
 
     // Parse a reference to a named schema.table, with an optional alias
-    pub fn schema_table_reference(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
+    pub fn schema_table_reference(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(
             tuple((
                 opt(pair(sql_identifier, tag("."))),
@@ -49,7 +49,7 @@ impl Table {
     }
 
     // Parse a reference to a named table, with an optional alias
-    pub fn table_reference(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
+    pub fn table_reference(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(pair(sql_identifier, opt(as_alias)), |tup| Table {
             name: String::from(tup.0),
             alias: match tup.1 {
@@ -61,7 +61,7 @@ impl Table {
     }
 
     /// table alias not allowed in DROP/TRUNCATE/RENAME TABLE statement
-    pub fn without_alias(i: &str) -> IResult<&str, Table, VerboseError<&str>> {
+    pub fn without_alias(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(
             tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
             |tup| Table {
@@ -78,7 +78,7 @@ impl Table {
     /// db_name.tb_name TO db_name.tb_name
     pub fn schema_table_reference_to_schema_table_reference(
         i: &str,
-    ) -> IResult<&str, (Table, Table), VerboseError<&str>> {
+    ) -> IResult<&str, (Table, Table), ParseSQLError<&str>> {
         map(
             tuple((
                 Self::schema_table_reference,

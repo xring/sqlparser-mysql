@@ -2,10 +2,11 @@ use std::fmt;
 use std::io::BufRead;
 use std::str;
 
+use nom::branch::alt;
 use nom::combinator::map;
-use nom::error::VerboseError;
 use nom::{IResult, Offset};
 
+use base::error::ParseSQLError;
 use das::set_statement::SetStatement;
 use dds::alter_database::AlterDatabaseStatement;
 use dds::alter_table::AlterTableStatement;
@@ -79,7 +80,7 @@ impl fmt::Display for Statement {
     }
 }
 
-const PARSERS: [fn(&str) -> IResult<&str, Statement, VerboseError<&str>>; 18] = [
+const PARSERS: [fn(&str) -> IResult<&str, Statement, ParseSQLError<&str>>; 18] = [
     |i| {
         map(AlterDatabaseStatement::parse, |parsed| {
             Statement::AlterDatabase(parsed)
@@ -173,29 +174,72 @@ const PARSERS: [fn(&str) -> IResult<&str, Statement, VerboseError<&str>>; 18] = 
 ];
 
 pub fn parse_sql(input: &str) -> Result<Statement, String> {
-    let mut deepest_error = None;
-    let mut max_consumed = 0;
+    let mut parser = alt((
+        map(AlterDatabaseStatement::parse, |parsed| {
+            Statement::AlterDatabase(parsed)
+        }),
+        map(AlterTableStatement::parse, |parsed| {
+            Statement::AlterTable(parsed)
+        }),
+        map(CreateIndexStatement::parse, |parsed| {
+            Statement::CreateIndex(parsed)
+        }),
+        map(CreateTableStatement::parse, |parsed| {
+            Statement::CreateTable(parsed)
+        }),
+        map(DropDatabaseStatement::parse, |parsed| {
+            Statement::DropDatabase(parsed)
+        }),
+        map(DropEventStatement::parse, |parsed| {
+            Statement::DropEvent(parsed)
+        }),
+        map(DropFunctionStatement::parse, |parsed| {
+            Statement::DropFunction(parsed)
+        }),
+        map(DropIndexStatement::parse, |parsed| {
+            Statement::DropIndex(parsed)
+        }),
+        map(DropLogfileGroupStatement::parse, |parsed| {
+            Statement::DropLogfileGroup(parsed)
+        }),
+        map(DropProcedureStatement::parse, |parsed| {
+            Statement::DropProcedure(parsed)
+        }),
+        map(DropServerStatement::parse, |parsed| {
+            Statement::DropServer(parsed)
+        }),
+        map(DropSpatialReferenceSystemStatement::parse, |parsed| {
+            Statement::DropSpatialReferenceSystem(parsed)
+        }),
+        map(DropTableStatement::parse, |parsed| {
+            Statement::DropTable(parsed)
+        }),
+        map(DropTablespaceStatement::parse, |parsed| {
+            Statement::DropTableSpace(parsed)
+        }),
+        map(DropTriggerStatement::parse, |parsed| {
+            Statement::DropTrigger(parsed)
+        }),
+        map(DropViewStatement::parse, |parsed| {
+            Statement::DropView(parsed)
+        }),
+        map(RenameTableStatement::parse, |parsed| {
+            Statement::RenameTable(parsed)
+        }),
+        map(TruncateTableStatement::parse, |parsed| {
+            Statement::TruncateTable(parsed)
+        }),
+    ));
 
-    // TODO need parallel parse ?
-    for mut parser in PARSERS {
-        match parser(input) {
-            Ok(result) => return Ok(result.1),
-            Err(nom::Err::Error(err)) => {
-                let consumed = input.offset(err.errors[0].0);
-                if consumed > max_consumed {
-                    deepest_error = Some(err.errors[0].0);
-                    max_consumed = consumed;
-                }
-            }
-            Err(e) => return Err(String::from("failed to parse sql: other error")),
+    return match parser(input) {
+        Ok(result) => Ok(result.1),
+        Err(nom::Err::Error(err)) => {
+            let msg = err.errors[0].0.split(" ").next().unwrap_or("");
+            let err_msg = format!("failed to parse sql, error near `{}`", msg);
+            Err(err_msg)
         }
-    }
-    let err_msg = deepest_error.unwrap().split(" ").next().unwrap_or("");
-    let err_msg = format!(
-        "failed to parse sql, error in SQL syntax near `{}`",
-        err_msg
-    );
-    Err(err_msg)
+        _ => Err(String::from("failed to parse sql: other error")),
+    };
 }
 
 #[cfg(test)]

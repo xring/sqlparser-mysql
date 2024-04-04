@@ -8,11 +8,12 @@ use nom::bytes::complete::{tag, tag_no_case, take_until, take_while, take_while1
 use nom::character::complete::{alpha1, digit1, line_ending, multispace0, multispace1};
 use nom::character::is_alphanumeric;
 use nom::combinator::{map, not, opt, peek, recognize};
-use nom::error::{ErrorKind, ParseError, VerboseError};
+use nom::error::{ErrorKind, ParseError};
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{IResult, InputLength, Parser};
 
 use base::column::Column;
+use base::ParseSQLError;
 use common::keywords::sql_keyword;
 pub use common::order::{OrderClause, OrderType};
 
@@ -51,7 +52,7 @@ pub enum AlgorithmType {
 impl AlgorithmType {
     /// algorithm_option:
     ///     ALGORITHM [=] {DEFAULT | INPLACE | COPY}
-    pub fn parse(i: &str) -> IResult<&str, AlgorithmType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, AlgorithmType, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ALGORITHM"),
@@ -81,7 +82,7 @@ pub enum LockType {
 impl LockType {
     /// lock_option:
     ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-    pub fn parse(i: &str) -> IResult<&str, LockType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, LockType, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("LOCK "),
@@ -111,7 +112,7 @@ pub enum MatchType {
 
 impl MatchType {
     /// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
-    fn parse(i: &str) -> IResult<&str, MatchType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, MatchType, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("MATCH"),
@@ -141,7 +142,7 @@ pub enum ReferenceType {
 impl ReferenceType {
     /// reference_option:
     ///     RESTRICT | CASCADE | SET NULL | NO ACTION | SET DEFAULT
-    pub fn parse(i: &str) -> IResult<&str, ReferenceType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ReferenceType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("RESTRICT"), |_| ReferenceType::Restrict),
             map(tag_no_case("CASCADE"), |_| ReferenceType::Cascade),
@@ -170,7 +171,7 @@ pub enum CompressionType {
 }
 
 impl CompressionType {
-    fn parse(i: &str) -> IResult<&str, CompressionType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, CompressionType, ParseSQLError<&str>> {
         alt((
             map(
                 delimited(
@@ -209,7 +210,7 @@ pub enum InsertMethodType {
 }
 
 impl InsertMethodType {
-    fn parse(i: &str) -> IResult<&str, InsertMethodType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, InsertMethodType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("NO"), |_| InsertMethodType::No),
             map(tag_no_case("FIRST"), |_| InsertMethodType::First),
@@ -230,7 +231,7 @@ pub enum RowFormatType {
 }
 
 impl RowFormatType {
-    fn parse(i: &str) -> IResult<&str, RowFormatType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, RowFormatType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("DEFAULT"), |_| RowFormatType::Default),
             map(tag_no_case("DYNAMIC"), |_| RowFormatType::Dynamic),
@@ -251,7 +252,7 @@ pub enum DefaultOrZeroOrOne {
 }
 
 impl DefaultOrZeroOrOne {
-    pub fn parse(i: &str) -> IResult<&str, DefaultOrZeroOrOne, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DefaultOrZeroOrOne, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("0"), |_| DefaultOrZeroOrOne::Zero),
             map(tag_no_case("1"), |_| DefaultOrZeroOrOne::One),
@@ -279,7 +280,7 @@ pub enum TablespaceType {
 }
 
 impl TablespaceType {
-    pub fn parse(i: &str) -> IResult<&str, TablespaceType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, TablespaceType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("DISK"), |_| TablespaceType::StorageDisk),
             map(tag_no_case("MEMORY"), |_| TablespaceType::StorageMemory),
@@ -296,7 +297,7 @@ pub enum FulltextOrSpatialType {
 
 impl FulltextOrSpatialType {
     /// // {FULLTEXT | SPATIAL}
-    pub fn parse(i: &str) -> IResult<&str, FulltextOrSpatialType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, FulltextOrSpatialType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("FULLTEXT"), |_| FulltextOrSpatialType::Fulltext),
             map(tag_no_case("SPATIAL"), |_| FulltextOrSpatialType::Spatial),
@@ -313,7 +314,7 @@ pub enum IndexOrKeyType {
 
 impl IndexOrKeyType {
     /// {INDEX | KEY}
-    pub fn parse(i: &str) -> IResult<&str, IndexOrKeyType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, IndexOrKeyType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("KEY"), |_| IndexOrKeyType::Key),
             map(tag_no_case("INDEX"), |_| IndexOrKeyType::Index),
@@ -337,7 +338,7 @@ pub enum VisibleType {
 }
 
 impl VisibleType {
-    pub fn parse(i: &str) -> IResult<&str, VisibleType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, VisibleType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("VISIBLE"), |_| VisibleType::Visible),
             map(tag_no_case("INVISIBLE"), |_| VisibleType::Invisible),
@@ -353,7 +354,7 @@ pub enum IndexType {
 }
 
 impl IndexType {
-    fn parse(i: &str) -> IResult<&str, IndexType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, IndexType, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("USING"),
@@ -369,7 +370,7 @@ impl IndexType {
 
     /// [index_type]
     /// USING {BTREE | HASH}
-    pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>, VerboseError<&str>> {
+    pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>, ParseSQLError<&str>> {
         opt(map(
             delimited(multispace1, IndexType::parse, multispace0),
             |x| x,
@@ -388,7 +389,7 @@ impl fmt::Display for IndexType {
 }
 
 /// [index_name]
-pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, VerboseError<&str>> {
+pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
     opt(map(
         delimited(multispace1, sql_identifier, multispace0),
         |(x)| String::from(x),
@@ -397,7 +398,7 @@ pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, VerboseError<&st
 
 pub fn index_col_name(
     i: &str,
-) -> IResult<&str, (Column, Option<u16>, Option<OrderType>), VerboseError<&str>> {
+) -> IResult<&str, (Column, Option<u16>, Option<OrderType>), ParseSQLError<&str>> {
     let (remaining_input, (column, len_u8, order)) = tuple((
         terminated(Column::without_alias, multispace0),
         opt(delimited(tag("("), digit1, tag(")"))),
@@ -436,7 +437,7 @@ where
     }
 }
 
-fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>), VerboseError<&str>> {
+fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>), ParseSQLError<&str>> {
     let (remaining_input, (m, d)) = tuple((
         digit1,
         opt(preceded(tag(","), preceded(multispace0, digit1))),
@@ -448,15 +449,15 @@ fn precision_helper(i: &str) -> IResult<&str, (u8, Option<u8>), VerboseError<&st
     ))
 }
 
-pub fn precision(i: &str) -> IResult<&str, (u8, Option<u8>), VerboseError<&str>> {
+pub fn precision(i: &str) -> IResult<&str, (u8, Option<u8>), ParseSQLError<&str>> {
     delimited(tag("("), precision_helper, tag(")"))(i)
 }
 
-pub fn delim_digit(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn delim_digit(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     delimited(tag("("), digit1, tag(")"))(i)
 }
 
-pub fn sql_identifier(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn sql_identifier(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     alt((
         alt((
             preceded(
@@ -473,7 +474,7 @@ pub fn sql_identifier(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
 }
 
 // Parse an unsigned integer.
-pub fn unsigned_number(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
+pub fn unsigned_number(i: &str) -> IResult<&str, u64, ParseSQLError<&str>> {
     map(digit1, |d| FromStr::from_str(d).unwrap())(i)
 }
 
@@ -486,14 +487,14 @@ pub(crate) fn eof<I: Copy + InputLength, E: ParseError<I>>(input: I) -> IResult<
 }
 
 // Parse a terminator that ends a SQL statement.
-pub fn statement_terminator(i: &str) -> IResult<&str, (), VerboseError<&str>> {
+pub fn statement_terminator(i: &str) -> IResult<&str, (), ParseSQLError<&str>> {
     let (remaining_input, _) =
         delimited(multispace0, alt((tag(";"), line_ending, eof)), multispace0)(i)?;
     Ok((remaining_input, ()))
 }
 
 // Parse rule for AS-based aliases for SQL entities.
-pub fn as_alias(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn as_alias(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     map(
         tuple((
             multispace1,
@@ -504,11 +505,11 @@ pub fn as_alias(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     )(i)
 }
 
-pub fn ws_sep_comma(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn ws_sep_comma(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     delimited(multispace0, tag(","), multispace0)(i)
 }
 
-pub(crate) fn ws_sep_equals(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub(crate) fn ws_sep_equals(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     delimited(multispace0, tag("="), multispace0)(i)
 }
 
@@ -516,7 +517,7 @@ pub(crate) fn ws_sep_equals(i: &str) -> IResult<&str, &str, VerboseError<&str>> 
 /// COMMENT 'comment content'
 /// or
 /// COMMENT "comment content"
-pub fn parse_comment(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+pub fn parse_comment(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
     alt((
         map(
             preceded(
@@ -536,7 +537,7 @@ pub fn parse_comment(i: &str) -> IResult<&str, String, VerboseError<&str>> {
 }
 
 /// IF EXISTS
-pub fn parse_if_exists(i: &str) -> IResult<&str, Option<&str>, VerboseError<&str>> {
+pub fn parse_if_exists(i: &str) -> IResult<&str, Option<&str>, ParseSQLError<&str>> {
     opt(delimited(
         multispace0,
         delimited(tag_no_case("IF"), multispace1, tag_no_case("EXISTS")),

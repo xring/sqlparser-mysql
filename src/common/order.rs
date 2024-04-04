@@ -1,16 +1,16 @@
 use std::fmt;
 use std::str;
-use nom::branch::alt;
 
+use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{preceded, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::error::ParseSQLError;
 use common::keywords::escape_if_keyword;
 use common::ws_sep_comma;
 
@@ -21,7 +21,7 @@ pub struct OrderClause {
 
 impl OrderClause {
     // Parse ORDER BY clause
-    pub fn parse(i: &str) -> IResult<&str, OrderClause, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, OrderClause, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, _, _, columns)) = tuple((
             multispace0,
             tag_no_case("ORDER"),
@@ -34,7 +34,7 @@ impl OrderClause {
         Ok((remaining_input, OrderClause { columns }))
     }
 
-    fn order_expr(i: &str) -> IResult<&str, (Column, OrderType), VerboseError<&str>> {
+    fn order_expr(i: &str) -> IResult<&str, (Column, OrderType), ParseSQLError<&str>> {
         let (remaining_input, (field_name, ordering, _)) = tuple((
             Column::without_alias,
             opt(preceded(multispace0, OrderType::parse)),
@@ -71,7 +71,7 @@ pub enum OrderType {
 }
 
 impl OrderType {
-    pub fn parse(i: &str) -> IResult<&str, OrderType, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, OrderType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("DESC"), |_| OrderType::Desc),
             map(tag_no_case("ASC"), |_| OrderType::Asc),
@@ -90,8 +90,6 @@ impl std::fmt::Display for OrderType {
 
 #[cfg(test)]
 mod tests {
-    use dms::select::SelectStatement;
-
     use super::*;
 
     #[test]

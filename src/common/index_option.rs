@@ -3,12 +3,12 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, preceded, tuple};
+use nom::IResult;
 
-use common::{parse_comment, sql_identifier};
+use base::error::ParseSQLError;
 use common::{index_option, IndexType, VisibleType};
+use common::{parse_comment, sql_identifier};
 
 /// index_option: {
 ///     KEY_BLOCK_SIZE [=] value
@@ -38,7 +38,7 @@ impl IndexOption {
     ///   | COMMENT 'string'
     ///   | {VISIBLE | INVISIBLE}
     /// }
-    pub fn parse(i: &str) -> IResult<&str, IndexOption, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, IndexOption, ParseSQLError<&str>> {
         alt((
             map(Self::key_block_size, |x| IndexOption::KeyBlockSize(x)),
             map(IndexType::parse, |x| IndexOption::IndexType(x)),
@@ -62,12 +62,12 @@ impl IndexOption {
     ///   |ENGINE_ATTRIBUTE [=] 'string'
     ///   |SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
     /// }
-    pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>, VerboseError<&str>> {
+    pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>, ParseSQLError<&str>> {
         opt(map(preceded(multispace1, IndexOption::parse), |x| x))(i)
     }
 
     /// KEY_BLOCK_SIZE [=] value
-    fn key_block_size(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
+    fn key_block_size(i: &str) -> IResult<&str, u64, ParseSQLError<&str>> {
         map(
             tuple((
                 multispace0,
@@ -82,7 +82,7 @@ impl IndexOption {
     }
 
     /// WITH PARSER parser_name
-    fn with_parser(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+    fn with_parser(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         map(
             tuple((
                 multispace0,
@@ -98,7 +98,7 @@ impl IndexOption {
     }
 
     /// ENGINE_ATTRIBUTE [=] value
-    fn engine_attribute(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+    fn engine_attribute(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ENGINE_ATTRIBUTE "),
@@ -114,7 +114,7 @@ impl IndexOption {
     }
 
     /// SECONDARY_ENGINE_ATTRIBUTE [=] value
-    fn secondary_engine_attribute(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+    fn secondary_engine_attribute(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),

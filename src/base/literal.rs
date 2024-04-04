@@ -1,15 +1,17 @@
-use base::ItemPlaceholder;
-use common::{as_alias, opt_delimited, ws_sep_comma};
+use std::fmt;
+use std::str::FromStr;
+
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, tag_no_case, take};
 use nom::character::complete::{digit1, multispace0};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::{fold_many0, many0};
 use nom::sequence::{delimited, pair, preceded, tuple};
 use nom::IResult;
-use std::fmt;
-use std::str::FromStr;
+
+use base::error::ParseSQLError;
+use base::ItemPlaceholder;
+use common::{as_alias, opt_delimited, ws_sep_comma};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Literal {
@@ -27,7 +29,7 @@ pub enum Literal {
 
 impl Literal {
     // Integer literal value
-    pub fn integer_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
+    pub fn integer_literal(i: &str) -> IResult<&str, Literal, ParseSQLError<&str>> {
         map(pair(opt(tag("-")), digit1), |tup| {
             let mut intval = i64::from_str(tup.1).unwrap();
             if (tup.0).is_some() {
@@ -42,7 +44,7 @@ impl Literal {
     }
 
     // Floating point literal value
-    pub fn float_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
+    pub fn float_literal(i: &str) -> IResult<&str, Literal, ParseSQLError<&str>> {
         map(tuple((opt(tag("-")), digit1, tag("."), digit1)), |tup| {
             Literal::FixedPoint(Real {
                 integral: if (tup.0).is_some() {
@@ -59,7 +61,7 @@ impl Literal {
     fn raw_string_quoted(
         input: &str,
         is_single_quote: bool,
-    ) -> IResult<&str, String, VerboseError<&str>> {
+    ) -> IResult<&str, String, ParseSQLError<&str>> {
         // Adjusted to work with &str
         let quote_char = if is_single_quote { '\'' } else { '"' };
         let quote_str = if is_single_quote { "\'" } else { "\"" };
@@ -97,15 +99,15 @@ impl Literal {
         )(input)
     }
 
-    fn raw_string_single_quoted(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+    fn raw_string_single_quoted(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         Self::raw_string_quoted(i, true)
     }
 
-    fn raw_string_double_quoted(i: &str) -> IResult<&str, String, VerboseError<&str>> {
+    fn raw_string_double_quoted(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         Self::raw_string_quoted(i, false)
     }
 
-    pub fn string_literal(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
+    pub fn string_literal(i: &str) -> IResult<&str, Literal, ParseSQLError<&str>> {
         map(
             alt((
                 Self::raw_string_single_quoted,
@@ -116,7 +118,7 @@ impl Literal {
     }
 
     // Any literal value.
-    pub fn parse(i: &str) -> IResult<&str, Literal, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Literal, ParseSQLError<&str>> {
         alt((
             Self::float_literal,
             Self::integer_literal,
@@ -142,7 +144,7 @@ impl Literal {
     }
 
     // Parse a list of values (e.g., for INSERT syntax).
-    pub fn value_list(i: &str) -> IResult<&str, Vec<Literal>, VerboseError<&str>> {
+    pub fn value_list(i: &str) -> IResult<&str, Vec<Literal>, ParseSQLError<&str>> {
         many0(delimited(multispace0, Literal::parse, opt(ws_sep_comma)))(i)
     }
 }
@@ -213,7 +215,7 @@ pub struct LiteralExpression {
 }
 
 impl LiteralExpression {
-    pub fn parse(i: &str) -> IResult<&str, LiteralExpression, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, LiteralExpression, ParseSQLError<&str>> {
         map(
             pair(
                 opt_delimited(tag("("), Literal::parse, tag(")")),

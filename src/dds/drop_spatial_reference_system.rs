@@ -5,10 +5,10 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::map;
-use nom::error::VerboseError;
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::{parse_if_exists, statement_terminator};
 
 /// DROP SPATIAL REFERENCE SYSTEM
@@ -30,7 +30,7 @@ impl DropSpatialReferenceSystemStatement {
     /// srid: 32-bit unsigned integer
     pub fn parse(
         i: &str,
-    ) -> IResult<&str, DropSpatialReferenceSystemStatement, VerboseError<&str>> {
+    ) -> IResult<&str, DropSpatialReferenceSystemStatement, ParseSQLError<&str>> {
         map(
             tuple((
                 terminated(tag_no_case("DROP"), multispace1),

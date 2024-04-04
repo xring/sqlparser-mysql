@@ -6,13 +6,14 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, anychar, digit1, multispace0, multispace1};
 use nom::combinator::{map, opt, recognize};
-use nom::error::{ParseError, VerboseError};
+use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{IResult, Parser};
 
 use base::column::{Column, ColumnSpecification};
 use base::table::Table;
+use base::ParseSQLError;
 use common::index_option::IndexOption;
 use common::table_option::TableOption;
 use common::{
@@ -30,7 +31,7 @@ pub struct AlterTableStatement {
 
 impl AlterTableStatement {
     /// ALTER TABLE tbl_name [alter_option [, alter_option] ...] [partition_options]
-    pub fn parse(i: &str) -> IResult<&str, AlterTableStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, AlterTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tuple((
                 tag_no_case("ALTER "),
@@ -86,7 +87,7 @@ pub enum AlgorithmType {
 }
 
 impl AlgorithmType {
-    fn parse(i: &str) -> IResult<&str, AlgorithmType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, AlgorithmType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("DEFAULT"), |_| AlgorithmType::DEFAULT),
             map(tag_no_case("INSTANT"), |_| AlgorithmType::INSTANT),
@@ -104,7 +105,7 @@ pub enum CheckOrConstraintType {
 }
 
 impl CheckOrConstraintType {
-    fn parse(i: &str) -> IResult<&str, CheckOrConstraintType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, CheckOrConstraintType, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("CHECK"), |_| CheckOrConstraintType::CHECK),
             map(tag_no_case("CONSTRAINT"), |_| {
@@ -256,7 +257,7 @@ pub enum AlterTableOption {
 }
 
 impl AlterTableOption {
-    fn parse(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         let mut parser = alt((
             Self::alter_table_options,
             Self::alter_option_part_1,
@@ -268,14 +269,14 @@ impl AlterTableOption {
 
     /// table_options:
     ///     table_option [[,] table_option] ...
-    pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             many1(terminated(TableOption::parse, opt(ws_sep_comma))),
             |x| AlterTableOption::TableOptions(x),
         )(i)
     }
 
-    fn alter_option_part_1(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn alter_option_part_1(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         alt((
             Self::add_column,
             Self::add_index_or_key,
@@ -294,7 +295,7 @@ impl AlterTableOption {
         ))(i)
     }
 
-    fn alter_option_part_2(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn alter_option_part_2(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         alt((
             Self::convert_to_character_set,
             Self::disable_or_enable_keys,
@@ -317,7 +318,7 @@ impl AlterTableOption {
     /// [CONSTRAINT [symbol]]
     fn opt_constraint_with_opt_symbol_and_operation(
         i: &str,
-    ) -> IResult<&str, Option<String>, VerboseError<&str>> {
+    ) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ADD"),
@@ -333,7 +334,7 @@ impl AlterTableOption {
     ///  | ADD [COLUMN] col_name column_definition
     ///        [FIRST | AFTER col_name]
     ///  | ADD [COLUMN] (col_name column_definition,...)
-    fn add_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ADD"),
@@ -382,7 +383,7 @@ impl AlterTableOption {
     }
 
     /// ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
-    fn add_index_or_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("ADD"), multispace1)),
@@ -410,7 +411,7 @@ impl AlterTableOption {
     }
 
     /// | ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
-    fn add_fulltext_or_spatial(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_fulltext_or_spatial(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("ADD"), multispace1)),
@@ -438,7 +439,7 @@ impl AlterTableOption {
     }
 
     /// | ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
-    fn add_primary_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_primary_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 // [CONSTRAINT [symbol]]
@@ -469,7 +470,7 @@ impl AlterTableOption {
     }
 
     /// | ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
-    fn add_unique(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_unique(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 // [CONSTRAINT [symbol]]
@@ -517,7 +518,7 @@ impl AlterTableOption {
     }
 
     /// ADD [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
-    fn add_foreign_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_foreign_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 // [CONSTRAINT [symbol]]
@@ -558,7 +559,7 @@ impl AlterTableOption {
     }
 
     /// | ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-    fn add_check(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn add_check(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 // [CONSTRAINT [symbol]]
@@ -592,7 +593,7 @@ impl AlterTableOption {
     }
 
     /// DROP {CHECK | CONSTRAINT} symbol
-    fn drop_check_or_constraint(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn drop_check_or_constraint(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("DROP"), multispace1)),
@@ -613,7 +614,7 @@ impl AlterTableOption {
     /// ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED
     fn alter_check_or_constraint_enforced(
         i: &str,
-    ) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("ALTER"), multispace1)),
@@ -640,7 +641,7 @@ impl AlterTableOption {
     /// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
     fn algorithm_equal_default_or_instant_or_inplace_or_copy(
         i: &str,
-    ) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ALGORITHM "),
@@ -659,7 +660,7 @@ impl AlterTableOption {
     ///   | SET {VISIBLE | INVISIBLE}
     ///   | DROP DEFAULT
     /// }
-    fn alter_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn alter_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ALTER "),
@@ -680,7 +681,7 @@ impl AlterTableOption {
     }
 
     /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
-    fn alter_index_visibility(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn alter_index_visibility(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ALTER "),
@@ -701,7 +702,7 @@ impl AlterTableOption {
     }
 
     /// CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]
-    fn change_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn change_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("CHANGE "),
@@ -725,7 +726,7 @@ impl AlterTableOption {
     }
 
     /// [DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]
-    fn default_character_set(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn default_character_set(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 opt(tag_no_case("DEFAULT ")),
@@ -758,7 +759,7 @@ impl AlterTableOption {
     }
 
     /// CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
-    fn convert_to_character_set(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn convert_to_character_set(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         let prefix = tuple((
             tag_no_case("CONVERT"),
             multispace1,
@@ -792,7 +793,7 @@ impl AlterTableOption {
     }
 
     /// {DISCARD | IMPORT} TABLESPACE
-    fn disable_or_enable_keys(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn disable_or_enable_keys(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 alt((
@@ -810,7 +811,7 @@ impl AlterTableOption {
     /// {DISCARD | IMPORT} TABLESPACE
     fn discard_or_import_tablespace(
         i: &str,
-    ) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 alt((
@@ -830,7 +831,7 @@ impl AlterTableOption {
     }
 
     /// DROP [COLUMN] col_name
-    fn drop_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn drop_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DROP "),
@@ -848,7 +849,7 @@ impl AlterTableOption {
     }
 
     /// DROP {INDEX | KEY} index_name
-    fn drop_index_or_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn drop_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("DROP"), multispace1)),
@@ -868,7 +869,7 @@ impl AlterTableOption {
     }
 
     /// DROP PRIMARY KEY
-    fn drop_primary_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn drop_primary_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DROP"),
@@ -883,7 +884,7 @@ impl AlterTableOption {
     }
 
     /// DROP FOREIGN KEY fk_symbol
-    fn drop_foreign_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn drop_foreign_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DROP"),
@@ -900,21 +901,21 @@ impl AlterTableOption {
     }
 
     /// FORCE
-    fn force(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn force(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(tuple((tag_no_case("FORCE"), multispace0)), |_| {
             AlterTableOption::Force
         })(i)
     }
 
     // LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-    fn lock(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn lock(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(LockType::parse, |(lock_type)| {
             AlterTableOption::Lock(lock_type)
         })(i)
     }
 
     /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
-    fn modify_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn modify_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("MODIFY "),
@@ -929,7 +930,7 @@ impl AlterTableOption {
     }
 
     /// ORDER BY col_name [, col_name] ...
-    fn order_by(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn order_by(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("ORDER"),
@@ -947,7 +948,7 @@ impl AlterTableOption {
     }
 
     /// RENAME COLUMN old_col_name TO new_col_name
-    fn rename_column(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn rename_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("RENAME "),
@@ -970,7 +971,7 @@ impl AlterTableOption {
     }
 
     /// RENAME {INDEX | KEY} old_index_name TO new_index_name
-    fn rename_index_or_key(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn rename_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("RENAME"), multispace1)),
@@ -996,7 +997,7 @@ impl AlterTableOption {
     }
 
     /// RENAME [TO | AS] new_tbl_name
-    fn rename_table(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn rename_table(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("RENAME"), multispace1)),
@@ -1014,7 +1015,7 @@ impl AlterTableOption {
     }
 
     /// {WITHOUT | WITH} VALIDATION
-    fn without_or_with_validation(i: &str) -> IResult<&str, AlterTableOption, VerboseError<&str>> {
+    fn without_or_with_validation(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 // {WITHOUT | WITH}
@@ -1041,7 +1042,7 @@ pub enum AlertColumnOperation {
 }
 
 impl AlertColumnOperation {
-    fn parse(i: &str) -> IResult<&str, AlertColumnOperation, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, AlertColumnOperation, ParseSQLError<&str>> {
         alt((
             map(
                 tuple((
@@ -1106,7 +1107,7 @@ pub enum AlterPartitionOption {
 }
 
 impl AlterPartitionOption {
-    pub fn parse(i: &str) -> IResult<&str, AlterPartitionOption, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, AlterPartitionOption, ParseSQLError<&str>> {
         map(tag_no_case(""), |_| AlterPartitionOption::None)(i)
     }
 }
@@ -1117,7 +1118,6 @@ mod tests {
     use base::column::{ColumnConstraint, ColumnPosition, ColumnSpecification};
     use base::Literal;
     use common::index_option::IndexOption;
-    use dds::alter_table;
     use dds::alter_table::{AlterTableOption, AlterTableStatement};
 
     #[test]

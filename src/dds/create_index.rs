@@ -2,16 +2,14 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{terminated, tuple};
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
-use common::{AlgorithmType, KeyPart, LockType};
-use common::{
-    sql_identifier, statement_terminator,
-};
 use common::index_option::IndexOption;
+use common::{sql_identifier, statement_terminator};
+use common::{AlgorithmType, KeyPart, LockType};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateIndexStatement {
@@ -51,7 +49,7 @@ impl CreateIndexStatement {
     ///
     /// lock_option:
     ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-    pub fn parse(i: &str) -> IResult<&str, CreateIndexStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, CreateIndexStatement, ParseSQLError<&str>> {
         map(
             tuple((
                 tuple((tag_no_case("CREATE"), multispace1)),
@@ -61,7 +59,7 @@ impl CreateIndexStatement {
                 opt(terminated(Index::parse, multispace1)),
                 terminated(tag_no_case("ON"), multispace1),
                 terminated(Table::without_alias, multispace1), // tbl_name
-                KeyPart::key_part_list,                                                 // (key_part,...)
+                KeyPart::key_part_list,                        // (key_part,...)
                 IndexOption::opt_index_option,
                 multispace0, // [index_option]
                 opt(terminated(AlgorithmType::parse, multispace0)),
@@ -69,20 +67,20 @@ impl CreateIndexStatement {
                 statement_terminator,
             )),
             |(
-                 _,
-                 _,
-                 _,
-                 index_name,
-                 index_type,
-                 _,
-                 table,
-                 key_part,
-                 index_option,
-                 _,
-                 algorithm_option,
-                 lock_option,
-                 _,
-             )| CreateIndexStatement {
+                _,
+                _,
+                _,
+                index_name,
+                index_type,
+                _,
+                table,
+                key_part,
+                index_option,
+                _,
+                algorithm_option,
+                lock_option,
+                _,
+            )| CreateIndexStatement {
                 index_name,
                 index_type,
                 table,
@@ -104,7 +102,7 @@ pub enum Index {
 
 impl Index {
     /// [UNIQUE | FULLTEXT | SPATIAL]
-    fn parse(i: &str) -> IResult<&str, Index, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, Index, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("UNIQUE"), |_| Index::Unique),
             map(tag_no_case("FULLTEXT"), |_| Index::Fulltext),

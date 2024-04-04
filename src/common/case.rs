@@ -3,11 +3,11 @@ use std::fmt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, terminated, tuple};
+use nom::IResult;
 
 use base::column::Column;
+use base::error::ParseSQLError;
 use base::Literal;
 use common::condition::ConditionExpression;
 
@@ -19,7 +19,7 @@ pub struct CaseWhenExpression {
 }
 
 impl CaseWhenExpression {
-    pub fn parse(i: &str) -> IResult<&str, CaseWhenExpression, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, CaseWhenExpression, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, _, condition, _, _, _, column, _, else_val, _)) =
             tuple((
                 tag_no_case("CASE"),

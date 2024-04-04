@@ -5,11 +5,11 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::IResult;
 
 use base::column::Column;
+use base::error::ParseSQLError;
 use base::table::Table;
 use common::as_alias;
 use common::condition::ConditionExpression;
@@ -28,7 +28,7 @@ pub enum JoinRightSide {
 }
 
 impl JoinRightSide {
-    pub fn parse(i: &str) -> IResult<&str, JoinRightSide, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, JoinRightSide, ParseSQLError<&str>> {
         let nested_select = map(
             tuple((
                 delimited(tag("("), SelectStatement::nested_selection, tag(")")),
@@ -77,7 +77,7 @@ pub enum JoinOperator {
 
 impl JoinOperator {
     // Parse binary comparison operators
-    pub fn parse(i: &str) -> IResult<&str, JoinOperator, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, JoinOperator, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("JOIN"), |_| JoinOperator::Join),
             map(
@@ -133,7 +133,7 @@ pub enum JoinConstraint {
 }
 
 impl JoinConstraint {
-    pub fn parse(i: &str) -> IResult<&str, JoinConstraint, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, JoinConstraint, ParseSQLError<&str>> {
         let using_clause = map(
             tuple((
                 tag_no_case("using"),
@@ -183,9 +183,9 @@ impl fmt::Display for JoinConstraint {
 #[cfg(test)]
 mod tests {
     use base::Operator;
-    use common::condition::{ConditionExpression, ConditionTree};
     use common::condition::ConditionBase::Field;
     use common::condition::ConditionExpression::Base;
+    use common::condition::{ConditionExpression, ConditionTree};
     use dms::select::JoinClause;
 
     use super::*;

@@ -1,12 +1,12 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, digit1, multispace0, multispace1};
-use nom::combinator::{map, map_res, opt, recognize};
-use nom::error::VerboseError;
+use nom::combinator::{map, opt, recognize};
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::OrderType;
 use common::{sql_identifier, ws_sep_comma};
 
@@ -19,7 +19,7 @@ pub struct KeyPart {
 
 impl KeyPart {
     /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-    fn parse(i: &str) -> IResult<&str, KeyPart, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, KeyPart, ParseSQLError<&str>> {
         map(
             tuple((
                 KeyPartType::parse,
@@ -34,7 +34,7 @@ impl KeyPart {
 
     /// (key_part,...)
     /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
-    pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>, VerboseError<&str>> {
+    pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>, ParseSQLError<&str>> {
         map(
             tuple((
                 multispace0,
@@ -62,7 +62,7 @@ pub enum KeyPartType {
 
 impl KeyPartType {
     /// {col_name [(length)] | (expr)}
-    fn parse(i: &str) -> IResult<&str, KeyPartType, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, KeyPartType, ParseSQLError<&str>> {
         // {col_name [(length)]
         let col_name_with_length = tuple((
             multispace0,
@@ -70,7 +70,9 @@ impl KeyPartType {
             multispace0,
             opt(delimited(
                 tag("("),
-                map_res(digit1, |digit_str: &str| digit_str.parse::<usize>()),
+                map(digit1, |digit_str: &str| {
+                    digit_str.parse::<usize>().unwrap()
+                }),
                 tag(")"),
             )),
         ));

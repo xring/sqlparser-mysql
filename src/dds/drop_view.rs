@@ -6,11 +6,11 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::{parse_if_exists, sql_identifier, statement_terminator, ws_sep_comma};
 
 /// DROP VIEW [IF EXISTS]
@@ -29,7 +29,7 @@ impl DropViewStatement {
     /// DROP VIEW [IF EXISTS]
     ///     view_name [, view_name] ...
     ///     [RESTRICT | CASCADE]
-    pub fn parse(i: &str) -> IResult<&str, DropViewStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropViewStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
             multispace0,
@@ -43,8 +43,10 @@ impl DropViewStatement {
             opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
             statement_terminator,
         ));
-        let (remaining_input, (_, _, _, opt_if_exists, _, views, opt_if_restrict, opt_if_cascade, _)) =
-            parser(i)?;
+        let (
+            remaining_input,
+            (_, _, _, opt_if_exists, _, views, opt_if_restrict, opt_if_cascade, _),
+        ) = parser(i)?;
 
         Ok((
             remaining_input,

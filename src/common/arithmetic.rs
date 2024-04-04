@@ -1,6 +1,5 @@
 use std::{fmt, str};
 
-use nom::error::{VerboseError, VerboseErrorKind};
 use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case},
@@ -14,7 +13,8 @@ use nom::{
 };
 
 use base::column::Column;
-use base::{DataType, Literal};
+use base::error::ParseSQLErrorKind;
+use base::{DataType, Literal, ParseSQLError};
 use common::as_alias;
 
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -26,14 +26,14 @@ pub enum ArithmeticOperator {
 }
 
 impl ArithmeticOperator {
-    fn add_sub_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
+    fn add_sub_operator(i: &str) -> IResult<&str, ArithmeticOperator, ParseSQLError<&str>> {
         alt((
             map(tag("+"), |_| ArithmeticOperator::Add),
             map(tag("-"), |_| ArithmeticOperator::Subtract),
         ))(i)
     }
 
-    fn mul_div_operator(i: &str) -> IResult<&str, ArithmeticOperator, VerboseError<&str>> {
+    fn mul_div_operator(i: &str) -> IResult<&str, ArithmeticOperator, ParseSQLError<&str>> {
         alt((
             map(tag("*"), |_| ArithmeticOperator::Multiply),
             map(tag("/"), |_| ArithmeticOperator::Divide),
@@ -50,7 +50,7 @@ pub enum ArithmeticBase {
 
 impl ArithmeticBase {
     // Base case for nested arithmetic expressions: column name or literal.
-    fn parse(i: &str) -> IResult<&str, ArithmeticBase, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, ArithmeticBase, ParseSQLError<&str>> {
         alt((
             map(Literal::integer_literal, ArithmeticBase::Scalar),
             map(Column::without_alias, ArithmeticBase::Column),
@@ -73,7 +73,7 @@ pub enum ArithmeticItem {
 }
 
 impl ArithmeticItem {
-    fn term(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
+    fn term(i: &str) -> IResult<&str, ArithmeticItem, ParseSQLError<&str>> {
         map(
             pair(Self::arithmetic_cast, many0(Self::term_rest)),
             |(b, rs)| {
@@ -91,7 +91,7 @@ impl ArithmeticItem {
 
     fn term_rest(
         i: &str,
-    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
+    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), ParseSQLError<&str>> {
         separated_pair(
             preceded(multispace0, ArithmeticOperator::mul_div_operator),
             multispace0,
@@ -99,7 +99,7 @@ impl ArithmeticItem {
         )(i)
     }
 
-    fn expr(i: &str) -> IResult<&str, ArithmeticItem, VerboseError<&str>> {
+    fn expr(i: &str) -> IResult<&str, ArithmeticItem, ParseSQLError<&str>> {
         map(
             pair(ArithmeticItem::term, many0(Self::expr_rest)),
             |(item, rs)| {
@@ -116,7 +116,7 @@ impl ArithmeticItem {
 
     fn expr_rest(
         i: &str,
-    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), VerboseError<&str>> {
+    ) -> IResult<&str, (ArithmeticOperator, ArithmeticItem), ParseSQLError<&str>> {
         separated_pair(
             preceded(multispace0, ArithmeticOperator::add_sub_operator),
             multispace0,
@@ -126,7 +126,7 @@ impl ArithmeticItem {
 
     fn arithmetic_cast(
         i: &str,
-    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
+    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), ParseSQLError<&str>> {
         alt((
             Self::arithmetic_cast_helper,
             map(ArithmeticBase::parse, |v| (v, None)),
@@ -135,7 +135,7 @@ impl ArithmeticItem {
 
     fn arithmetic_cast_helper(
         i: &str,
-    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), VerboseError<&str>> {
+    ) -> IResult<&str, (ArithmeticBase, Option<DataType>), ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, _, a_base, _, _, _, _sign, sql_type, _, _)) = tuple((
             tag_no_case("CAST"),
             multispace0,
@@ -164,13 +164,13 @@ pub struct Arithmetic {
 }
 
 impl Arithmetic {
-    fn parse(i: &str) -> IResult<&str, Arithmetic, VerboseError<&str>> {
+    fn parse(i: &str) -> IResult<&str, Arithmetic, ParseSQLError<&str>> {
         let res = ArithmeticItem::expr(i)?;
         match res.1 {
             ArithmeticItem::Base(ArithmeticBase::Column(_))
             | ArithmeticItem::Base(ArithmeticBase::Scalar(_)) => {
-                let mut error: VerboseError<&str> = VerboseError { errors: vec![] };
-                error.errors.push((i, VerboseErrorKind::Context("Tag")));
+                let mut error: ParseSQLError<&str> = ParseSQLError { errors: vec![] };
+                error.errors.push((i, ParseSQLErrorKind::Context("Tag")));
                 Err(Error(error))
             } // no operator
             ArithmeticItem::Base(ArithmeticBase::Bracketed(expr)) => Ok((res.0, *expr)),
@@ -193,7 +193,7 @@ pub struct ArithmeticExpression {
 }
 
 impl ArithmeticExpression {
-    pub fn parse(i: &str) -> IResult<&str, ArithmeticExpression, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ArithmeticExpression, ParseSQLError<&str>> {
         map(
             pair(Arithmetic::parse, opt(as_alias)),
             |(ari, opt_alias)| ArithmeticExpression {

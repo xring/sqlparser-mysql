@@ -6,10 +6,10 @@ use nom::bytes::complete::{tag, tag_no_case};
 use nom::character::complete::multispace0;
 use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use common::{sql_identifier, statement_terminator};
 
 /// DROP [UNDO] TABLESPACE tablespace_name
@@ -24,7 +24,7 @@ pub struct DropTablespaceStatement {
 impl DropTablespaceStatement {
     /// DROP [UNDO] TABLESPACE tablespace_name
     ///     [ENGINE [=] engine_name]
-    pub fn parse(i: &str) -> IResult<&str, DropTablespaceStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, DropTablespaceStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
             multispace0,

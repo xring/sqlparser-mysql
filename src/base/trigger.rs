@@ -1,13 +1,14 @@
-use common::keywords::escape_if_keyword;
-use base::table::Table;
-use common::sql_identifier;
-use nom::bytes::complete::tag;
-use nom::combinator::{map, opt};
-use nom::error::VerboseError;
-use nom::sequence::{pair, tuple};
-use nom::IResult;
 use std::fmt;
 use std::str;
+
+use nom::bytes::complete::tag;
+use nom::combinator::{map, opt};
+use nom::sequence::{pair, tuple};
+use nom::IResult;
+
+use base::error::ParseSQLError;
+use common::keywords::escape_if_keyword;
+use common::sql_identifier;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Trigger {
@@ -16,7 +17,7 @@ pub struct Trigger {
 }
 
 impl Trigger {
-    pub fn parse(i: &str) -> IResult<&str, Trigger, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Trigger, ParseSQLError<&str>> {
         map(
             tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
             |tup| Trigger {

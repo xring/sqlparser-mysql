@@ -1,11 +1,11 @@
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
 
-use common::{KeyPart, sql_identifier};
+use base::error::ParseSQLError;
+use common::{sql_identifier, KeyPart};
 use common::{MatchType, ReferenceType};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ impl ReferenceDefinition {
     ///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
     ///       [ON DELETE reference_option]
     ///       [ON UPDATE reference_option]
-    pub fn parse(i: &str) -> IResult<&str, ReferenceDefinition, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ReferenceDefinition, ParseSQLError<&str>> {
         let opt_on_delete = opt(map(
             tuple((
                 tag_no_case("ON"),

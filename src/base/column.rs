@@ -7,16 +7,16 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, digit1, multispace0, multispace1};
 use nom::combinator::{map, opt};
-use nom::error::{VerboseError, VerboseErrorKind};
-use nom::IResult;
 use nom::multi::{many0, separated_list0};
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
+use nom::IResult;
 
-use base::{DataType, Literal, Real};
-use common::{as_alias, delim_digit, parse_comment, sql_identifier, ws_sep_comma};
+use base::error::ParseSQLErrorKind;
+use base::{DataType, Literal, ParseSQLError, Real};
 use common::case::CaseWhenExpression;
 use common::index_col_name;
 use common::keywords::escape_if_keyword;
+use common::{as_alias, delim_digit, parse_comment, sql_identifier, ws_sep_comma};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FunctionExpression {
@@ -31,7 +31,7 @@ pub enum FunctionExpression {
 }
 
 impl FunctionExpression {
-    pub fn parse(i: &str) -> IResult<&str, FunctionExpression, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, FunctionExpression, ParseSQLError<&str>> {
         let delim_group_concat_fx = delimited(tag("("), Self::group_concat_fx, tag(")"));
         alt((
             map(tag_no_case("COUNT(*)"), |_| FunctionExpression::CountStar),
@@ -89,7 +89,7 @@ impl FunctionExpression {
         ))(i)
     }
 
-    fn group_concat_fx_helper(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
+    fn group_concat_fx_helper(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
         let ws_sep = preceded(multispace0, tag_no_case("separator"));
         let (remaining_input, sep) = delimited(
             ws_sep,
@@ -100,7 +100,7 @@ impl FunctionExpression {
         Ok((remaining_input, sep.unwrap_or("")))
     }
 
-    fn group_concat_fx(i: &str) -> IResult<&str, (Column, Option<&str>), VerboseError<&str>> {
+    fn group_concat_fx(i: &str) -> IResult<&str, (Column, Option<&str>), ParseSQLError<&str>> {
         pair(Column::without_alias, opt(Self::group_concat_fx_helper))(i)
     }
 }
@@ -159,23 +159,25 @@ pub enum FunctionArgument {
 
 impl FunctionArgument {
     // Parses the argument for an aggregation function
-    pub fn parse(i: &str) -> IResult<&str, FunctionArgument, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, FunctionArgument, ParseSQLError<&str>> {
         alt((
-            map(CaseWhenExpression::parse, |cw| FunctionArgument::Conditional(cw)),
+            map(CaseWhenExpression::parse, |cw| {
+                FunctionArgument::Conditional(cw)
+            }),
             map(Column::without_alias, |c| FunctionArgument::Column(c)),
         ))(i)
     }
 
     // Parses the arguments for an aggregation function, and also returns whether the distinct flag is
     // present.
-    fn function_arguments(i: &str) -> IResult<&str, (FunctionArgument, bool), VerboseError<&str>> {
+    fn function_arguments(i: &str) -> IResult<&str, (FunctionArgument, bool), ParseSQLError<&str>> {
         let distinct_parser = opt(tuple((tag_no_case("distinct"), multispace1)));
         let (remaining_input, (distinct, args)) =
             tuple((distinct_parser, FunctionArgument::parse))(i)?;
         Ok((remaining_input, (args, distinct.is_some())))
     }
 
-    pub fn delim_fx_args(i: &str) -> IResult<&str, (FunctionArgument, bool), VerboseError<&str>> {
+    pub fn delim_fx_args(i: &str) -> IResult<&str, (FunctionArgument, bool), ParseSQLError<&str>> {
         delimited(tag("("), Self::function_arguments, tag(")"))(i)
     }
 }
@@ -201,7 +203,7 @@ pub struct Column {
 }
 
 impl Column {
-    pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
+    pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>, ParseSQLError<&str>> {
         many0(map(
             terminated(index_col_name, opt(ws_sep_comma)),
             // XXX(malte): ignores length and order
@@ -209,14 +211,13 @@ impl Column {
         ))(i)
     }
 
-
     // Parse rule for a comma-separated list of fields without aliases.
-    pub fn field_list(i: &str) -> IResult<&str, Vec<Column>, VerboseError<&str>> {
+    pub fn field_list(i: &str) -> IResult<&str, Vec<Column>, ParseSQLError<&str>> {
         many0(terminated(Column::without_alias, opt(ws_sep_comma)))(i)
     }
 
     // Parses a SQL column identifier in the column format
-    pub fn without_alias(i: &str) -> IResult<&str, Column, VerboseError<&str>> {
+    pub fn without_alias(i: &str) -> IResult<&str, Column, ParseSQLError<&str>> {
         let table_parser = pair(opt(terminated(sql_identifier, tag("."))), sql_identifier);
         alt((
             map(FunctionExpression::parse, |f| Column {
@@ -238,7 +239,7 @@ impl Column {
     }
 
     // Parses a SQL column identifier in the table.column format
-    pub fn parse(i: &str) -> IResult<&str, Column, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Column, ParseSQLError<&str>> {
         let col_func_no_table = map(pair(FunctionExpression::parse, opt(as_alias)), |tup| {
             Column {
                 name: match tup.1 {
@@ -377,7 +378,7 @@ pub enum ColumnConstraint {
 }
 
 impl ColumnConstraint {
-    pub fn parse(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, Option<ColumnConstraint>, ParseSQLError<&str>> {
         let not_null = map(
             delimited(multispace0, tag_no_case("NOT NULL"), multispace0),
             |_| Some(ColumnConstraint::NotNull),
@@ -453,7 +454,7 @@ impl ColumnConstraint {
         ))(i)
     }
 
-    fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>, VerboseError<&str>> {
+    fn default(i: &str) -> IResult<&str, Option<ColumnConstraint>, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, def, _)) = tuple((
             multispace0,
             tag_no_case("DEFAULT"),
@@ -518,7 +519,7 @@ pub enum ColumnPosition {
 }
 
 impl ColumnPosition {
-    pub fn parse(i: &str) -> IResult<&str, ColumnPosition, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ColumnPosition, ParseSQLError<&str>> {
         alt((
             map(
                 tuple((multispace0, tag_no_case("FIRST"), multispace0)),
@@ -562,7 +563,7 @@ pub struct ColumnSpecification {
 }
 
 impl ColumnSpecification {
-    pub fn parse(i: &str) -> IResult<&str, ColumnSpecification, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, ColumnSpecification, ParseSQLError<&str>> {
         let mut parser = tuple((
             Column::without_alias,
             opt(delimited(
@@ -579,8 +580,8 @@ impl ColumnSpecification {
         match parser(i) {
             Ok((input, (column, field_type, constraints, comment, position, _))) => {
                 if field_type.is_none() {
-                    let error = VerboseError {
-                        errors: vec![(i, VerboseErrorKind::Context("data type is empty"))],
+                    let error = ParseSQLError {
+                        errors: vec![(i, ParseSQLErrorKind::Context("data type is empty"))],
                     };
                     return Err(nom::Err::Error(error));
                 }
@@ -732,5 +733,4 @@ mod tests {
             assert_eq!(res, Ok(("", expected)));
         }
     }
-
 }

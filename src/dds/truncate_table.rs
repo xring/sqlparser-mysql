@@ -5,10 +5,10 @@ use std::str;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
-use nom::error::VerboseError;
 use nom::sequence::tuple;
 use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::table::Table;
 use common::statement_terminator;
 
@@ -20,7 +20,7 @@ pub struct TruncateTableStatement {
 
 impl TruncateTableStatement {
     /// TRUNCATE [TABLE] tbl_name
-    pub fn parse(i: &str) -> IResult<&str, TruncateTableStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, TruncateTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("TRUNCATE "),
             multispace0,

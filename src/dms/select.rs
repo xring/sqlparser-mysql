@@ -4,18 +4,18 @@ use std::str;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::opt;
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated, tuple};
+use nom::IResult;
 
 use base::column::Column;
-use base::FieldDefinitionExpression;
+use base::error::ParseSQLError;
 use base::table::Table;
-use common::{
-    JoinConstraint, JoinOperator, JoinRightSide, OrderClause, statement_terminator, unsigned_number,
-};
+use base::FieldDefinitionExpression;
 use common::condition::ConditionExpression;
+use common::{
+    statement_terminator, unsigned_number, JoinConstraint, JoinOperator, JoinRightSide, OrderClause,
+};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct SelectStatement {
@@ -31,11 +31,11 @@ pub struct SelectStatement {
 
 impl SelectStatement {
     // Parse rule for a SQL selection query.
-    pub fn parse(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, SelectStatement, ParseSQLError<&str>> {
         terminated(Self::nested_selection, statement_terminator)(i)
     }
 
-    pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, VerboseError<&str>> {
+    pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, ParseSQLError<&str>> {
         let (
             remaining_input,
             (_, _, distinct, _, fields, _, tables, join, where_clause, group_by, order, limit),
@@ -125,7 +125,7 @@ pub struct GroupByClause {
 
 impl GroupByClause {
     // Parse GROUP BY clause
-    pub fn parse(i: &str) -> IResult<&str, GroupByClause, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, GroupByClause, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, columns, having)) = tuple((
             multispace0,
             tag_no_case("GROUP BY"),
@@ -165,7 +165,7 @@ pub struct JoinClause {
 }
 
 impl JoinClause {
-    pub fn parse(i: &str) -> IResult<&str, JoinClause, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, JoinClause, ParseSQLError<&str>> {
         let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
             multispace0,
             opt(terminated(tag_no_case("NATURAL"), multispace1)),
@@ -203,7 +203,7 @@ pub struct LimitClause {
 }
 
 impl LimitClause {
-    pub fn parse(i: &str) -> IResult<&str, LimitClause, VerboseError<&str>> {
+    pub fn parse(i: &str) -> IResult<&str, LimitClause, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, limit, opt_offset)) = tuple((
             multispace0,
             tag_no_case("LIMIT"),
@@ -216,7 +216,7 @@ impl LimitClause {
         Ok((remaining_input, LimitClause { limit, offset }))
     }
 
-    fn offset(i: &str) -> IResult<&str, u64, VerboseError<&str>> {
+    fn offset(i: &str) -> IResult<&str, u64, ParseSQLError<&str>> {
         let (remaining_input, (_, _, _, val)) = tuple((
             multispace0,
             tag_no_case("OFFSET"),
@@ -240,17 +240,17 @@ impl fmt::Display for LimitClause {
 
 #[cfg(test)]
 mod tests {
-    use base::{FieldValueExpression, ItemPlaceholder, Operator};
     use base::column::{Column, FunctionArgument, FunctionArguments, FunctionExpression};
-    use base::Literal;
     use base::table::Table;
-    use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, OrderType};
+    use base::Literal;
+    use base::{FieldValueExpression, ItemPlaceholder, Operator};
     use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
     use common::case::{CaseWhenExpression, ColumnOrLiteral};
-    use common::condition::{ConditionExpression, ConditionTree};
     use common::condition::ConditionBase;
     use common::condition::ConditionBase::LiteralList;
     use common::condition::ConditionExpression::{Base, ComparisonOp, LogicalOp};
+    use common::condition::{ConditionExpression, ConditionTree};
+    use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, OrderType};
 
     use super::*;
 

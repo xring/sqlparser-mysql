@@ -2,10 +2,10 @@ use std::{fmt, str};
 
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
-use nom::error::VerboseError;
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
+use base::error::ParseSQLError;
 use base::Literal;
 use common::{sql_identifier, statement_terminator};
 
@@ -34,7 +34,7 @@ impl fmt::Display for SetStatement {
     }
 }
 
-pub fn set(i: &str) -> IResult<&str, SetStatement, VerboseError<&str>> {
+pub fn set(i: &str) -> IResult<&str, SetStatement, ParseSQLError<&str>> {
     let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
         tag_no_case("SET"),
         multispace1,
