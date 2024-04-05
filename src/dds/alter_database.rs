@@ -25,7 +25,7 @@ use common::DefaultOrZeroOrOne;
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterDatabaseStatement {
     // we parse SQL, db_name is needed
-    pub name: String,
+    pub db_name: String,
     pub alter_options: Vec<AlterDatabaseOption>,
 }
 
@@ -33,16 +33,16 @@ impl AlterDatabaseStatement {
     pub fn parse(i: &str) -> IResult<&str, AlterDatabaseStatement, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("ALTER "),
+                tag_no_case("ALTER"),
                 multispace0,
-                alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
-                multispace0,
+                alt((tag_no_case("DATABASE"), tag_no_case("SCHEMA"))),
+                multispace1,
                 map(sql_identifier, |x| String::from(x)),
                 multispace1,
                 many1(terminated(AlterDatabaseOption::parse, multispace0)),
             )),
             |x| AlterDatabaseStatement {
-                name: x.4,
+                db_name: x.4,
                 alter_options: x.6,
             },
         )(i)
@@ -52,7 +52,7 @@ impl AlterDatabaseStatement {
 impl fmt::Display for AlterDatabaseStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "ALTER DATABASE")?;
-        let database = self.name.clone();
+        let database = self.db_name.clone();
         write!(f, " {}", database)?;
         for alter_option in self.alter_options.iter() {
             write!(f, " {}", alter_option)?;

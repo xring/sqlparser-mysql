@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
-use nom::combinator::{map, opt};
+use nom::combinator::{map, opt, value};
 use nom::sequence::{delimited, tuple};
 use nom::{IResult, Parser};
 
@@ -47,6 +47,7 @@ pub enum TableOption {
     AutoIncrement(u64),
     AvgRowLength(u64),
     DefaultCharacterSet(String),
+    DefaultCharset(String),
     Checksum(u8),
     DefaultCollate(String),
     Comment(String),
@@ -114,6 +115,7 @@ impl TableOption {
             Self::auto_increment,
             Self::avg_row_length,
             Self::default_character_set,
+            Self::default_charset,
             Self::checksum,
             Self::default_collate,
             Self::comment,
@@ -167,14 +169,14 @@ impl TableOption {
     fn auto_increment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("AUTO_INCREMENT "),
+                tag_no_case("AUTO_INCREMENT"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 digit1,
                 multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value, _): (&str, &str, Option<&str>, &str, &str, &str)| {
                 TableOption::AutoIncrement(value.parse::<u64>().unwrap())
             },
         )(i)
@@ -204,7 +206,6 @@ impl TableOption {
                 opt(tag_no_case("DEFAULT ")),
                 multispace0,
                 tuple((
-                    multispace1,
                     tag_no_case("CHARACTER"),
                     multispace1,
                     tag_no_case("SET"),
@@ -216,6 +217,25 @@ impl TableOption {
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| TableOption::DefaultCharacterSet(charset_name),
+        )(i)
+    }
+
+    /// [DEFAULT] CHARSET [=] charset_name
+    fn default_charset(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
+        map(
+            tuple((
+                opt(tag_no_case("DEFAULT ")),
+                multispace0,
+                tuple((
+                    tag_no_case("CHARSET"),
+                    multispace0,
+                    opt(tag("=")),
+                    multispace0,
+                )),
+                map(sql_identifier, |x| String::from(x)),
+                multispace0,
+            )),
+            |(_, _, _, charset_name, _)| TableOption::DefaultCharset(charset_name),
         )(i)
     }
 
@@ -240,11 +260,8 @@ impl TableOption {
             tuple((
                 opt(tag_no_case("DEFAULT ")),
                 multispace0,
-                tag_no_case("CHARACTER"),
-                multispace1,
                 map(
                     tuple((
-                        multispace1,
                         tag_no_case("COLLATE"),
                         multispace1,
                         opt(tag("=")),
@@ -252,11 +269,11 @@ impl TableOption {
                         sql_identifier,
                         multispace0,
                     )),
-                    |(_, _, _, _, _, collation_name, _)| String::from(collation_name),
+                    |(_, _, _, _, collation_name, _)| String::from(collation_name),
                 ),
                 multispace0,
             )),
-            |(_, _, _, _, collation_name, _)| TableOption::DefaultCollate(collation_name),
+            |(_, _, collation_name, _)| TableOption::DefaultCollate(collation_name),
         )(i)
     }
 
@@ -264,7 +281,7 @@ impl TableOption {
     fn comment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("COMMENT "),
+                tag_no_case("COMMENT"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
@@ -382,7 +399,7 @@ impl TableOption {
         map(
             tuple((
                 tag_no_case("ENGINE"),
-                multispace1,
+                multispace0,
                 opt(tag("=")),
                 multispace0,
                 sql_identifier,
@@ -479,7 +496,7 @@ impl TableOption {
     fn pack_keys(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("INSERT_METHOD "),
+                tag_no_case("PACK_KEYS"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,

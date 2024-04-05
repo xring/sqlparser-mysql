@@ -15,6 +15,7 @@ use common::{as_alias, opt_delimited, ws_sep_comma};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Literal {
+    Bool(bool),
     Null,
     Integer(i64),
     UnsignedInteger(u64),
@@ -81,7 +82,7 @@ impl Literal {
                         }
                     }),
                     map(tag("\\\\"), |_| "\\"),
-                    map(tag("\\b"), |_| "\x08"), // 注意：\x7f 是 DEL，\x08 是退格
+                    map(tag("\\b"), |_| "\x7F"), // 注意：\x7f 是 DEL，\x08 是退格
                     map(tag("\\r"), |_| "\r"),
                     map(tag("\\n"), |_| "\n"),
                     map(tag("\\t"), |_| "\t"),
@@ -189,6 +190,13 @@ impl ToString for Literal {
     fn to_string(&self) -> String {
         match *self {
             Literal::Null => "NULL".to_string(),
+            Literal::Bool(ref value) => {
+                if *value {
+                    "TRUE".to_string()
+                } else {
+                    "FALSE".to_string()
+                }
+            }
             Literal::Integer(ref i) => format!("{}", i),
             Literal::UnsignedInteger(ref i) => format!("{}", i),
             Literal::FixedPoint(ref f) => format!("{}.{}", f.integral, f.fractional),

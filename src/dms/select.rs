@@ -197,6 +197,7 @@ impl fmt::Display for JoinClause {
     }
 }
 
+// TODO need parse as detailed data type
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct BetweenAndClause {
     pub left: String,

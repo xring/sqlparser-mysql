@@ -35,6 +35,7 @@ pub enum DataType {
     Longtext,
     Text,
     Json,
+    Uuid,
     Date,
     DateTime(u16),
     Timestamp,
@@ -68,6 +69,7 @@ impl fmt::Display for DataType {
             DataType::Longtext => write!(f, "LONGTEXT"),
             DataType::Text => write!(f, "TEXT"),
             DataType::Json => write!(f, "JSON"),
+            DataType::Uuid => write!(f, "UUID"),
             DataType::Date => write!(f, "DATE"),
             DataType::DateTime(len) => write!(f, "DATETIME({})", len),
             DataType::Timestamp => write!(f, "TIMESTAMP"),
@@ -93,7 +95,9 @@ impl DataType {
             Self::tiny_int,
             Self::big_int,
             Self::sql_int_type,
-            map(tag_no_case("bool"), |_| DataType::Bool),
+            map(alt((tag_no_case("boolean"), tag_no_case("bool"))), |_| {
+                DataType::Bool
+            }),
             map(
                 tuple((
                     tag_no_case("char"),
@@ -139,6 +143,7 @@ impl DataType {
             ),
             map(tag_no_case("text"), |_| DataType::Text),
             map(tag_no_case("json"), |_| DataType::Json),
+            map(tag_no_case("uuid"), |_| DataType::Uuid),
             map(
                 tuple((tag_no_case("timestamp"), opt(delim_digit), multispace0)),
                 |_| DataType::Timestamp,

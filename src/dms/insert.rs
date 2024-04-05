@@ -30,7 +30,7 @@ impl InsertStatement {
     pub fn parse(i: &str) -> IResult<&str, InsertStatement, ParseSQLError<&str>> {
         let (
             remaining_input,
-            (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _),
+            (_, ignore_res, _, _, _, table, _, fields, _, _, data, on_duplicate, _, _),
         ) = tuple((
             tag_no_case("INSERT"),
             opt(preceded(multispace1, tag_no_case("IGNORE"))),
@@ -44,6 +44,7 @@ impl InsertStatement {
             multispace0,
             many1(Self::data),
             opt(Self::on_duplicate),
+            multispace0,
             statement_terminator,
         ))(i)?;
         assert!(table.alias.is_none());
@@ -88,7 +89,7 @@ impl InsertStatement {
                     multispace1,
                     tag_no_case("DUPLICATE"),
                     multispace1,
-                    tag_no_case("KYE"),
+                    tag_no_case("KEY"),
                     multispace1,
                     tag_no_case("UPDATE"),
                 )),
@@ -134,8 +135,43 @@ impl fmt::Display for InsertStatement {
 mod tests {
     use base::{FieldValueExpression, ItemPlaceholder};
     use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use {ParseConfig, Parser};
 
     use super::*;
+
+    #[test]
+    fn format_insert_query() {
+        let str = "insert into users (name, password) values ('aaa', 'xxx')";
+        let expected = "INSERT INTO users (name, password) VALUES ('aaa', 'xxx')";
+        let res = InsertStatement::parse(str);
+        println!("{:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(expected, format!("{}", res.unwrap().1));
+    }
+
+    #[test]
+    fn trim_query() {
+        let str = "   INSERT INTO users VALUES (42, \"test\");     ";
+        let res = InsertStatement::parse(str.trim());
+        println!("{:?}", res);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn display_insert_query_no_columns() {
+        let str = "INSERT INTO users VALUES ('aaa', 'xxx')";
+        let expected = "INSERT INTO users VALUES ('aaa', 'xxx')";
+        let res = InsertStatement::parse(str);
+        assert!(res.is_ok());
+        assert_eq!(format!("{}", res.unwrap().1), expected);
+    }
+
+    #[test]
+    fn on_duplicate() {
+        let str = "ON DUPLICATE KEY UPDATE `value` = `value` + 1";
+        let res = InsertStatement::on_duplicate(str);
+        println!("{:?}", res);
+    }
 
     #[test]
     fn simple_insert() {
@@ -267,6 +303,9 @@ mod tests {
                        ON DUPLICATE KEY UPDATE `value` = `value` + 1";
 
         let res = InsertStatement::parse(str);
+
+        println!("{:?}", res);
+
         let expected_ae = ArithmeticExpression::new(
             ArithmeticOperator::Add,
             ArithmeticBase::Column(Column::from("value")),

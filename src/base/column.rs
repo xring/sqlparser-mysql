@@ -482,6 +482,8 @@ impl ColumnConstraint {
                 }),
                 map(tag("''"), |_| Literal::String(String::from(""))),
                 map(tag_no_case("NULL"), |_| Literal::Null),
+                map(tag_no_case("FALSE"), |_| Literal::Bool(false)),
+                map(tag_no_case("TRUE"), |_| Literal::Bool(true)),
                 map(
                     tuple((tag_no_case("CURRENT_TIMESTAMP"), opt(delim_digit))),
                     |_| Literal::CurrentTimestamp,

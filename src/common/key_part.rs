@@ -56,8 +56,13 @@ impl KeyPart {
 /// {col_name [(length)] | (expr)}
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum KeyPartType {
-    ColumnNameWithLength(String, Option<usize>),
-    Expr(String),
+    ColumnNameWithLength {
+        col_name: String,
+        length: Option<usize>,
+    },
+    Expr {
+        expr: String,
+    },
 }
 
 impl KeyPartType {
@@ -84,9 +89,14 @@ impl KeyPartType {
 
         alt((
             map(col_name_with_length, |(_, col_name, _, length)| {
-                KeyPartType::ColumnNameWithLength(String::from(col_name), length)
+                KeyPartType::ColumnNameWithLength {
+                    col_name: String::from(col_name),
+                    length,
+                }
             }),
-            map(expr, |expr| KeyPartType::Expr(String::from(expr))),
+            map(expr, |expr| KeyPartType::Expr {
+                expr: String::from(expr),
+            }),
         ))(i)
     }
 }

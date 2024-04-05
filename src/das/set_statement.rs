@@ -2,8 +2,8 @@ use std::{fmt, str};
 
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
-use nom::sequence::tuple;
 use nom::IResult;
+use nom::sequence::tuple;
 
 use base::error::ParseSQLError;
 use base::Literal;
@@ -26,27 +26,29 @@ pub struct SetStatement {
     pub value: Literal,
 }
 
+impl SetStatement {
+    pub fn parse(i: &str) -> IResult<&str, SetStatement, ParseSQLError<&str>> {
+        let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
+            tag_no_case("SET"),
+            multispace1,
+            sql_identifier,
+            multispace0,
+            tag_no_case("="),
+            multispace0,
+            Literal::parse,
+            statement_terminator,
+        ))(i)?;
+        let variable = String::from(var);
+        Ok((remaining_input, SetStatement { variable, value }))
+    }
+}
+
 impl fmt::Display for SetStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "SET ")?;
         write!(f, "{} = {}", self.variable, self.value.to_string())?;
         Ok(())
     }
-}
-
-pub fn set(i: &str) -> IResult<&str, SetStatement, ParseSQLError<&str>> {
-    let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
-        tag_no_case("SET"),
-        multispace1,
-        sql_identifier,
-        multispace0,
-        tag_no_case("="),
-        multispace0,
-        Literal::parse,
-        statement_terminator,
-    ))(i)?;
-    let variable = String::from(var);
-    Ok((remaining_input, SetStatement { variable, value }))
 }
 
 #[cfg(test)]
@@ -56,7 +58,7 @@ mod tests {
     #[test]
     fn simple_set() {
         let str = "SET SQL_AUTO_IS_NULL = 0;";
-        let res = set(str);
+        let res = SetStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SetStatement {
@@ -69,7 +71,7 @@ mod tests {
     #[test]
     fn user_defined_vars() {
         let str = "SET @var = 123;";
-        let res = set(str);
+        let res = SetStatement::parse(str);
         assert_eq!(
             res.unwrap().1,
             SetStatement {
@@ -83,7 +85,7 @@ mod tests {
     fn format_set() {
         let str = "set autocommit=1";
         let expected = "SET autocommit = 1";
-        let res = set(str);
+        let res = SetStatement::parse(str);
         assert_eq!(format!("{}", res.unwrap().1), expected);
     }
 }

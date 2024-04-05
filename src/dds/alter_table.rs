@@ -118,94 +118,118 @@ impl CheckOrConstraintType {
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterTableOption {
     /// table_options
-    TableOptions(Vec<TableOption>),
+    TableOptions { table_options: Vec<TableOption> },
 
     /// ADD [COLUMN] col_name column_definition
     ///     [FIRST | AFTER col_name]
     /// ADD [COLUMN] (col_name column_definition,...)
-    AddColumn(
-        bool, // [COLUMN]
-        Vec<ColumnSpecification>,
-    ),
+    AddColumn {
+        opt_column: bool, // [COLUMN]
+        columns: Vec<ColumnSpecification>,
+    },
 
     /// ADD {INDEX | KEY} [index_name]
     ///     [index_type] (key_part,...) [index_option] ...
-    AddIndexOrKey(
-        IndexOrKeyType,      // {INDEX | KEY}
-        Option<String>,      // [index_name]
-        Option<IndexType>,   // [index_type]
-        Vec<KeyPart>,        // (key_part,...)
-        Option<IndexOption>, // [index_option]
-    ),
+    AddIndexOrKey {
+        index_or_key: IndexOrKeyType,          // {INDEX | KEY}
+        opt_index_name: Option<String>,        // [index_name]
+        opt_index_type: Option<IndexType>,     // [index_type]
+        key_part: Vec<KeyPart>,                // (key_part,...)
+        opt_index_option: Option<IndexOption>, // [index_option]
+    },
 
     /// ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name]
     ///     (key_part,...) [index_option] ...
-    AddFulltextOrSpatial(
-        FulltextOrSpatialType,  // {FULLTEXT | SPATIAL}
-        Option<IndexOrKeyType>, // {INDEX | KEY}
-        Option<String>,         // [index_name]
-        Vec<KeyPart>,           // (key_part,...)
-        Option<IndexOption>,    // [index_option]
-    ),
+    AddFulltextOrSpatial {
+        fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
+        index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
+        opt_index_name: Option<String>,             // [index_name]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
+        opt_index_option: Option<IndexOption>,      // [index_option]
+    },
 
     /// ADD [CONSTRAINT [symbol]] PRIMARY KEY
     ///     [index_type] (key_part,...)
     ///     [index_option] ...
-    AddPrimaryKey(
-        Option<String>,      // [symbol]
-        Option<IndexType>,   // [index_type]
-        Vec<KeyPart>,        // (key_part,...)
-        Option<IndexOption>, // [index_option]
-    ),
+    AddPrimaryKey {
+        opt_symbol: Option<String>,            // [symbol]
+        opt_index_type: Option<IndexType>,     // [index_type]
+        key_part: Vec<KeyPart>,                // (key_part,...)
+        opt_index_option: Option<IndexOption>, // [index_option]
+    },
 
     /// ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
     ///     [index_name] [index_type] (key_part,...)
     ///     [index_option] ...
-    AddUnique(
-        Option<String>,         // [symbol]
-        Option<IndexOrKeyType>, // [INDEX | KEY]
-        Option<String>,         // [index_name]
-        Option<IndexType>,      // [index_type]
-        Vec<KeyPart>,           // (key_part,...)
-        Option<IndexOption>,    // [index_option]
-    ),
+    AddUnique {
+        opt_symbol: Option<String>,               // [symbol]
+        opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
+        opt_index_name: Option<String>,           // [index_name]
+        opt_index_type: Option<IndexType>,        // [index_type]
+        key_part: Vec<KeyPart>,                   // (key_part,...)
+        opt_index_option: Option<IndexOption>,    // [index_option]
+    },
 
     /// ADD [CONSTRAINT [symbol]] FOREIGN KEY
     ///     [index_name] (col_name,...)
     ///     reference_definition
-    AddForeignKey(
-        Option<String>,      // [symbol]
-        Option<String>,      // [index_name]
-        Vec<String>,         // (col_name,...)
-        ReferenceDefinition, // reference_definition
-    ),
+    AddForeignKey {
+        opt_symbol: Option<String>,                // [symbol]
+        opt_index_name: Option<String>,            // [index_name]
+        columns: Vec<String>,                      // (col_name,...)
+        reference_definition: ReferenceDefinition, // reference_definition
+    },
 
     /// ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
-    AddCheck(CheckConstraintDefinition),
+    AddCheck {
+        check_constraint: CheckConstraintDefinition,
+    },
 
     /// DROP {CHECK | CONSTRAINT} symbol
-    DropCheckOrConstraint(CheckOrConstraintType, String),
+    DropCheckOrConstraint {
+        check_or_constraint: CheckOrConstraintType,
+        symbol: String,
+    },
 
     /// ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED
-    AlterCheckOrConstraintEnforced(CheckOrConstraintType, String, bool),
+    AlterCheckOrConstraintEnforced {
+        check_or_constraint: CheckOrConstraintType,
+        symbol: String,
+        enforced: bool,
+    },
 
     /// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
-    Algorithm(AlgorithmType),
+    Algorithm { algorithm: AlgorithmType },
 
     /// ALTER [COLUMN] col_name { SET DEFAULT {literal | (expr)} | SET {VISIBLE | INVISIBLE} | DROP DEFAULT }
-    AlterColumn(String, AlertColumnOperation),
+    AlterColumn {
+        col_name: String,
+        alter_column_operation: AlertColumnOperation,
+    },
 
     /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
-    AlterIndexVisibility(String, VisibleType),
+    AlterIndexVisibility {
+        index_name: String,
+        visible: VisibleType,
+    },
 
     /// CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]
-    ChangeColumn(String, String, ColumnSpecification),
+    ChangeColumn {
+        old_col_name: String,
+        column_definition: ColumnSpecification,
+    },
 
     /// [DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]
-    DefaultCharacterSet(String, Option<String>),
+    DefaultCharacterSet {
+        charset_name: String,
+        collation_name: Option<String>,
+    },
 
     /// CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
-    ConvertToCharacterSet(String, Option<String>),
+    ConvertToCharacterSet {
+        charset_name: String,
+        collation_name: Option<String>,
+    },
 
     /// {DISABLE | ENABLE} KEYS
     DisableKeys,
@@ -220,40 +244,52 @@ pub enum AlterTableOption {
     ImportTablespace,
 
     /// DROP [COLUMN] col_name
-    DropColumn(String),
+    DropColumn { col_name: String },
 
     /// DROP {INDEX | KEY} index_name
-    DropIndexOrKey(IndexOrKeyType, String),
+    DropIndexOrKey {
+        index_or_key: IndexOrKeyType,
+        index_name: String,
+    },
 
     /// DROP PRIMARY KEY
     DropPrimaryKey,
 
     /// DROP FOREIGN KEY fk_symbol
-    DropForeignKey(String),
+    DropForeignKey { fk_symbol: String },
 
     /// FORCE
     Force,
 
     /// LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
-    Lock(LockType),
+    Lock { lock_type: LockType },
 
     /// MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
-    ModifyColumn(ColumnSpecification),
+    ModifyColumn {
+        column_definition: ColumnSpecification,
+    },
 
     /// ORDER BY col_name [, col_name] ...
-    OrderBy(Vec<String>),
+    OrderBy { columns: Vec<String> },
 
     /// RENAME COLUMN old_col_name TO new_col_name
-    RenameColumn(String, String),
+    RenameColumn {
+        old_col_name: String,
+        new_col_name: String,
+    },
 
     /// RENAME {INDEX | KEY} old_index_name TO new_index_name
-    RenameIndexOrKey(IndexOrKeyType, String, String),
+    RenameIndexOrKey {
+        index_or_key: IndexOrKeyType,
+        old_index_name: String,
+        new_index_name: String,
+    },
 
     /// RENAME [TO | AS] new_tbl_name
-    RenameTable(String),
+    RenameTable { new_tbl_name: String },
 
     /// {WITHOUT | WITH} VALIDATION
-    Validation(bool),
+    Validation { with_validation: bool },
 }
 
 impl AlterTableOption {
@@ -272,7 +308,7 @@ impl AlterTableOption {
     pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             many1(terminated(TableOption::parse, opt(ws_sep_comma))),
-            |x| AlterTableOption::TableOptions(x),
+            |table_options| AlterTableOption::TableOptions { table_options },
         )(i)
     }
 
@@ -378,7 +414,10 @@ impl AlterTableOption {
                     ),
                 )),
             )),
-            |(_, tuple)| AlterTableOption::AddColumn(tuple.0, tuple.1),
+            |(_, (opt_column, columns))| AlterTableOption::AddColumn {
+                opt_column,
+                columns,
+            },
         )(i)
     }
 
@@ -399,13 +438,13 @@ impl AlterTableOption {
                 IndexOption::opt_index_option,
             )),
             |(_, index_or_key, opt_index_name, opt_index_type, key_part, opt_index_option)| {
-                AlterTableOption::AddIndexOrKey(
+                AlterTableOption::AddIndexOrKey {
                     index_or_key,
                     opt_index_name,
                     opt_index_type,
                     key_part,
                     opt_index_option,
-                )
+                }
             },
         )(i)
     }
@@ -426,14 +465,14 @@ impl AlterTableOption {
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
-            |(_, fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
-                AlterTableOption::AddFulltextOrSpatial(
+            |(_, fulltext_or_spatial, index_or_key, opt_index_name, key_part, opt_index_option)| {
+                AlterTableOption::AddFulltextOrSpatial {
                     fulltext_or_spatial,
                     index_or_key,
-                    index_name,
+                    opt_index_name,
                     key_part,
                     opt_index_option,
-                )
+                }
             },
         )(i)
     }
@@ -459,12 +498,12 @@ impl AlterTableOption {
                 IndexOption::opt_index_option,
             )),
             |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
-                AlterTableOption::AddPrimaryKey(
+                AlterTableOption::AddPrimaryKey {
                     opt_symbol,
                     opt_index_type,
                     key_part,
                     opt_index_option,
-                )
+                }
             },
         )(i)
     }
@@ -505,14 +544,14 @@ impl AlterTableOption {
                 key_part,
                 opt_index_option,
             )| {
-                AlterTableOption::AddUnique(
+                AlterTableOption::AddUnique {
                     opt_symbol,
                     opt_index_or_key,
                     opt_index_name,
                     opt_index_type,
                     key_part,
                     opt_index_option,
-                )
+                }
             },
         )(i)
     }
@@ -548,12 +587,12 @@ impl AlterTableOption {
                 ReferenceDefinition::parse,
             )),
             |(opt_symbol, _, opt_index_name, columns, reference_definition)| {
-                AlterTableOption::AddForeignKey(
+                AlterTableOption::AddForeignKey {
                     opt_symbol,
                     opt_index_name,
                     columns,
                     reference_definition,
-                )
+                }
             },
         )(i)
     }
@@ -582,12 +621,12 @@ impl AlterTableOption {
                     |x| x.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none()),
                 ),
             )),
-            |(symbol, _, expr, enforced)| {
-                AlterTableOption::AddCheck(CheckConstraintDefinition {
+            |(symbol, _, expr, enforced)| AlterTableOption::AddCheck {
+                check_constraint: CheckConstraintDefinition {
                     symbol,
                     expr,
                     enforced,
-                })
+                },
             },
         )(i)
     }
@@ -605,8 +644,9 @@ impl AlterTableOption {
                     |(_, symbol, _)| String::from(symbol),
                 ),
             )),
-            |(_, check_or_constraint, symbol)| {
-                AlterTableOption::DropCheckOrConstraint(check_or_constraint, symbol)
+            |(_, check_or_constraint, symbol)| AlterTableOption::DropCheckOrConstraint {
+                check_or_constraint,
+                symbol,
             },
         )(i)
     }
@@ -629,11 +669,11 @@ impl AlterTableOption {
                 tuple((multispace0, tag_no_case("ENFORCED"))),
             )),
             |(_, check_or_constraint, symbol, opt_not, _)| {
-                AlterTableOption::AlterCheckOrConstraintEnforced(
+                AlterTableOption::AlterCheckOrConstraintEnforced {
                     check_or_constraint,
                     symbol,
-                    opt_not.is_none(),
-                )
+                    enforced: opt_not.is_none(),
+                }
             },
         )(i)
     }
@@ -651,7 +691,7 @@ impl AlterTableOption {
                 AlgorithmType::parse,
                 multispace0,
             )),
-            |(_, _, _, _, algorithm, _)| AlterTableOption::Algorithm(algorithm),
+            |(_, _, _, _, algorithm, _)| AlterTableOption::Algorithm { algorithm },
         )(i)
     }
 
@@ -674,8 +714,9 @@ impl AlterTableOption {
                 AlertColumnOperation::parse,
                 multispace0,
             )),
-            |(_, _, _, col_name, col_operation, _)| {
-                AlterTableOption::AlterColumn(col_name, col_operation)
+            |(_, _, _, col_name, alter_column_operation, _)| AlterTableOption::AlterColumn {
+                col_name,
+                alter_column_operation,
             },
         )(i)
     }
@@ -695,8 +736,9 @@ impl AlterTableOption {
                 VisibleType::parse,
                 multispace0,
             )),
-            |(_, _, _, index_name, visible_type, _)| {
-                AlterTableOption::AlterIndexVisibility(index_name, visible_type)
+            |(_, _, _, index_name, visible, _)| AlterTableOption::AlterIndexVisibility {
+                index_name,
+                visible,
             },
         )(i)
     }
@@ -715,12 +757,9 @@ impl AlterTableOption {
                 ColumnSpecification::parse,
                 multispace0,
             )),
-            |(_, _, _, _, old_col_name, _, column_definition, _)| {
-                AlterTableOption::ChangeColumn(
-                    old_col_name,
-                    column_definition.column.name.clone(),
-                    column_definition,
-                )
+            |(_, _, _, _, old_col_name, _, column_definition, _)| AlterTableOption::ChangeColumn {
+                old_col_name,
+                column_definition,
             },
         )(i)
     }
@@ -752,8 +791,9 @@ impl AlterTableOption {
                     |(_, _, _, collation_name)| String::from(collation_name),
                 )),
             )),
-            |(_, _, _, charset_name, _, collation_name)| {
-                AlterTableOption::DefaultCharacterSet(charset_name, collation_name)
+            |(_, _, _, charset_name, _, collation_name)| AlterTableOption::DefaultCharacterSet {
+                charset_name,
+                collation_name,
             },
         )(i)
     }
@@ -786,8 +826,9 @@ impl AlterTableOption {
                     |(_, _, _, collation_name)| String::from(collation_name),
                 )),
             )),
-            |(_, charset_name, _, collation_name)| {
-                AlterTableOption::ConvertToCharacterSet(charset_name, collation_name)
+            |(_, charset_name, _, collation_name)| AlterTableOption::ConvertToCharacterSet {
+                charset_name,
+                collation_name,
             },
         )(i)
     }
@@ -844,7 +885,7 @@ impl AlterTableOption {
                 ),
                 multispace0,
             )),
-            |(_, _, _, col_name, _)| AlterTableOption::DropColumn(col_name),
+            |(_, _, _, col_name, _)| AlterTableOption::DropColumn { col_name },
         )(i)
     }
 
@@ -862,8 +903,9 @@ impl AlterTableOption {
                 ),
                 multispace0,
             )),
-            |(_, index_or_key, index_name, _)| {
-                AlterTableOption::DropIndexOrKey(index_or_key, index_name)
+            |(_, index_or_key, index_name, _)| AlterTableOption::DropIndexOrKey {
+                index_or_key,
+                index_name,
             },
         )(i)
     }
@@ -893,10 +935,10 @@ impl AlterTableOption {
                 multispace1,
                 tag_no_case("KEY"),
                 multispace1,
-                sql_identifier,
+                map(sql_identifier, |x| String::from(x)),
                 multispace0,
             )),
-            |x| AlterTableOption::DropForeignKey(String::from(x.6)),
+            |x| AlterTableOption::DropForeignKey { fk_symbol: x.6 },
         )(i)
     }
 
@@ -909,8 +951,8 @@ impl AlterTableOption {
 
     // LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
     fn lock(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
-        map(LockType::parse, |(lock_type)| {
-            AlterTableOption::Lock(lock_type)
+        map(LockType::parse, |(lock_type)| AlterTableOption::Lock {
+            lock_type,
         })(i)
     }
 
@@ -925,7 +967,9 @@ impl AlterTableOption {
                 ColumnSpecification::parse,
                 multispace0,
             )),
-            |(_, _, _, _, column_definition, _)| AlterTableOption::ModifyColumn(column_definition),
+            |(_, _, _, _, column_definition, _)| AlterTableOption::ModifyColumn {
+                column_definition,
+            },
         )(i)
     }
 
@@ -943,7 +987,7 @@ impl AlterTableOption {
                 )),
                 multispace0,
             )),
-            |(_, _, _, _, columns, _)| AlterTableOption::OrderBy(columns),
+            |(_, _, _, _, columns, _)| AlterTableOption::OrderBy { columns },
         )(i)
     }
 
@@ -964,8 +1008,9 @@ impl AlterTableOption {
                 map(sql_identifier, |x| String::from(x)),
                 multispace0,
             )),
-            |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| {
-                AlterTableOption::RenameColumn(old_col_name, new_col_name)
+            |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| AlterTableOption::RenameColumn {
+                old_col_name,
+                new_col_name,
             },
         )(i)
     }
@@ -991,7 +1036,11 @@ impl AlterTableOption {
                 multispace0,
             )),
             |(_, index_or_key, old_index_name, _, new_index_name, _)| {
-                AlterTableOption::RenameIndexOrKey(index_or_key, old_index_name, new_index_name)
+                AlterTableOption::RenameIndexOrKey {
+                    index_or_key,
+                    old_index_name,
+                    new_index_name,
+                }
             },
         )(i)
     }
@@ -1010,7 +1059,7 @@ impl AlterTableOption {
                 ),
                 multispace0,
             )),
-            |x| AlterTableOption::RenameTable(x.2),
+            |x| AlterTableOption::RenameTable { new_tbl_name: x.2 },
         )(i)
     }
 
@@ -1027,7 +1076,9 @@ impl AlterTableOption {
                 tag_no_case("VALIDATION"),
                 multispace0,
             )),
-            |x| AlterTableOption::Validation(x.0),
+            |x| AlterTableOption::Validation {
+                with_validation: x.0,
+            },
         )(i)
     }
 }
@@ -1162,7 +1213,14 @@ mod tests {
         let sql = "ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age";
         let res = AlterTableOption::add_column(sql);
         assert!(res.is_ok());
-        if let (_, AlterTableOption::AddColumn(bl, cols)) = res.unwrap() {
+        if let (
+            _,
+            AlterTableOption::AddColumn {
+                opt_column: bl,
+                columns: cols,
+            },
+        ) = res.unwrap()
+        {
             assert_eq!(cols.len(), 1);
             assert_eq!(
                 cols[0].constraints,
@@ -1224,6 +1282,7 @@ mod tests {
         ];
         for i in 0..parts.len() {
             let res = ColumnSpecification::parse(parts[i]);
+            println!("{:?}", res);
             assert!(res.is_ok())
         }
     }

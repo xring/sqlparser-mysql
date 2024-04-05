@@ -394,7 +394,7 @@ mod tests {
         let exprs = [
             "CAST(`t`.`foo` AS signed int) + CAST(`t`.`bar` AS signed int) ",
             "CAST(5 AS bigint) - foo ",
-            "CAST(5 AS bigint) - foo AS 5_minus_foo",
+            "CAST(5 AS bigint) - foo AS `5_minus_foo`",
         ];
 
         // XXX(malte): currently discards the cast and type information!
@@ -417,6 +417,7 @@ mod tests {
         for (i, e) in exprs.iter().enumerate() {
             let res = ArithmeticExpression::parse(e);
             assert!(res.is_ok(), "{} failed to parse", e);
+            println!("{:?}", res);
             assert_eq!(res.unwrap().1, expected[i]);
         }
     }

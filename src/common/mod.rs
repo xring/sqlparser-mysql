@@ -499,7 +499,8 @@ pub fn as_alias(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     map(
         tuple((
             multispace1,
-            opt(pair(tag_no_case("as"), multispace1)),
+            opt(pair(tag_no_case("AS"), multispace1)),
+            // FIXME as can starts with number
             sql_identifier,
         )),
         |a| a.2,

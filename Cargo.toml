@@ -15,6 +15,7 @@ license = "Apache-2.0"
 serde = "1"
 serde_derive = "1"
 nom = "7"
+log = "0.4"
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"
