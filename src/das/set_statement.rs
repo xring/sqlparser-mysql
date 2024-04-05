@@ -2,8 +2,8 @@ use std::{fmt, str};
 
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{multispace0, multispace1};
-use nom::IResult;
 use nom::sequence::tuple;
+use nom::IResult;
 
 use base::error::ParseSQLError;
 use base::Literal;
