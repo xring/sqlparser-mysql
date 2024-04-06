@@ -11,8 +11,7 @@ use nom::IResult;
 
 use base::column::Column;
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
-use base::CommonParser;
+use base::{CommonParser, DisplayUtil};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct OrderClause {
@@ -56,7 +55,7 @@ impl fmt::Display for OrderClause {
             "{}",
             self.columns
                 .iter()
-                .map(|(c, o)| format!("{} {}", escape_if_keyword(&c.name), o))
+                .map(|(c, o)| format!("{} {}", DisplayUtil::escape_if_keyword(&c.name), o))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

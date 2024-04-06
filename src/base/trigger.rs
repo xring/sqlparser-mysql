@@ -7,8 +7,7 @@ use nom::sequence::{pair, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
-use base::CommonParser;
+use base::{CommonParser, DisplayUtil};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Trigger {
@@ -34,9 +33,9 @@ impl Trigger {
 impl fmt::Display for Trigger {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref schema) = self.schema {
-            write!(f, "{}.", escape_if_keyword(schema))?;
+            write!(f, "{}.", DisplayUtil::escape_if_keyword(schema))?;
         }
-        write!(f, "{}", escape_if_keyword(&self.name))?;
+        write!(f, "{}", DisplayUtil::escape_if_keyword(&self.name))?;
         Ok(())
     }
 }

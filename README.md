@@ -2,7 +2,190 @@
 
 > A SQL parser for MySQL with nom. Written in Rust.
 
-## Data Definition Statements
+## Quick Start
+
+### Example parsing SQL
+```rust
+use sqlparser_mysql::parser::Parser;
+use sqlparser_mysql::parser::ParseConfig;
+
+let config = ParseConfig::default();
+let sql = "SELECT a, b, 123, myfunc(b) \
+            FROM table_1 \
+            WHERE a > b AND b < 100 \
+            ORDER BY a DESC, b";
+// parse to a Statement
+let ast = Parser::parse(&config, sql).unwrap();
+
+println!("AST: {:#?}", ast);
+```
+The output should be:
+```rust
+AST: Select(
+    SelectStatement {
+        tables: [
+            Table {
+                name: "table_1",
+                alias: None,
+                schema: None,
+            },
+        ],
+        distinct: false,
+        fields: [
+            Col(
+                Column {
+                    name: "a",
+                    alias: None,
+                    table: None,
+                    function: None,
+                },
+            ),
+            Col(
+                Column {
+                    name: "b",
+                    alias: None,
+                    table: None,
+                    function: None,
+                },
+            ),
+            Value(
+                Literal(
+                    LiteralExpression {
+                        value: Integer(
+                            123,
+                        ),
+                        alias: None,
+                    },
+                ),
+            ),
+            Col(
+                Column {
+                    name: "myfunc(b)",
+                    alias: None,
+                    table: None,
+                    function: Some(
+                        Generic(
+                            "myfunc",
+                            FunctionArguments {
+                                arguments: [
+                                    Column(
+                                        Column {
+                                            name: "b",
+                                            alias: None,
+                                            table: None,
+                                            function: None,
+                                        },
+                                    ),
+                                ],
+                            },
+                        ),
+                    ),
+                },
+            ),
+        ],
+        join: [],
+        where_clause: Some(
+            LogicalOp(
+                ConditionTree {
+                    operator: And,
+                    left: ComparisonOp(
+                        ConditionTree {
+                            operator: Greater,
+                            left: Base(
+                                Field(
+                                    Column {
+                                        name: "a",
+                                        alias: None,
+                                        table: None,
+                                        function: None,
+                                    },
+                                ),
+                            ),
+                            right: Base(
+                                Field(
+                                    Column {
+                                        name: "b",
+                                        alias: None,
+                                        table: None,
+                                        function: None,
+                                    },
+                                ),
+                            ),
+                        },
+                    ),
+                    right: ComparisonOp(
+                        ConditionTree {
+                            operator: Less,
+                            left: Base(
+                                Field(
+                                    Column {
+                                        name: "b",
+                                        alias: None,
+                                        table: None,
+                                        function: None,
+                                    },
+                                ),
+                            ),
+                            right: Base(
+                                Literal(
+                                    Integer(
+                                        100,
+                                    ),
+                                ),
+                            ),
+                        },
+                    ),
+                },
+            ),
+        ),
+        group_by: None,
+        order: Some(
+            OrderClause {
+                columns: [
+                    (
+                        Column {
+                            name: "a",
+                            alias: None,
+                            table: None,
+                            function: None,
+                        },
+                        Desc,
+                    ),
+                    (
+                        Column {
+                            name: "b",
+                            alias: None,
+                            table: None,
+                            function: None,
+                        },
+                        Asc,
+                    ),
+                ],
+            },
+        ),
+        limit: None,
+    },
+)
+```
+
+### Creating SQL text from AST
+```rust
+use sqlparser_mysql::parser::Parser;
+use sqlparser_mysql::parser::ParseConfig;
+
+let sql = "SELECT a FROM table_1";
+let config = ParseConfig::default();
+
+// parse to a Statement
+let ast = Parser::parse(&config, sql).unwrap();
+
+// The original SQL text can be generated from the AST
+assert_eq!(ast.to_string(), sql);
+```
+
+## Supported Statements
+
+### Data Definition Statements
 
 [MySQL Doc](https://dev.mysql.com/doc/refman/8.0/en/sql-data-definition-statements.html)
 
@@ -44,5 +227,5 @@
 - [x] RENAME TABLE Statement
 - [x] TRUNCATE TABLE Statement
 
-## Database Administration Statements
+### Database Administration Statements
 - [x] SET Statements

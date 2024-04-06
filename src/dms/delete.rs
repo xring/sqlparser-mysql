@@ -8,9 +8,8 @@ use nom::IResult;
 
 use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
 use base::table::Table;
-use base::CommonParser;
+use base::{CommonParser, DisplayUtil};
 
 // FIXME TODO
 /// DELETE \[LOW_PRIORITY] \[QUICK] \[IGNORE] FROM tbl_name \[\[AS] tbl_alias]
@@ -47,7 +46,7 @@ impl DeleteStatement {
 impl fmt::Display for DeleteStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "DELETE FROM ")?;
-        write!(f, "{}", escape_if_keyword(&self.table.name))?;
+        write!(f, "{}", DisplayUtil::escape_if_keyword(&self.table.name))?;
         if let Some(ref where_clause) = self.where_clause {
             write!(f, " WHERE ")?;
             write!(f, "{}", where_clause)?;

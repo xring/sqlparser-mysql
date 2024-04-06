@@ -12,10 +12,9 @@ use nom::IResult;
 use base::arithmetic::ArithmeticExpression;
 use base::column::Column;
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
 use base::literal::LiteralExpression;
 use base::table::Table;
-use base::{CommonParser, Literal};
+use base::{CommonParser, DisplayUtil, Literal};
 
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldDefinitionExpression {
@@ -53,7 +52,7 @@ impl Display for FieldDefinitionExpression {
         match *self {
             FieldDefinitionExpression::All => write!(f, "*"),
             FieldDefinitionExpression::AllInTable(ref table) => {
-                write!(f, "{}.*", escape_if_keyword(table))
+                write!(f, "{}.*", DisplayUtil::escape_if_keyword(table))
             }
             FieldDefinitionExpression::Col(ref col) => write!(f, "{}", col),
             FieldDefinitionExpression::Value(ref val) => write!(f, "{}", val),

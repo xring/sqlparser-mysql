@@ -9,8 +9,7 @@ use nom::sequence::{pair, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
-use base::CommonParser;
+use base::{CommonParser, DisplayUtil};
 
 /// **Table Definition**
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -96,11 +95,11 @@ impl Table {
 impl fmt::Display for Table {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref schema) = self.schema {
-            write!(f, "{}.", escape_if_keyword(schema))?;
+            write!(f, "{}.", DisplayUtil::escape_if_keyword(schema))?;
         }
-        write!(f, "{}", escape_if_keyword(&self.name))?;
+        write!(f, "{}", DisplayUtil::escape_if_keyword(&self.name))?;
         if let Some(ref alias) = self.alias {
-            write!(f, " AS {}", escape_if_keyword(alias))?;
+            write!(f, " AS {}", DisplayUtil::escape_if_keyword(alias))?;
         }
         Ok(())
     }

@@ -10,13 +10,194 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{IResult, InputLength, Parser};
 
 use base::column::Column;
-use base::keywords::sql_keyword;
 use base::{OrderType, ParseSQLError};
 
 /// collection of common used parsers
 pub struct CommonParser;
 
 impl CommonParser {
+    fn keyword_follow_char(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        peek(alt((
+            tag(" "),
+            tag("\n"),
+            tag(";"),
+            tag("("),
+            tag(")"),
+            tag("\t"),
+            tag(","),
+            tag("="),
+            CommonParser::eof,
+        )))(i)
+    }
+
+    fn keywords_part_1(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("ABORT"), Self::keyword_follow_char),
+            terminated(tag_no_case("ACTION"), Self::keyword_follow_char),
+            terminated(tag_no_case("ADD"), Self::keyword_follow_char),
+            terminated(tag_no_case("AFTER"), Self::keyword_follow_char),
+            terminated(tag_no_case("ALL"), Self::keyword_follow_char),
+            terminated(tag_no_case("ALTER"), Self::keyword_follow_char),
+            terminated(tag_no_case("ANALYZE"), Self::keyword_follow_char),
+            terminated(tag_no_case("AND"), Self::keyword_follow_char),
+            terminated(tag_no_case("AS"), Self::keyword_follow_char),
+            terminated(tag_no_case("ASC"), Self::keyword_follow_char),
+            terminated(tag_no_case("ATTACH"), Self::keyword_follow_char),
+            terminated(tag_no_case("AUTOINCREMENT"), Self::keyword_follow_char),
+            terminated(tag_no_case("BEFORE"), Self::keyword_follow_char),
+            terminated(tag_no_case("BEGIN"), Self::keyword_follow_char),
+            terminated(tag_no_case("BETWEEN"), Self::keyword_follow_char),
+            terminated(tag_no_case("BY"), Self::keyword_follow_char),
+            terminated(tag_no_case("CASCADE"), Self::keyword_follow_char),
+            terminated(tag_no_case("CASE"), Self::keyword_follow_char),
+            terminated(tag_no_case("CAST"), Self::keyword_follow_char),
+            terminated(tag_no_case("CHECK"), Self::keyword_follow_char),
+            terminated(tag_no_case("COLLATE"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    fn keywords_part_2(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("COLUMN"), Self::keyword_follow_char),
+            terminated(tag_no_case("COMMIT"), Self::keyword_follow_char),
+            terminated(tag_no_case("CONFLICT"), Self::keyword_follow_char),
+            terminated(tag_no_case("CONSTRAINT"), Self::keyword_follow_char),
+            terminated(tag_no_case("CREATE"), Self::keyword_follow_char),
+            terminated(tag_no_case("CROSS"), Self::keyword_follow_char),
+            terminated(tag_no_case("CURRENT_DATE"), Self::keyword_follow_char),
+            terminated(tag_no_case("CURRENT_TIME"), Self::keyword_follow_char),
+            terminated(tag_no_case("CURRENT_TIMESTAMP"), Self::keyword_follow_char),
+            terminated(tag_no_case("DATABASE"), Self::keyword_follow_char),
+            terminated(tag_no_case("DEFAULT"), Self::keyword_follow_char),
+            terminated(tag_no_case("DEFERRABLE"), Self::keyword_follow_char),
+            terminated(tag_no_case("DEFERRED"), Self::keyword_follow_char),
+            terminated(tag_no_case("DELETE"), Self::keyword_follow_char),
+            terminated(tag_no_case("DESC"), Self::keyword_follow_char),
+            terminated(tag_no_case("DETACH"), Self::keyword_follow_char),
+            terminated(tag_no_case("DISTINCT"), Self::keyword_follow_char),
+            terminated(tag_no_case("DROP"), Self::keyword_follow_char),
+            terminated(tag_no_case("EACH"), Self::keyword_follow_char),
+            terminated(tag_no_case("ELSE"), Self::keyword_follow_char),
+            terminated(tag_no_case("END"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    fn keywords_part_3(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("ESCAPE"), Self::keyword_follow_char),
+            terminated(tag_no_case("EXCEPT"), Self::keyword_follow_char),
+            terminated(tag_no_case("EXCLUSIVE"), Self::keyword_follow_char),
+            terminated(tag_no_case("EXISTS"), Self::keyword_follow_char),
+            terminated(tag_no_case("EXPLAIN"), Self::keyword_follow_char),
+            terminated(tag_no_case("FAIL"), Self::keyword_follow_char),
+            terminated(tag_no_case("FOR"), Self::keyword_follow_char),
+            terminated(tag_no_case("FOREIGN"), Self::keyword_follow_char),
+            terminated(tag_no_case("FROM"), Self::keyword_follow_char),
+            terminated(tag_no_case("FULL"), Self::keyword_follow_char),
+            terminated(tag_no_case("FULLTEXT"), Self::keyword_follow_char),
+            terminated(tag_no_case("GLOB"), Self::keyword_follow_char),
+            terminated(tag_no_case("GROUP"), Self::keyword_follow_char),
+            terminated(tag_no_case("HAVING"), Self::keyword_follow_char),
+            terminated(tag_no_case("IF"), Self::keyword_follow_char),
+            terminated(tag_no_case("IGNORE"), Self::keyword_follow_char),
+            terminated(tag_no_case("IMMEDIATE"), Self::keyword_follow_char),
+            terminated(tag_no_case("IN"), Self::keyword_follow_char),
+            terminated(tag_no_case("INDEX"), Self::keyword_follow_char),
+            terminated(tag_no_case("INDEXED"), Self::keyword_follow_char),
+            terminated(tag_no_case("INITIALLY"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    fn keywords_part_4(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("INNER"), Self::keyword_follow_char),
+            terminated(tag_no_case("INSERT"), Self::keyword_follow_char),
+            terminated(tag_no_case("INSTEAD"), Self::keyword_follow_char),
+            terminated(tag_no_case("INTERSECT"), Self::keyword_follow_char),
+            terminated(tag_no_case("INTO"), Self::keyword_follow_char),
+            terminated(tag_no_case("IS"), Self::keyword_follow_char),
+            terminated(tag_no_case("ISNULL"), Self::keyword_follow_char),
+            terminated(tag_no_case("ORDER"), Self::keyword_follow_char),
+            terminated(tag_no_case("JOIN"), Self::keyword_follow_char),
+            terminated(tag_no_case("KEY"), Self::keyword_follow_char),
+            terminated(tag_no_case("LEFT"), Self::keyword_follow_char),
+            terminated(tag_no_case("LIKE"), Self::keyword_follow_char),
+            terminated(tag_no_case("LIMIT"), Self::keyword_follow_char),
+            terminated(tag_no_case("MATCH"), Self::keyword_follow_char),
+            terminated(tag_no_case("NATURAL"), Self::keyword_follow_char),
+            terminated(tag_no_case("NO"), Self::keyword_follow_char),
+            terminated(tag_no_case("NOT"), Self::keyword_follow_char),
+            terminated(tag_no_case("NOTNULL"), Self::keyword_follow_char),
+            terminated(tag_no_case("NULL"), Self::keyword_follow_char),
+            terminated(tag_no_case("OF"), Self::keyword_follow_char),
+            terminated(tag_no_case("OFFSET"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    fn keywords_part_5(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("ON"), Self::keyword_follow_char),
+            terminated(tag_no_case("OR"), Self::keyword_follow_char),
+            terminated(tag_no_case("OUTER"), Self::keyword_follow_char),
+            terminated(tag_no_case("PLAN"), Self::keyword_follow_char),
+            terminated(tag_no_case("PRAGMA"), Self::keyword_follow_char),
+            terminated(tag_no_case("PRIMARY"), Self::keyword_follow_char),
+            terminated(tag_no_case("QUERY"), Self::keyword_follow_char),
+            terminated(tag_no_case("RAISE"), Self::keyword_follow_char),
+            terminated(tag_no_case("RECURSIVE"), Self::keyword_follow_char),
+            terminated(tag_no_case("REFERENCES"), Self::keyword_follow_char),
+            terminated(tag_no_case("REGEXP"), Self::keyword_follow_char),
+            terminated(tag_no_case("REINDEX"), Self::keyword_follow_char),
+            terminated(tag_no_case("RELEASE"), Self::keyword_follow_char),
+            terminated(tag_no_case("RENAME"), Self::keyword_follow_char),
+            terminated(tag_no_case("REPLACE"), Self::keyword_follow_char),
+            terminated(tag_no_case("RESTRICT"), Self::keyword_follow_char),
+            terminated(tag_no_case("RIGHT"), Self::keyword_follow_char),
+            terminated(tag_no_case("ROLLBACK"), Self::keyword_follow_char),
+            terminated(tag_no_case("ROW"), Self::keyword_follow_char),
+            terminated(tag_no_case("SAVEPOINT"), Self::keyword_follow_char),
+            terminated(tag_no_case("SELECT"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    fn keywords_part_6(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            terminated(tag_no_case("SET"), Self::keyword_follow_char),
+            terminated(tag_no_case("SPATIAL"), Self::keyword_follow_char),
+            terminated(tag_no_case("TABLE"), Self::keyword_follow_char),
+            terminated(tag_no_case("TEMP"), Self::keyword_follow_char),
+            terminated(tag_no_case("TEMPORARY"), Self::keyword_follow_char),
+            terminated(tag_no_case("THEN"), Self::keyword_follow_char),
+            terminated(tag_no_case("TO"), Self::keyword_follow_char),
+            terminated(tag_no_case("TRANSACTION"), Self::keyword_follow_char),
+            terminated(tag_no_case("TRIGGER"), Self::keyword_follow_char),
+            terminated(tag_no_case("UNION"), Self::keyword_follow_char),
+            terminated(tag_no_case("UNIQUE"), Self::keyword_follow_char),
+            terminated(tag_no_case("UPDATE"), Self::keyword_follow_char),
+            terminated(tag_no_case("USING"), Self::keyword_follow_char),
+            terminated(tag_no_case("VACUUM"), Self::keyword_follow_char),
+            terminated(tag_no_case("VALUES"), Self::keyword_follow_char),
+            terminated(tag_no_case("VIEW"), Self::keyword_follow_char),
+            terminated(tag_no_case("VIRTUAL"), Self::keyword_follow_char),
+            terminated(tag_no_case("WHEN"), Self::keyword_follow_char),
+            terminated(tag_no_case("WHERE"), Self::keyword_follow_char),
+            terminated(tag_no_case("WITH"), Self::keyword_follow_char),
+            terminated(tag_no_case("WITHOUT"), Self::keyword_follow_char),
+        ))(i)
+    }
+
+    // Matches any SQL reserved keyword
+    pub fn sql_keyword(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
+        alt((
+            Self::keywords_part_1,
+            Self::keywords_part_2,
+            Self::keywords_part_3,
+            Self::keywords_part_4,
+            Self::keywords_part_5,
+            Self::keywords_part_6,
+        ))(i)
+    }
+
     /// `[index_name]`
     pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
         opt(map(
@@ -92,7 +273,7 @@ impl CommonParser {
         alt((
             alt((
                 preceded(
-                    not(peek(sql_keyword)),
+                    not(peek(CommonParser::sql_keyword)),
                     recognize(pair(alpha1, take_while(Self::is_sql_identifier))),
                 ),
                 recognize(pair(tag("_"), take_while1(Self::is_sql_identifier))),

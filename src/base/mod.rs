@@ -3,6 +3,7 @@ pub use self::common_parser::CommonParser;
 pub use self::compression_type::CompressionType;
 pub use self::data_type::DataType;
 pub use self::default_or_zero_or_one::DefaultOrZeroOrOne;
+pub use self::display_util::DisplayUtil;
 pub use self::error::ParseSQLError;
 pub use self::field::{FieldDefinitionExpression, FieldValueExpression};
 pub use self::insert_method_type::InsertMethodType;
@@ -51,13 +52,10 @@ pub mod visible_type;
 pub mod arithmetic;
 
 pub mod index_option;
-pub mod table_option;
-
-#[macro_use]
-pub mod keywords;
 mod key_part;
 mod partition_definition;
 mod reference_definition;
+pub mod table_option;
 
 pub mod condition;
 
@@ -65,4 +63,5 @@ mod order;
 
 pub mod case;
 
+mod display_util;
 mod join;

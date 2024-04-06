@@ -10,9 +10,8 @@ use nom::IResult;
 
 use base::column::Column;
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
 use base::table::Table;
-use base::{CommonParser, FieldValueExpression, Literal};
+use base::{CommonParser, DisplayUtil, FieldValueExpression, Literal};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct InsertStatement {
@@ -100,7 +99,11 @@ impl InsertStatement {
 
 impl fmt::Display for InsertStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "INSERT INTO {}", escape_if_keyword(&self.table.name))?;
+        write!(
+            f,
+            "INSERT INTO {}",
+            DisplayUtil::escape_if_keyword(&self.table.name)
+        )?;
         if let Some(ref fields) = self.fields {
             write!(
                 f,

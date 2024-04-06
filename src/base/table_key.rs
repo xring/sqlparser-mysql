@@ -1,7 +1,7 @@
 use std::fmt;
 
 use base::column::Column;
-use base::keywords::escape_if_keyword;
+use base::DisplayUtil;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum TableKey {
@@ -21,7 +21,7 @@ impl fmt::Display for TableKey {
                     "({})",
                     columns
                         .iter()
-                        .map(|c| escape_if_keyword(&c.name))
+                        .map(|c| DisplayUtil::escape_if_keyword(&c.name))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -29,14 +29,14 @@ impl fmt::Display for TableKey {
             TableKey::UniqueKey(ref name, ref columns) => {
                 write!(f, "UNIQUE KEY ")?;
                 if let Some(ref name) = *name {
-                    write!(f, "{} ", escape_if_keyword(name))?;
+                    write!(f, "{} ", DisplayUtil::escape_if_keyword(name))?;
                 }
                 write!(
                     f,
                     "({})",
                     columns
                         .iter()
-                        .map(|c| escape_if_keyword(&c.name))
+                        .map(|c| DisplayUtil::escape_if_keyword(&c.name))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -44,26 +44,26 @@ impl fmt::Display for TableKey {
             TableKey::FulltextKey(ref name, ref columns) => {
                 write!(f, "FULLTEXT KEY ")?;
                 if let Some(ref name) = *name {
-                    write!(f, "{} ", escape_if_keyword(name))?;
+                    write!(f, "{} ", DisplayUtil::escape_if_keyword(name))?;
                 }
                 write!(
                     f,
                     "({})",
                     columns
                         .iter()
-                        .map(|c| escape_if_keyword(&c.name))
+                        .map(|c| DisplayUtil::escape_if_keyword(&c.name))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
             }
             TableKey::Key(ref name, ref columns) => {
-                write!(f, "KEY {} ", escape_if_keyword(name))?;
+                write!(f, "KEY {} ", DisplayUtil::escape_if_keyword(name))?;
                 write!(
                     f,
                     "({})",
                     columns
                         .iter()
-                        .map(|c| escape_if_keyword(&c.name))
+                        .map(|c| DisplayUtil::escape_if_keyword(&c.name))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )

@@ -9,9 +9,8 @@ use nom::IResult;
 use base::column::Column;
 use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
-use base::keywords::escape_if_keyword;
 use base::table::Table;
-use base::{CommonParser, FieldValueExpression};
+use base::{CommonParser, DisplayUtil, FieldValueExpression};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct UpdateStatement {
@@ -47,7 +46,11 @@ impl UpdateStatement {
 
 impl fmt::Display for UpdateStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UPDATE {} ", escape_if_keyword(&self.table.name))?;
+        write!(
+            f,
+            "UPDATE {} ",
+            DisplayUtil::escape_if_keyword(&self.table.name)
+        )?;
         assert!(!self.fields.is_empty());
         write!(
             f,

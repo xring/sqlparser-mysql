@@ -12,8 +12,7 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLErrorKind;
-use base::keywords::escape_if_keyword;
-use base::{CaseWhenExpression, CommonParser, DataType, Literal, ParseSQLError, Real};
+use base::{CaseWhenExpression, CommonParser, DataType, DisplayUtil, Literal, ParseSQLError, Real};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FunctionExpression {
@@ -278,16 +277,16 @@ impl fmt::Display for Column {
             write!(
                 f,
                 "{}.{}",
-                escape_if_keyword(table),
-                escape_if_keyword(&self.name)
+                DisplayUtil::escape_if_keyword(table),
+                DisplayUtil::escape_if_keyword(&self.name)
             )?;
         } else if let Some(ref function) = self.function {
             write!(f, "{}", *function)?;
         } else {
-            write!(f, "{}", escape_if_keyword(&self.name))?;
+            write!(f, "{}", DisplayUtil::escape_if_keyword(&self.name))?;
         }
         if let Some(ref alias) = self.alias {
-            write!(f, " AS {}", escape_if_keyword(alias))?;
+            write!(f, " AS {}", DisplayUtil::escape_if_keyword(alias))?;
         }
         Ok(())
     }
@@ -609,7 +608,7 @@ impl fmt::Display for ColumnSpecification {
         write!(
             f,
             "{} {}",
-            escape_if_keyword(&self.column.name),
+            DisplayUtil::escape_if_keyword(&self.column.name),
             self.sql_type
         )?;
         for constraint in self.constraints.iter() {
