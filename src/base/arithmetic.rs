@@ -14,8 +14,7 @@ use nom::{
 
 use base::column::Column;
 use base::error::ParseSQLErrorKind;
-use base::{DataType, Literal, ParseSQLError};
-use common::as_alias;
+use base::{CommonParser, DataType, Literal, ParseSQLError};
 
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ArithmeticOperator {
@@ -41,6 +40,17 @@ impl ArithmeticOperator {
     }
 }
 
+impl fmt::Display for ArithmeticOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ArithmeticOperator::Add => write!(f, "+"),
+            ArithmeticOperator::Subtract => write!(f, "-"),
+            ArithmeticOperator::Multiply => write!(f, "*"),
+            ArithmeticOperator::Divide => write!(f, "/"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ArithmeticBase {
     Column(Column),
@@ -63,6 +73,16 @@ impl ArithmeticBase {
                 |ari| ArithmeticBase::Bracketed(Box::new(ari)),
             ),
         ))(i)
+    }
+}
+
+impl fmt::Display for ArithmeticBase {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ArithmeticBase::Column(ref col) => write!(f, "{}", col),
+            ArithmeticBase::Scalar(ref lit) => write!(f, "{}", lit.to_string()),
+            ArithmeticBase::Bracketed(ref ari) => write!(f, "({})", ari),
+        }
     }
 }
 
@@ -156,6 +176,15 @@ impl ArithmeticItem {
     }
 }
 
+impl fmt::Display for ArithmeticItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ArithmeticItem::Base(ref b) => write!(f, "{}", b),
+            ArithmeticItem::Expr(ref expr) => write!(f, "{}", expr),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Arithmetic {
     pub op: ArithmeticOperator,
@@ -186,6 +215,12 @@ impl Arithmetic {
     }
 }
 
+impl fmt::Display for Arithmetic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {}", self.left, self.op, self.right)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ArithmeticExpression {
     pub ari: Arithmetic,
@@ -195,7 +230,7 @@ pub struct ArithmeticExpression {
 impl ArithmeticExpression {
     pub fn parse(i: &str) -> IResult<&str, ArithmeticExpression, ParseSQLError<&str>> {
         map(
-            pair(Arithmetic::parse, opt(as_alias)),
+            pair(Arithmetic::parse, opt(CommonParser::as_alias)),
             |(ari, opt_alias)| ArithmeticExpression {
                 ari,
                 alias: opt_alias.map(String::from),
@@ -222,42 +257,6 @@ impl ArithmeticExpression {
     }
 }
 
-impl fmt::Display for ArithmeticOperator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ArithmeticOperator::Add => write!(f, "+"),
-            ArithmeticOperator::Subtract => write!(f, "-"),
-            ArithmeticOperator::Multiply => write!(f, "*"),
-            ArithmeticOperator::Divide => write!(f, "/"),
-        }
-    }
-}
-
-impl fmt::Display for ArithmeticBase {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ArithmeticBase::Column(ref col) => write!(f, "{}", col),
-            ArithmeticBase::Scalar(ref lit) => write!(f, "{}", lit.to_string()),
-            ArithmeticBase::Bracketed(ref ari) => write!(f, "({})", ari),
-        }
-    }
-}
-
-impl fmt::Display for ArithmeticItem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ArithmeticItem::Base(ref b) => write!(f, "{}", b),
-            ArithmeticItem::Expr(ref expr) => write!(f, "{}", expr),
-        }
-    }
-}
-
-impl fmt::Display for Arithmetic {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {} {}", self.left, self.op, self.right)
-    }
-}
-
 impl fmt::Display for ArithmeticExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.alias {
@@ -269,9 +268,9 @@ impl fmt::Display for ArithmeticExpression {
 
 #[cfg(test)]
 mod tests {
+    use base::arithmetic::ArithmeticBase::Scalar;
+    use base::arithmetic::ArithmeticOperator::{Add, Divide, Multiply, Subtract};
     use base::column::{Column, FunctionArgument, FunctionExpression};
-    use common::arithmetic::ArithmeticBase::Scalar;
-    use common::arithmetic::ArithmeticOperator::{Add, Divide, Multiply, Subtract};
 
     use super::*;
 
@@ -488,9 +487,5 @@ mod tests {
         let qs = "56";
         let res = Arithmetic::parse(qs);
         assert!(res.is_err());
-        // assert_eq!(
-        //     nom::Err::Error(nom::error::Error::new(qs, ErrorKind::Tag)),
-        //     res.err().unwrap()
-        // );
     }
 }

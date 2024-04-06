@@ -5,22 +5,24 @@ use std::str::FromStr;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, anychar, digit1, multispace0, multispace1};
-use nom::combinator::{map, opt, recognize, value};
+use nom::combinator::{map, opt, recognize};
 use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{IResult, Parser};
 
+use base::algorithm_type::AlgorithmType;
+use base::check_constraint::CheckConstraintDefinition;
 use base::column::{Column, ColumnSpecification};
+use base::fulltext_or_spatial_type::FulltextOrSpatialType;
+use base::index_option::IndexOption;
+use base::index_or_key_type::IndexOrKeyType;
+use base::index_type::IndexType;
+use base::lock_type::LockType;
 use base::table::Table;
-use base::ParseSQLError;
-use common::index_option::IndexOption;
-use common::table_option::TableOption;
-use common::{
-    opt_index_name, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType,
-    KeyPart, LockType, PartitionDefinition, ReferenceDefinition, VisibleType,
-};
-use common::{sql_identifier, statement_terminator, ws_sep_comma};
+use base::table_option::TableOption;
+use base::visible_type::VisibleType;
+use base::{CommonParser, KeyPart, ParseSQLError, PartitionDefinition, ReferenceDefinition};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {
@@ -44,14 +46,18 @@ impl AlterTableStatement {
             multispace0,
             //
             opt(many0(map(
-                tuple((AlterTableOption::parse, opt(ws_sep_comma), multispace0)),
+                tuple((
+                    AlterTableOption::parse,
+                    opt(CommonParser::ws_sep_comma),
+                    multispace0,
+                )),
                 |x| x.0,
             ))),
             opt(many0(terminated(
                 AlterPartitionOption::parse,
-                opt(ws_sep_comma),
+                opt(CommonParser::ws_sep_comma),
             ))),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, table, _, alter_options, partition_options, _)) = parser(i)?;
         Ok((
@@ -77,39 +83,19 @@ impl fmt::Display for AlterTableStatement {
 }
 /////// Alter Table Option
 
-/// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub enum AlgorithmType {
-    DEFAULT,
-    INSTANT,
-    INPLACE,
-    COPY,
-}
-
-impl AlgorithmType {
-    fn parse(i: &str) -> IResult<&str, AlgorithmType, ParseSQLError<&str>> {
-        alt((
-            map(tag_no_case("DEFAULT"), |_| AlgorithmType::DEFAULT),
-            map(tag_no_case("INSTANT"), |_| AlgorithmType::INSTANT),
-            map(tag_no_case("INPLACE"), |_| AlgorithmType::INPLACE),
-            map(tag_no_case("COPY"), |_| AlgorithmType::COPY),
-        ))(i)
-    }
-}
-
 /// {CHECK | CONSTRAINT}
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CheckOrConstraintType {
-    CHECK,
-    CONSTRAINT,
+    Check,
+    Constraint,
 }
 
 impl CheckOrConstraintType {
     fn parse(i: &str) -> IResult<&str, CheckOrConstraintType, ParseSQLError<&str>> {
         alt((
-            map(tag_no_case("CHECK"), |_| CheckOrConstraintType::CHECK),
+            map(tag_no_case("CHECK"), |_| CheckOrConstraintType::Check),
             map(tag_no_case("CONSTRAINT"), |_| {
-                CheckOrConstraintType::CONSTRAINT
+                CheckOrConstraintType::Constraint
             }),
         ))(i)
     }
@@ -307,7 +293,10 @@ impl AlterTableOption {
     ///     table_option \[\[,] table_option] ...
     pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
-            many1(terminated(TableOption::parse, opt(ws_sep_comma))),
+            many1(terminated(
+                TableOption::parse,
+                opt(CommonParser::ws_sep_comma),
+            )),
             |table_options| AlterTableOption::TableOptions { table_options },
         )(i)
     }
@@ -323,7 +312,9 @@ impl AlterTableOption {
             Self::add_check,
             Self::drop_check_or_constraint,
             Self::alter_check_or_constraint_enforced,
-            Self::algorithm_equal_default_or_instant_or_inplace_or_copy,
+            map(AlgorithmType::parse, |x| AlterTableOption::Algorithm {
+                algorithm: x,
+            }),
             Self::alter_column,
             Self::alter_index_visibility,
             Self::change_column,
@@ -360,7 +351,7 @@ impl AlterTableOption {
                 tag_no_case("ADD"),
                 opt(preceded(
                     tuple((multispace1, tag_no_case("CONSTRAINT"))),
-                    opt(preceded(multispace1, sql_identifier)),
+                    opt(preceded(multispace1, CommonParser::sql_identifier)),
                 )),
             )),
             |(_, x)| x.and_then(|inner| inner.map(String::from)),
@@ -429,7 +420,7 @@ impl AlterTableOption {
                 // {INDEX | KEY}
                 IndexOrKeyType::parse,
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
@@ -459,7 +450,7 @@ impl AlterTableOption {
                 // [INDEX | KEY]
                 preceded(multispace1, opt(IndexOrKeyType::parse)),
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // (key_part,...)
                 KeyPart::key_part_list,
                 // [index_option]
@@ -528,7 +519,7 @@ impl AlterTableOption {
                     |(_, _, _, value)| value,
                 ),
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
@@ -570,7 +561,7 @@ impl AlterTableOption {
                     tag_no_case("KEY"),
                 )),
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // (col_name,...)
                 map(
                     tuple((
@@ -640,7 +631,7 @@ impl AlterTableOption {
                 CheckOrConstraintType::parse,
                 // symbol
                 map(
-                    tuple((multispace1, sql_identifier, multispace0)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace0)),
                     |(_, symbol, _)| String::from(symbol),
                 ),
             )),
@@ -662,7 +653,7 @@ impl AlterTableOption {
                 CheckOrConstraintType::parse,
                 // symbol
                 map(
-                    tuple((multispace1, sql_identifier, multispace1)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace1)),
                     |(_, symbol, _)| String::from(symbol),
                 ),
                 opt(tag_no_case("NOT ")),
@@ -675,23 +666,6 @@ impl AlterTableOption {
                     enforced: opt_not.is_none(),
                 }
             },
-        )(i)
-    }
-
-    /// ALGORITHM \[=] {DEFAULT | INSTANT | INPLACE | COPY}
-    fn algorithm_equal_default_or_instant_or_inplace_or_copy(
-        i: &str,
-    ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("ALGORITHM "),
-                multispace0,
-                opt(tag("= ")),
-                multispace0,
-                AlgorithmType::parse,
-                multispace0,
-            )),
-            |(_, _, _, _, algorithm, _)| AlterTableOption::Algorithm { algorithm },
         )(i)
     }
 
@@ -708,7 +682,7 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 // col_name
                 map(
-                    tuple((multispace0, sql_identifier, multispace1)),
+                    tuple((multispace0, CommonParser::sql_identifier, multispace1)),
                     |(_, col_name, _)| String::from(col_name),
                 ),
                 AlertColumnOperation::parse,
@@ -730,7 +704,7 @@ impl AlterTableOption {
                 opt(tag_no_case("INDEX ")),
                 // index_name
                 map(
-                    tuple((multispace0, sql_identifier, multispace1)),
+                    tuple((multispace0, CommonParser::sql_identifier, multispace1)),
                     |(_, col_name, _)| String::from(col_name),
                 ),
                 VisibleType::parse,
@@ -752,7 +726,7 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 multispace0,
                 // old_col_name
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace1,
                 ColumnSpecification::parse,
                 multispace0,
@@ -779,14 +753,14 @@ impl AlterTableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
                 opt(map(
                     tuple((
                         multispace0,
                         tag_no_case("COLLATE"),
                         multispace1,
-                        sql_identifier,
+                        CommonParser::sql_identifier,
                     )),
                     |(_, _, _, collation_name)| String::from(collation_name),
                 )),
@@ -814,14 +788,14 @@ impl AlterTableOption {
             tuple((
                 // CONVERT TO CHARACTER SET
                 prefix,
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
                 opt(map(
                     tuple((
                         multispace0,
                         tag_no_case("COLLATE"),
                         multispace1,
-                        sql_identifier,
+                        CommonParser::sql_identifier,
                     )),
                     |(_, _, _, collation_name)| String::from(collation_name),
                 )),
@@ -880,7 +854,7 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 // col_name
                 map(
-                    tuple((multispace0, sql_identifier, multispace0)),
+                    tuple((multispace0, CommonParser::sql_identifier, multispace0)),
                     |(_, col_name, _)| String::from(col_name),
                 ),
                 multispace0,
@@ -898,7 +872,7 @@ impl AlterTableOption {
                 IndexOrKeyType::parse,
                 // [index_name]
                 map(
-                    tuple((multispace1, sql_identifier, multispace0)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace0)),
                     |(_, index_name, _)| String::from(index_name),
                 ),
                 multispace0,
@@ -935,7 +909,7 @@ impl AlterTableOption {
                 multispace1,
                 tag_no_case("KEY"),
                 multispace1,
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
             )),
             |x| AlterTableOption::DropForeignKey { fk_symbol: x.6 },
@@ -982,7 +956,7 @@ impl AlterTableOption {
                 tag_no_case("BY"),
                 multispace1,
                 many0(map(
-                    terminated(Column::without_alias, opt(ws_sep_comma)),
+                    terminated(Column::without_alias, opt(CommonParser::ws_sep_comma)),
                     |e| e.name,
                 )),
                 multispace0,
@@ -1000,12 +974,12 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 multispace0,
                 // old_col_name
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace1,
                 tag_no_case("TO"),
                 multispace1,
                 // new_col_name
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| AlterTableOption::RenameColumn {
@@ -1024,13 +998,13 @@ impl AlterTableOption {
                 IndexOrKeyType::parse,
                 // old_index_name
                 map(
-                    tuple((multispace1, sql_identifier, multispace1)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace1)),
                     |(_, index_name, _)| String::from(index_name),
                 ),
                 tuple((multispace1, tag_no_case("TO"))),
                 // new_index_name
                 map(
-                    tuple((multispace1, sql_identifier, multispace1)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace1)),
                     |(_, index_name, _)| String::from(index_name),
                 ),
                 multispace0,
@@ -1054,7 +1028,7 @@ impl AlterTableOption {
                 alt((tag_no_case("TO"), tag_no_case("AS"))),
                 // new_tbl_name
                 map(
-                    tuple((multispace1, sql_identifier, multispace0)),
+                    tuple((multispace1, CommonParser::sql_identifier, multispace0)),
                     |(_, index_name, _)| String::from(index_name),
                 ),
                 multispace0,
@@ -1167,8 +1141,8 @@ impl AlterPartitionOption {
 #[cfg(test)]
 mod tests {
     use base::column::{ColumnConstraint, ColumnPosition, ColumnSpecification};
+    use base::index_option::IndexOption;
     use base::Literal;
-    use common::index_option::IndexOption;
     use dds::alter_table::{AlterTableOption, AlterTableStatement};
 
     #[test]

@@ -12,11 +12,8 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLErrorKind;
-use base::{DataType, Literal, ParseSQLError, Real};
-use common::case::CaseWhenExpression;
-use common::index_col_name;
-use common::keywords::escape_if_keyword;
-use common::{as_alias, delim_digit, parse_comment, sql_identifier, ws_sep_comma};
+use base::keywords::escape_if_keyword;
+use base::{CaseWhenExpression, CommonParser, DataType, Literal, ParseSQLError, Real};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FunctionExpression {
@@ -69,7 +66,7 @@ impl FunctionExpression {
             ),
             map(
                 tuple((
-                    sql_identifier,
+                    CommonParser::sql_identifier,
                     multispace0,
                     tag("("),
                     separated_list0(
@@ -205,7 +202,10 @@ pub struct Column {
 impl Column {
     pub fn index_col_list(i: &str) -> IResult<&str, Vec<Column>, ParseSQLError<&str>> {
         many0(map(
-            terminated(index_col_name, opt(ws_sep_comma)),
+            terminated(
+                CommonParser::index_col_name,
+                opt(CommonParser::ws_sep_comma),
+            ),
             // XXX(malte): ignores length and order
             |e| e.0,
         ))(i)
@@ -213,12 +213,18 @@ impl Column {
 
     // Parse rule for a comma-separated list of fields without aliases.
     pub fn field_list(i: &str) -> IResult<&str, Vec<Column>, ParseSQLError<&str>> {
-        many0(terminated(Column::without_alias, opt(ws_sep_comma)))(i)
+        many0(terminated(
+            Column::without_alias,
+            opt(CommonParser::ws_sep_comma),
+        ))(i)
     }
 
     // Parses a SQL column identifier in the column format
     pub fn without_alias(i: &str) -> IResult<&str, Column, ParseSQLError<&str>> {
-        let table_parser = pair(opt(terminated(sql_identifier, tag("."))), sql_identifier);
+        let table_parser = pair(
+            opt(terminated(CommonParser::sql_identifier, tag("."))),
+            CommonParser::sql_identifier,
+        );
         alt((
             map(FunctionExpression::parse, |f| Column {
                 name: format!("{}", f),
@@ -237,8 +243,9 @@ impl Column {
 
     // Parses a SQL column identifier in the table.column format
     pub fn parse(i: &str) -> IResult<&str, Column, ParseSQLError<&str>> {
-        let col_func_no_table = map(pair(FunctionExpression::parse, opt(as_alias)), |tup| {
-            Column {
+        let col_func_no_table = map(
+            pair(FunctionExpression::parse, opt(CommonParser::as_alias)),
+            |tup| Column {
                 name: match tup.1 {
                     None => format!("{}", tup.0),
                     Some(a) => String::from(a),
@@ -246,13 +253,13 @@ impl Column {
                 alias: tup.1.map(String::from),
                 table: None,
                 function: Some(Box::new(tup.0)),
-            }
-        });
+            },
+        );
         let col_w_table = map(
             tuple((
-                opt(terminated(sql_identifier, tag("."))),
-                sql_identifier,
-                opt(as_alias),
+                opt(terminated(CommonParser::sql_identifier, tag("."))),
+                CommonParser::sql_identifier,
+                opt(CommonParser::as_alias),
             )),
             |tup| Column {
                 name: tup.1.to_string(),
@@ -392,9 +399,9 @@ impl ColumnConstraint {
             preceded(
                 delimited(multispace0, tag_no_case("CHARACTER SET"), multispace1),
                 alt((
-                    sql_identifier,
-                    delimited(tag("'"), sql_identifier, tag("'")),
-                    delimited(tag("\""), sql_identifier, tag("\"")),
+                    CommonParser::sql_identifier,
+                    delimited(tag("'"), CommonParser::sql_identifier, tag("'")),
+                    delimited(tag("\""), CommonParser::sql_identifier, tag("\"")),
                 )),
             ),
             |cs| {
@@ -406,9 +413,9 @@ impl ColumnConstraint {
             preceded(
                 delimited(multispace0, tag_no_case("COLLATE"), multispace1),
                 alt((
-                    sql_identifier,
-                    delimited(tag("'"), sql_identifier, tag("'")),
-                    delimited(tag("\""), sql_identifier, tag("\"")),
+                    CommonParser::sql_identifier,
+                    delimited(tag("'"), CommonParser::sql_identifier, tag("'")),
+                    delimited(tag("\""), CommonParser::sql_identifier, tag("\"")),
                 )),
             ),
             |c| {
@@ -425,7 +432,7 @@ impl ColumnConstraint {
                 tag_no_case("UPDATE"),
                 multispace1,
                 tag_no_case("CURRENT_TIMESTAMP"),
-                opt(delim_digit),
+                opt(CommonParser::delim_digit),
             )),
             |_| Some(ColumnConstraint::OnUpdate(Literal::CurrentTimestamp)),
         );
@@ -474,7 +481,10 @@ impl ColumnConstraint {
                 map(tag_no_case("FALSE"), |_| Literal::Bool(false)),
                 map(tag_no_case("TRUE"), |_| Literal::Bool(true)),
                 map(
-                    tuple((tag_no_case("CURRENT_TIMESTAMP"), opt(delim_digit))),
+                    tuple((
+                        tag_no_case("CURRENT_TIMESTAMP"),
+                        opt(CommonParser::delim_digit),
+                    )),
                     |_| Literal::CurrentTimestamp,
                 ),
             )),
@@ -521,7 +531,7 @@ impl ColumnPosition {
                     multispace0,
                     tag_no_case("AFTER"),
                     multispace1,
-                    sql_identifier,
+                    CommonParser::sql_identifier,
                 )),
                 |(_, _, _, identifier)| ColumnPosition::After(String::from(identifier).into()),
             ),
@@ -563,9 +573,9 @@ impl ColumnSpecification {
                 multispace0,
             )),
             many0(ColumnConstraint::parse),
-            opt(parse_comment),
+            opt(CommonParser::parse_comment),
             opt(ColumnPosition::parse),
-            opt(ws_sep_comma),
+            opt(CommonParser::ws_sep_comma),
         ));
 
         match parser(i) {

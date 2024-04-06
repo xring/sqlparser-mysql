@@ -11,7 +11,7 @@ use nom::IResult;
 
 use base::error::ParseSQLError;
 use base::table::Table;
-use common::{statement_terminator, ws_sep_comma};
+use base::CommonParser;
 
 /// RENAME TABLE
 //     tbl_name TO new_tbl_name
@@ -33,9 +33,9 @@ impl RenameTableStatement {
             multispace0,
             many0(terminated(
                 Table::schema_table_reference_to_schema_table_reference,
-                opt(ws_sep_comma),
+                opt(CommonParser::ws_sep_comma),
             )),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, _, _, table_pairs, _)) = parser(i)?;
 

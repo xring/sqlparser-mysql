@@ -6,11 +6,11 @@ use nom::combinator::opt;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
 
+use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
+use base::keywords::escape_if_keyword;
 use base::table::Table;
-use common::condition::ConditionExpression;
-use common::keywords::escape_if_keyword;
-use common::statement_terminator;
+use base::CommonParser;
 
 // FIXME TODO
 /// DELETE \[LOW_PRIORITY] \[QUICK] \[IGNORE] FROM tbl_name \[\[AS] tbl_alias]
@@ -31,7 +31,7 @@ impl DeleteStatement {
             delimited(multispace1, tag_no_case("FROM"), multispace1),
             Table::schema_table_reference,
             opt(ConditionExpression::parse),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ))(i)?;
 
         Ok((
@@ -59,11 +59,11 @@ impl fmt::Display for DeleteStatement {
 #[cfg(test)]
 mod tests {
     use base::column::Column;
+    use base::condition::ConditionBase::Field;
+    use base::condition::ConditionExpression::{Base, ComparisonOp};
+    use base::condition::{ConditionBase, ConditionTree};
     use base::Literal;
     use base::Operator;
-    use common::condition::ConditionBase::*;
-    use common::condition::ConditionExpression::*;
-    use common::condition::ConditionTree;
 
     use super::*;
 
@@ -101,7 +101,7 @@ mod tests {
         let expected_left = Base(Field(Column::from("id")));
         let expected_where_cond = Some(ComparisonOp(ConditionTree {
             left: Box::new(expected_left),
-            right: Box::new(Base(Literal(Literal::Integer(1)))),
+            right: Box::new(Base(ConditionBase::Literal(Literal::Integer(1)))),
             operator: Operator::Equal,
         }));
         assert_eq!(

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use base::column::Column;
-use common::keywords::escape_if_keyword;
+use base::keywords::escape_if_keyword;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum TableKey {

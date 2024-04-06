@@ -10,7 +10,7 @@ use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{opt_delimited, statement_terminator, OrderClause};
+use base::{CommonParser, OrderClause};
 use dms::select::{LimitClause, SelectStatement};
 
 // TODO 用于 create 语句的 select
@@ -25,12 +25,12 @@ impl CompoundSelectStatement {
     // Parse compound selection
     pub fn parse(i: &str) -> IResult<&str, CompoundSelectStatement, ParseSQLError<&str>> {
         let (remaining_input, (first_select, other_selects, _, order, limit, _)) = tuple((
-            opt_delimited(tag("("), SelectStatement::nested_selection, tag(")")),
+            CommonParser::opt_delimited(tag("("), SelectStatement::nested_selection, tag(")")),
             many1(Self::other_selects),
             multispace0,
             opt(OrderClause::parse),
             opt(LimitClause::parse),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ))(i)?;
 
         let mut selects = vec![(None, first_select)];
@@ -53,7 +53,7 @@ impl CompoundSelectStatement {
             multispace0,
             CompoundSelectOperator::parse,
             multispace1,
-            opt_delimited(
+            CommonParser::opt_delimited(
                 tag("("),
                 delimited(multispace0, SelectStatement::nested_selection, multispace0),
                 tag(")"),

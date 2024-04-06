@@ -8,7 +8,7 @@ use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{parse_if_exists, sql_identifier, statement_terminator};
+use base::CommonParser;
 
 /// DROP FUNCTION [IF EXISTS] sp_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -24,10 +24,10 @@ impl DropFunctionStatement {
             tuple((
                 terminated(tag_no_case("DROP"), multispace1),
                 terminated(tag_no_case("FUNCTION"), multispace1),
-                parse_if_exists,
-                map(sql_identifier, String::from),
+                CommonParser::parse_if_exists,
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |x| DropFunctionStatement {
                 if_exists: x.2.is_some(),
@@ -46,24 +46,6 @@ impl fmt::Display for DropFunctionStatement {
         write!(f, " {}", self.sp_name)?;
         Ok(())
     }
-}
-
-/// DROP FUNCTION [IF EXISTS] sp_name
-pub fn drop_function(i: &str) -> IResult<&str, DropFunctionStatement, ParseSQLError<&str>> {
-    map(
-        tuple((
-            terminated(tag_no_case("DROP"), multispace1),
-            terminated(tag_no_case("FUNCTION"), multispace1),
-            parse_if_exists,
-            map(sql_identifier, String::from),
-            multispace0,
-            statement_terminator,
-        )),
-        |x| DropFunctionStatement {
-            if_exists: x.2.is_some(),
-            sp_name: x.3,
-        },
-    )(i)
 }
 
 #[cfg(test)]

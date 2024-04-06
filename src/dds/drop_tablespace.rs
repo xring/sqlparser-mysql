@@ -10,7 +10,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{sql_identifier, statement_terminator};
+use base::CommonParser;
 
 /// DROP \[UNDO] TABLESPACE tablespace_name
 ///     \[ENGINE \[=] engine_name]
@@ -32,7 +32,7 @@ impl DropTablespaceStatement {
             multispace0,
             tag_no_case("TABLESPACE "),
             multispace0,
-            map(sql_identifier, |tablespace_name| {
+            map(CommonParser::sql_identifier, |tablespace_name| {
                 String::from(tablespace_name)
             }),
             multispace0,
@@ -42,13 +42,13 @@ impl DropTablespaceStatement {
                     multispace1,
                     opt(tag("=")),
                     multispace0,
-                    sql_identifier,
+                    CommonParser::sql_identifier,
                     multispace0,
                 )),
                 |(_, _, _, _, engine, _)| String::from(engine),
             )),
             multispace0,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, opt_undo, _, _, _, tablespace_name, _, engine_name, _, _)) =
             parser(i)?;

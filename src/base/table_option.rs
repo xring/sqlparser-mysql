@@ -1,15 +1,15 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
-use nom::combinator::{map, opt, value};
+use nom::combinator::{map, opt};
 use nom::sequence::{delimited, tuple};
 use nom::{IResult, Parser};
 
 use base::column::Column;
 use base::error::ParseSQLError;
-use common::sql_identifier;
-use common::{
-    CompressionType, DefaultOrZeroOrOne, InsertMethodType, RowFormatType, TablespaceType,
+use base::{
+    CommonParser, CompressionType, DefaultOrZeroOrOne, InsertMethodType, RowFormatType,
+    TablespaceType,
 };
 
 /// table_option: {
@@ -213,7 +213,7 @@ impl TableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| TableOption::DefaultCharacterSet(charset_name),
@@ -232,7 +232,7 @@ impl TableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| TableOption::DefaultCharset(charset_name),
@@ -266,7 +266,7 @@ impl TableOption {
                         multispace1,
                         opt(tag("=")),
                         multispace0,
-                        sql_identifier,
+                        CommonParser::sql_identifier,
                         multispace0,
                     )),
                     |(_, _, _, _, collation_name, _)| String::from(collation_name),
@@ -402,7 +402,7 @@ impl TableOption {
                 multispace0,
                 opt(tag("=")),
                 multispace0,
-                sql_identifier,
+                CommonParser::sql_identifier,
                 multispace0,
             )),
             |(_, _, _, _, engine, _)| TableOption::Engine(String::from(engine)),
@@ -622,7 +622,7 @@ impl TableOption {
             tuple((
                 tag_no_case("TABLESPACE"),
                 multispace1,
-                map(sql_identifier, String::from), // tablespace_name
+                map(CommonParser::sql_identifier, String::from), // tablespace_name
                 multispace0,
                 opt(map(
                     tuple((tag_no_case("STORAGE"), multispace0, TablespaceType::parse)),

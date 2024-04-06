@@ -9,11 +9,11 @@ use nom::combinator::{map, opt};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::IResult;
 
+use base::arithmetic::ArithmeticExpression;
 use base::column::Column;
 use base::error::ParseSQLError;
 use base::{Literal, Operator};
-use common::arithmetic::ArithmeticExpression;
-use dms::select::{BetweenAndClause, SelectStatement};
+use dms::{BetweenAndClause, SelectStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum ConditionBase {
@@ -370,14 +370,13 @@ impl fmt::Display for ConditionExpression {
 
 #[cfg(test)]
 mod tests {
-    use base::table::Table;
-    use base::{FieldDefinitionExpression, ItemPlaceholder};
-    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
-    use common::condition::ConditionBase::{Field, LiteralList, NestedSelect};
-    use common::condition::ConditionExpression::{
+    use base::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use base::condition::ConditionBase::{Field, LiteralList, NestedSelect};
+    use base::condition::ConditionExpression::{
         Base, Bracketed, ComparisonOp, LogicalOp, NegationOp,
     };
-    use dms::select::SelectStatement;
+    use base::table::Table;
+    use base::{FieldDefinitionExpression, ItemPlaceholder};
 
     use super::*;
 

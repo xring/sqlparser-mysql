@@ -6,8 +6,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use base::Literal;
-use common::{sql_identifier, statement_terminator};
+use base::{CommonParser, Literal};
 
 /// SET variable = expr [, variable = expr] ...
 ///
@@ -31,12 +30,12 @@ impl SetStatement {
         let (remaining_input, (_, _, var, _, _, _, value, _)) = tuple((
             tag_no_case("SET"),
             multispace1,
-            sql_identifier,
+            CommonParser::sql_identifier,
             multispace0,
             tag_no_case("="),
             multispace0,
             Literal::parse,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ))(i)?;
         let variable = String::from(var);
         Ok((remaining_input, SetStatement { variable, value }))

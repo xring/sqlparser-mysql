@@ -10,7 +10,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{sql_identifier, statement_terminator};
+use base::CommonParser;
 
 /// DROP LOGFILE GROUP logfile_group
 ///     ENGINE [=] engine_name
@@ -31,7 +31,7 @@ impl DropLogfileGroupStatement {
             multispace0,
             tag_no_case("GROUP"),
             multispace0,
-            map(sql_identifier, String::from),
+            map(CommonParser::sql_identifier, String::from),
             multispace0,
             map(
                 tuple((
@@ -39,13 +39,13 @@ impl DropLogfileGroupStatement {
                     multispace1,
                     opt(tag("=")),
                     multispace0,
-                    sql_identifier,
+                    CommonParser::sql_identifier,
                     multispace0,
                 )),
                 |(_, _, _, _, engine, _)| String::from(engine),
             ),
             multispace0,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, _, _, _, _, logfile_group, _, engine_name, _, _)) = parser(i)?;
 

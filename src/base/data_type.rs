@@ -9,8 +9,7 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use base::Literal;
-use common::{delim_digit, precision};
+use base::{CommonParser, Literal};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum DataType {
@@ -101,18 +100,21 @@ impl DataType {
             map(
                 tuple((
                     tag_no_case("char"),
-                    delim_digit,
+                    CommonParser::delim_digit,
                     multispace0,
                     opt(tag_no_case("binary")),
                 )),
                 |t| DataType::Char(Self::len_as_u16(t.1)),
             ),
-            map(preceded(tag_no_case("datetime"), opt(delim_digit)), |fsp| {
-                DataType::DateTime(match fsp {
-                    Some(fsp) => Self::len_as_u16(fsp),
-                    None => 0,
-                })
-            }),
+            map(
+                preceded(tag_no_case("datetime"), opt(CommonParser::delim_digit)),
+                |fsp| {
+                    DataType::DateTime(match fsp {
+                        Some(fsp) => Self::len_as_u16(fsp),
+                        None => 0,
+                    })
+                },
+            ),
             map(tag_no_case("date"), |_| DataType::Date),
             map(
                 tuple((tag_no_case("double"), multispace0, Self::opt_signed)),
@@ -132,7 +134,7 @@ impl DataType {
                 tuple((
                     tag_no_case("float"),
                     multispace0,
-                    opt(precision),
+                    opt(CommonParser::precision),
                     multispace0,
                 )),
                 |_| DataType::Float,
@@ -145,13 +147,17 @@ impl DataType {
             map(tag_no_case("json"), |_| DataType::Json),
             map(tag_no_case("uuid"), |_| DataType::Uuid),
             map(
-                tuple((tag_no_case("timestamp"), opt(delim_digit), multispace0)),
+                tuple((
+                    tag_no_case("timestamp"),
+                    opt(CommonParser::delim_digit),
+                    multispace0,
+                )),
                 |_| DataType::Timestamp,
             ),
             map(
                 tuple((
                     tag_no_case("varchar"),
-                    delim_digit,
+                    CommonParser::delim_digit,
                     multispace0,
                     opt(tag_no_case("binary")),
                 )),
@@ -164,7 +170,11 @@ impl DataType {
     fn type_identifier_second_half(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         alt((
             map(
-                tuple((tag_no_case("binary"), delim_digit, multispace0)),
+                tuple((
+                    tag_no_case("binary"),
+                    CommonParser::delim_digit,
+                    multispace0,
+                )),
                 |t| DataType::Binary(Self::len_as_u16(t.1)),
             ),
             map(tag_no_case("blob"), |_| DataType::Blob),
@@ -175,7 +185,11 @@ impl DataType {
             map(tag_no_case("tinyblob"), |_| DataType::Tinyblob),
             map(tag_no_case("tinytext"), |_| DataType::Tinytext),
             map(
-                tuple((tag_no_case("varbinary"), delim_digit, multispace0)),
+                tuple((
+                    tag_no_case("varbinary"),
+                    CommonParser::delim_digit,
+                    multispace0,
+                )),
                 |t| DataType::Varbinary(Self::len_as_u16(t.1)),
             ),
         ))(i)
@@ -187,7 +201,7 @@ impl DataType {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             tag_no_case("tinyint"),
             multispace0,
-            opt(delim_digit),
+            opt(CommonParser::delim_digit),
             multispace0,
             Self::opt_signed,
         ))(i)?;
@@ -219,7 +233,7 @@ impl DataType {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             tag_no_case("bigint"),
             multispace0,
-            opt(delim_digit),
+            opt(CommonParser::delim_digit),
             multispace0,
             Self::opt_signed,
         ))(i)?;
@@ -255,7 +269,7 @@ impl DataType {
                 tag_no_case("smallint"),
             )),
             multispace0,
-            opt(delim_digit),
+            opt(CommonParser::delim_digit),
             multispace0,
             Self::opt_signed,
         ))(i)?;
@@ -287,7 +301,7 @@ impl DataType {
     fn decimal_or_numeric(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, precision) = delimited(
             alt((tag_no_case("decimal"), tag_no_case("numeric"))),
-            opt(precision),
+            opt(CommonParser::precision),
             multispace0,
         )(i)?;
 

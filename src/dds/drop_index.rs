@@ -4,10 +4,11 @@ use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
 
+use base::algorithm_type::AlgorithmType;
 use base::error::ParseSQLError;
+use base::lock_type::LockType;
 use base::table::Table;
-use common::{sql_identifier, statement_terminator};
-use common::{AlgorithmType, LockType};
+use base::CommonParser;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropIndexStatement {
@@ -26,7 +27,12 @@ impl DropIndexStatement {
                 tuple((tag_no_case("DROP"), multispace1)),
                 tuple((tag_no_case("INDEX"), multispace1)),
                 map(
-                    tuple((sql_identifier, multispace1, tag_no_case("ON"), multispace1)),
+                    tuple((
+                        CommonParser::sql_identifier,
+                        multispace1,
+                        tag_no_case("ON"),
+                        multispace1,
+                    )),
                     |x| String::from(x.0),
                 ),
                 Table::without_alias, // tbl_name
@@ -35,7 +41,7 @@ impl DropIndexStatement {
                 multispace0,
                 opt(LockType::parse), // lock_option
                 multispace0,
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |(_, _, index_name, table, _, algorithm_option, _, lock_option, _, _)| {
                 DropIndexStatement {
@@ -51,7 +57,7 @@ impl DropIndexStatement {
 
 #[cfg(test)]
 mod tests {
-    use common::LockType;
+    use base::lock_type::LockType;
     use dds::drop_index::DropIndexStatement;
 
     #[test]

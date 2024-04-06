@@ -3,8 +3,11 @@ use std::fmt::Display;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum ItemPlaceholder {
+    /// ?
     QuestionMark,
+    /// $
     DollarNumber(i32),
+    /// :
     ColonNumber(i32),
 }
 

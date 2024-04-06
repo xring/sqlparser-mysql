@@ -8,7 +8,7 @@ use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{parse_if_exists, sql_identifier, statement_terminator};
+use base::CommonParser;
 
 /// DROP SERVER [ IF EXISTS ] server_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -24,10 +24,10 @@ impl DropServerStatement {
             tuple((
                 terminated(tag_no_case("DROP"), multispace1),
                 terminated(tag_no_case("SERVER"), multispace1),
-                parse_if_exists,
-                map(sql_identifier, String::from),
+                CommonParser::parse_if_exists,
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |x| DropServerStatement {
                 if_exists: x.2.is_some(),

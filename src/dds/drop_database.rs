@@ -9,7 +9,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{parse_if_exists, sql_identifier, statement_terminator};
+use base::CommonParser;
 
 /// DROP {DATABASE | SCHEMA} [IF EXISTS] db_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -24,10 +24,10 @@ impl DropDatabaseStatement {
             tag_no_case("DROP "),
             multispace0,
             alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
-            parse_if_exists,
+            CommonParser::parse_if_exists,
             multispace0,
-            sql_identifier,
-            statement_terminator,
+            CommonParser::sql_identifier,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, _, opt_if_exists, _, database, _)) = parser(i)?;
 
@@ -53,29 +53,6 @@ impl fmt::Display for DropDatabaseStatement {
         write!(f, " {}", database)?;
         Ok(())
     }
-}
-
-pub fn drop_database(i: &str) -> IResult<&str, DropDatabaseStatement, ParseSQLError<&str>> {
-    let mut parser = tuple((
-        tag_no_case("DROP "),
-        multispace0,
-        alt((tag_no_case("DATABASE "), tag_no_case("SCHEMA "))),
-        parse_if_exists,
-        multispace0,
-        sql_identifier,
-        statement_terminator,
-    ));
-    let (remaining_input, (_, _, _, opt_if_exists, _, database, _)) = parser(i)?;
-
-    let name = String::from(database);
-
-    Ok((
-        remaining_input,
-        DropDatabaseStatement {
-            name,
-            if_exists: opt_if_exists.is_some(),
-        },
-    ))
 }
 
 #[cfg(test)]

@@ -9,7 +9,7 @@ use nom::IResult;
 
 use base::error::ParseSQLError;
 use base::trigger::Trigger;
-use common::{parse_if_exists, statement_terminator};
+use base::CommonParser;
 
 /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -25,11 +25,11 @@ impl DropTriggerStatement {
             tag_no_case("DROP "),
             multispace0,
             tag_no_case("TRIGGER "),
-            parse_if_exists,
+            CommonParser::parse_if_exists,
             multispace0,
             Trigger::parse,
             multispace0,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, _, opt_if_exists, _, trigger_name, _, _)) = parser(i)?;
 

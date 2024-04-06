@@ -10,8 +10,7 @@ use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::sql_identifier;
-use common::DefaultOrZeroOrOne;
+use base::{CommonParser, DefaultOrZeroOrOne};
 
 /// ALTER {DATABASE | SCHEMA} \[db_name]
 ///     alter_option ...
@@ -37,7 +36,7 @@ impl AlterDatabaseStatement {
                 multispace0,
                 alt((tag_no_case("DATABASE"), tag_no_case("SCHEMA"))),
                 multispace1,
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace1,
                 many1(terminated(AlterDatabaseOption::parse, multispace0)),
             )),
@@ -90,7 +89,7 @@ impl AlterDatabaseOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
@@ -107,7 +106,7 @@ impl AlterDatabaseOption {
                         multispace0,
                         opt(tag("=")),
                         multispace0,
-                        sql_identifier,
+                        CommonParser::sql_identifier,
                         multispace0,
                     )),
                     |(_, _, _, _, collation_name, _)| String::from(collation_name),

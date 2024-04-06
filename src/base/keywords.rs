@@ -5,7 +5,7 @@ use nom::sequence::terminated;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::eof;
+use base::CommonParser;
 
 fn keyword_follow_char(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
     peek(alt((
@@ -17,7 +17,7 @@ fn keyword_follow_char(i: &str) -> IResult<&str, &str, ParseSQLError<&str>> {
         tag("\t"),
         tag(","),
         tag("="),
-        eof,
+        CommonParser::eof,
     )))(i)
 }
 

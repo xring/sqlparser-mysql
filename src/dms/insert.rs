@@ -10,10 +10,9 @@ use nom::IResult;
 
 use base::column::Column;
 use base::error::ParseSQLError;
+use base::keywords::escape_if_keyword;
 use base::table::Table;
-use base::{FieldValueExpression, Literal};
-use common::keywords::escape_if_keyword;
-use common::{statement_terminator, ws_sep_comma};
+use base::{CommonParser, FieldValueExpression, Literal};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct InsertStatement {
@@ -45,7 +44,7 @@ impl InsertStatement {
             many1(Self::data),
             opt(Self::on_duplicate),
             multispace0,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ))(i)?;
         assert!(table.alias.is_none());
         let ignore = ignore_res.is_some();
@@ -74,7 +73,7 @@ impl InsertStatement {
         delimited(
             tag("("),
             Literal::value_list,
-            preceded(tag(")"), opt(ws_sep_comma)),
+            preceded(tag(")"), opt(CommonParser::ws_sep_comma)),
         )(i)
     }
 
@@ -133,8 +132,8 @@ impl fmt::Display for InsertStatement {
 
 #[cfg(test)]
 mod tests {
+    use base::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
     use base::{FieldValueExpression, ItemPlaceholder};
-    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
     use {ParseConfig, Parser};
 
     use super::*;

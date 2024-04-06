@@ -7,8 +7,8 @@ use nom::sequence::{pair, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::keywords::escape_if_keyword;
-use common::sql_identifier;
+use base::keywords::escape_if_keyword;
+use base::CommonParser;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Trigger {
@@ -19,7 +19,10 @@ pub struct Trigger {
 impl Trigger {
     pub fn parse(i: &str) -> IResult<&str, Trigger, ParseSQLError<&str>> {
         map(
-            tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
+            tuple((
+                opt(pair(CommonParser::sql_identifier, tag("."))),
+                CommonParser::sql_identifier,
+            )),
             |tup| Trigger {
                 name: String::from(tup.1),
                 schema: tup.0.map(|(schema, _)| String::from(schema)),

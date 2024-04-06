@@ -5,11 +5,12 @@ use nom::combinator::{map, opt};
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
+use base::algorithm_type::AlgorithmType;
 use base::error::ParseSQLError;
+use base::index_option::IndexOption;
+use base::lock_type::LockType;
 use base::table::Table;
-use common::index_option::IndexOption;
-use common::{sql_identifier, statement_terminator};
-use common::{AlgorithmType, KeyPart, LockType};
+use base::{CommonParser, KeyPart};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateIndexStatement {
@@ -55,7 +56,9 @@ impl CreateIndexStatement {
                 tuple((tag_no_case("CREATE"), multispace1)),
                 opt(terminated(Index::parse, multispace1)),
                 tuple((tag_no_case("INDEX"), multispace1)),
-                map(tuple((sql_identifier, multispace1)), |x| String::from(x.0)),
+                map(tuple((CommonParser::sql_identifier, multispace1)), |x| {
+                    String::from(x.0)
+                }),
                 opt(terminated(Index::parse, multispace1)),
                 terminated(tag_no_case("ON"), multispace1),
                 terminated(Table::without_alias, multispace1), // tbl_name
@@ -64,7 +67,7 @@ impl CreateIndexStatement {
                 multispace0, // [index_option]
                 opt(terminated(AlgorithmType::parse, multispace0)),
                 opt(terminated(LockType::parse, multispace0)),
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |(
                 _,

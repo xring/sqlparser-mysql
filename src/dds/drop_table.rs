@@ -12,7 +12,7 @@ use nom::IResult;
 
 use base::error::ParseSQLError;
 use base::table::Table;
-use common::{parse_if_exists, statement_terminator, ws_sep_comma};
+use base::CommonParser;
 
 /// <https://dev.mysql.com/doc/refman/8.0/en/drop-table.html>
 /// DROP \[TEMPORARY] TABLE \[IF EXISTS]
@@ -42,12 +42,15 @@ impl DropTableStatement {
             )),
             multispace0,
             tag_no_case("TABLE "),
-            parse_if_exists,
+            CommonParser::parse_if_exists,
             multispace0,
-            many0(terminated(Table::without_alias, opt(ws_sep_comma))),
+            many0(terminated(
+                Table::without_alias,
+                opt(CommonParser::ws_sep_comma),
+            )),
             opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
             opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (
             remaining_input,

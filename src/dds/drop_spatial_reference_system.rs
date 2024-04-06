@@ -9,7 +9,7 @@ use nom::sequence::{terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{parse_if_exists, statement_terminator};
+use base::CommonParser;
 
 /// DROP SPATIAL REFERENCE SYSTEM
 ///     [IF EXISTS]
@@ -37,10 +37,10 @@ impl DropSpatialReferenceSystemStatement {
                 terminated(tag_no_case("SPATIAL"), multispace1),
                 terminated(tag_no_case("REFERENCE"), multispace1),
                 terminated(tag_no_case("SYSTEM"), multispace1),
-                parse_if_exists,
+                CommonParser::parse_if_exists,
                 complete::u32,
                 multispace0,
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |x| DropSpatialReferenceSystemStatement {
                 if_exists: x.4.is_some(),

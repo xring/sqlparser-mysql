@@ -10,8 +10,7 @@ use nom::sequence::{delimited, pair, preceded, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use base::ItemPlaceholder;
-use common::{as_alias, opt_delimited, ws_sep_comma};
+use base::{CommonParser, ItemPlaceholder};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Literal {
@@ -124,12 +123,12 @@ impl Literal {
             Self::float_literal,
             Self::integer_literal,
             Self::string_literal,
-            map(tag_no_case("null"), |_| Literal::Null),
-            map(tag_no_case("current_timestamp"), |_| {
+            map(tag_no_case("NULL"), |_| Literal::Null),
+            map(tag_no_case("CURRENT_TIMESTAMP"), |_| {
                 Literal::CurrentTimestamp
             }),
-            map(tag_no_case("current_date"), |_| Literal::CurrentDate),
-            map(tag_no_case("current_time"), |_| Literal::CurrentTime),
+            map(tag_no_case("CURRENT_DATE"), |_| Literal::CurrentDate),
+            map(tag_no_case("CURRENT_TIME"), |_| Literal::CurrentTime),
             map(tag("?"), |_| {
                 Literal::Placeholder(ItemPlaceholder::QuestionMark)
             }),
@@ -146,7 +145,11 @@ impl Literal {
 
     // Parse a list of values (e.g., for INSERT syntax).
     pub fn value_list(i: &str) -> IResult<&str, Vec<Literal>, ParseSQLError<&str>> {
-        many0(delimited(multispace0, Literal::parse, opt(ws_sep_comma)))(i)
+        many0(delimited(
+            multispace0,
+            Literal::parse,
+            opt(CommonParser::ws_sep_comma),
+        ))(i)
     }
 }
 
@@ -225,8 +228,8 @@ impl LiteralExpression {
     pub fn parse(i: &str) -> IResult<&str, LiteralExpression, ParseSQLError<&str>> {
         map(
             pair(
-                opt_delimited(tag("("), Literal::parse, tag(")")),
-                opt(as_alias),
+                CommonParser::opt_delimited(tag("("), Literal::parse, tag(")")),
+                opt(CommonParser::as_alias),
             ),
             |p| LiteralExpression {
                 value: p.0,

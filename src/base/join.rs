@@ -9,11 +9,11 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::table::Table;
-use common::as_alias;
-use common::condition::ConditionExpression;
-use dms::select::{JoinClause, SelectStatement};
+use base::CommonParser;
+use dms::{JoinClause, SelectStatement};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum JoinRightSide {
@@ -32,7 +32,7 @@ impl JoinRightSide {
         let nested_select = map(
             tuple((
                 delimited(tag("("), SelectStatement::nested_selection, tag(")")),
-                opt(as_alias),
+                opt(CommonParser::as_alias),
             )),
             |t| JoinRightSide::NestedSelect(Box::new(t.0), t.1.map(String::from)),
         );
@@ -182,11 +182,11 @@ impl fmt::Display for JoinConstraint {
 
 #[cfg(test)]
 mod tests {
+    use base::condition::ConditionBase::Field;
+    use base::condition::ConditionExpression::Base;
+    use base::condition::{ConditionExpression, ConditionTree};
     use base::Operator;
-    use common::condition::ConditionBase::Field;
-    use common::condition::ConditionExpression::Base;
-    use common::condition::{ConditionExpression, ConditionTree};
-    use dms::select::JoinClause;
+    use dms::JoinClause;
 
     use super::*;
 

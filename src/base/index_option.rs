@@ -7,8 +7,9 @@ use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{index_option, IndexType, VisibleType};
-use common::{parse_comment, sql_identifier};
+use base::index_type::IndexType;
+use base::visible_type::VisibleType;
+use base::CommonParser;
 
 /// index_option: {
 ///     KEY_BLOCK_SIZE [=] value
@@ -43,7 +44,7 @@ impl IndexOption {
             map(Self::key_block_size, IndexOption::KeyBlockSize),
             map(IndexType::parse, IndexOption::IndexType),
             map(Self::with_parser, IndexOption::WithParser),
-            map(parse_comment, IndexOption::Comment),
+            map(CommonParser::parse_comment, IndexOption::Comment),
             map(VisibleType::parse, IndexOption::VisibleType),
             map(Self::engine_attribute, IndexOption::EngineAttribute),
             map(
@@ -53,7 +54,7 @@ impl IndexOption {
         ))(i)
     }
 
-    /// [index_option]
+    /// `[index_option]`
     /// index_option: {
     ///     KEY_BLOCK_SIZE [=] value
     ///   | index_type
@@ -91,7 +92,7 @@ impl IndexOption {
                 multispace1,
                 tag_no_case("PARSER"),
                 multispace1,
-                sql_identifier,
+                CommonParser::sql_identifier,
                 multispace0,
             )),
             |(_, _, _, _, _, parser_name, _)| String::from(parser_name),

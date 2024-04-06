@@ -5,8 +5,8 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{sql_identifier, KeyPart};
-use common::{MatchType, ReferenceType};
+use base::reference_type::ReferenceType;
+use base::{CommonParser, KeyPart, MatchType};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReferenceDefinition {
@@ -48,7 +48,7 @@ impl ReferenceDefinition {
             tuple((
                 tuple((multispace0, tag_no_case("REFERENCES"), multispace1)),
                 // tbl_name
-                map(sql_identifier, String::from),
+                map(CommonParser::sql_identifier, String::from),
                 multispace0,
                 KeyPart::key_part_list, // (key_part,...)
                 multispace0,

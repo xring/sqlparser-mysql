@@ -9,14 +9,13 @@ use nom::multi::{many0, many1};
 use nom::sequence::{delimited, separated_pair, terminated};
 use nom::IResult;
 
+use base::arithmetic::ArithmeticExpression;
 use base::column::Column;
 use base::error::ParseSQLError;
+use base::keywords::escape_if_keyword;
 use base::literal::LiteralExpression;
 use base::table::Table;
-use base::Literal;
-use common::arithmetic::ArithmeticExpression;
-use common::keywords::escape_if_keyword;
-use common::ws_sep_comma;
+use base::{CommonParser, Literal};
 
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldDefinitionExpression {
@@ -44,7 +43,7 @@ impl FieldDefinitionExpression {
                 }),
                 map(Column::parse, FieldDefinitionExpression::Col),
             )),
-            opt(ws_sep_comma),
+            opt(CommonParser::ws_sep_comma),
         ))(i)
     }
 }
@@ -96,7 +95,10 @@ impl FieldValueExpression {
     pub fn assignment_expr_list(
         i: &str,
     ) -> IResult<&str, Vec<(Column, FieldValueExpression)>, ParseSQLError<&str>> {
-        many1(terminated(Self::assignment_expr, opt(ws_sep_comma)))(i)
+        many1(terminated(
+            Self::assignment_expr,
+            opt(CommonParser::ws_sep_comma),
+        ))(i)
     }
 }
 

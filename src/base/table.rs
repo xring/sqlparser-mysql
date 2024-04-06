@@ -9,8 +9,8 @@ use nom::sequence::{pair, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::keywords::escape_if_keyword;
-use common::{as_alias, sql_identifier, ws_sep_comma};
+use base::keywords::escape_if_keyword;
+use base::CommonParser;
 
 /// **Table Definition**
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -27,16 +27,19 @@ impl Table {
     // Parse list of table names.
     // XXX(malte): add support for aliases
     pub fn table_list(i: &str) -> IResult<&str, Vec<Table>, ParseSQLError<&str>> {
-        many0(terminated(Table::schema_table_reference, opt(ws_sep_comma)))(i)
+        many0(terminated(
+            Table::schema_table_reference,
+            opt(CommonParser::ws_sep_comma),
+        ))(i)
     }
 
     // Parse a reference to a named schema.table, with an optional alias
     pub fn schema_table_reference(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(
             tuple((
-                opt(pair(sql_identifier, tag("."))),
-                sql_identifier,
-                opt(as_alias),
+                opt(pair(CommonParser::sql_identifier, tag("."))),
+                CommonParser::sql_identifier,
+                opt(CommonParser::as_alias),
             )),
             |tup| Table {
                 name: String::from(tup.1),
@@ -48,17 +51,23 @@ impl Table {
 
     // Parse a reference to a named table, with an optional alias
     pub fn table_reference(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
-        map(pair(sql_identifier, opt(as_alias)), |tup| Table {
-            name: String::from(tup.0),
-            alias: tup.1.map(String::from),
-            schema: None,
-        })(i)
+        map(
+            pair(CommonParser::sql_identifier, opt(CommonParser::as_alias)),
+            |tup| Table {
+                name: String::from(tup.0),
+                alias: tup.1.map(String::from),
+                schema: None,
+            },
+        )(i)
     }
 
     /// table alias not allowed in DROP/TRUNCATE/RENAME TABLE statement
     pub fn without_alias(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(
-            tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
+            tuple((
+                opt(pair(CommonParser::sql_identifier, tag("."))),
+                CommonParser::sql_identifier,
+            )),
             |tup| Table {
                 name: String::from(tup.1),
                 alias: None,

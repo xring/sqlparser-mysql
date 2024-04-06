@@ -7,8 +7,7 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::OrderType;
-use common::{sql_identifier, ws_sep_comma};
+use base::{CommonParser, OrderType};
 
 /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -42,7 +41,10 @@ impl KeyPart {
                     tag("("),
                     delimited(
                         multispace0,
-                        many1(map(terminated(Self::parse, opt(ws_sep_comma)), |e| e)),
+                        many1(map(
+                            terminated(Self::parse, opt(CommonParser::ws_sep_comma)),
+                            |e| e,
+                        )),
                         multispace0,
                     ),
                     tag(")"),
@@ -71,7 +73,7 @@ impl KeyPartType {
         // {col_name [(length)]
         let col_name_with_length = tuple((
             multispace0,
-            sql_identifier,
+            CommonParser::sql_identifier,
             multispace0,
             opt(delimited(
                 tag("("),

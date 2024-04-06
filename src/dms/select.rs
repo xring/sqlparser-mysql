@@ -9,13 +9,12 @@ use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::table::Table;
-use base::FieldDefinitionExpression;
-use common::condition::ConditionExpression;
-use common::{
-    sql_identifier, statement_terminator, unsigned_number, JoinConstraint, JoinOperator,
-    JoinRightSide, OrderClause,
+use base::{
+    CommonParser, FieldDefinitionExpression, JoinConstraint, JoinOperator, JoinRightSide,
+    OrderClause,
 };
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -33,7 +32,7 @@ pub struct SelectStatement {
 impl SelectStatement {
     // Parse rule for a SQL selection query.
     pub fn parse(i: &str) -> IResult<&str, SelectStatement, ParseSQLError<&str>> {
-        terminated(Self::nested_selection, statement_terminator)(i)
+        terminated(Self::nested_selection, CommonParser::statement_terminator)(i)
     }
 
     pub fn nested_selection(i: &str) -> IResult<&str, SelectStatement, ParseSQLError<&str>> {
@@ -208,7 +207,7 @@ impl BetweenAndClause {
     pub fn parse(i: &str) -> IResult<&str, BetweenAndClause, ParseSQLError<&str>> {
         map(
             tuple((
-                sql_identifier,
+                CommonParser::sql_identifier,
                 multispace1,
                 tag_no_case("BETWEEN"),
                 multispace1,
@@ -246,7 +245,7 @@ impl LimitClause {
             multispace0,
             tag_no_case("LIMIT"),
             multispace1,
-            unsigned_number,
+            CommonParser::unsigned_number,
             opt(Self::offset),
         ))(i)?;
         let offset = opt_offset.unwrap_or(0);
@@ -259,7 +258,7 @@ impl LimitClause {
             multispace0,
             tag_no_case("OFFSET"),
             multispace1,
-            unsigned_number,
+            CommonParser::unsigned_number,
         ))(i)?;
 
         Ok((remaining_input, val))
@@ -278,17 +277,17 @@ impl fmt::Display for LimitClause {
 
 #[cfg(test)]
 mod tests {
+    use base::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
     use base::column::{Column, FunctionArgument, FunctionArguments, FunctionExpression};
+    use base::condition::ConditionBase::LiteralList;
+    use base::condition::ConditionExpression::{Base, ComparisonOp, LogicalOp};
+    use base::condition::{ConditionBase, ConditionExpression, ConditionTree};
     use base::table::Table;
-    use base::Literal;
-    use base::{FieldValueExpression, ItemPlaceholder, Operator};
-    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
-    use common::case::{CaseWhenExpression, ColumnOrLiteral};
-    use common::condition::ConditionBase;
-    use common::condition::ConditionBase::LiteralList;
-    use common::condition::ConditionExpression::{Base, ComparisonOp, LogicalOp};
-    use common::condition::{ConditionExpression, ConditionTree};
-    use common::{JoinConstraint, JoinOperator, JoinRightSide, OrderClause, OrderType};
+    use base::{
+        CaseWhenExpression, ColumnOrLiteral, FieldValueExpression, ItemPlaceholder, JoinConstraint,
+        JoinOperator, JoinRightSide, Operator, OrderClause,
+    };
+    use base::{Literal, OrderType};
 
     use super::*;
 

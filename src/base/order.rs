@@ -11,8 +11,8 @@ use nom::IResult;
 
 use base::column::Column;
 use base::error::ParseSQLError;
-use common::keywords::escape_if_keyword;
-use common::ws_sep_comma;
+use base::keywords::escape_if_keyword;
+use base::CommonParser;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct OrderClause {
@@ -38,7 +38,7 @@ impl OrderClause {
         let (remaining_input, (field_name, ordering, _)) = tuple((
             Column::without_alias,
             opt(preceded(multispace0, OrderType::parse)),
-            opt(ws_sep_comma),
+            opt(CommonParser::ws_sep_comma),
         ))(i)?;
 
         Ok((

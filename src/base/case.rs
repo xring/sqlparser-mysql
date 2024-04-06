@@ -7,9 +7,9 @@ use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 
 use base::column::Column;
+use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::Literal;
-use common::condition::ConditionExpression;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CaseWhenExpression {
@@ -20,31 +20,30 @@ pub struct CaseWhenExpression {
 
 impl CaseWhenExpression {
     pub fn parse(i: &str) -> IResult<&str, CaseWhenExpression, ParseSQLError<&str>> {
-        let (remaining_input, (_, _, _, _, condition, _, _, _, column, _, else_val, _)) =
-            tuple((
-                tag_no_case("CASE"),
-                multispace1,
-                tag_no_case("WHEN"),
+        let (input, (_, _, _, _, condition, _, _, _, column, _, else_val, _)) = tuple((
+            tag_no_case("CASE"),
+            multispace1,
+            tag_no_case("WHEN"),
+            multispace0,
+            ConditionExpression::condition_expr,
+            multispace0,
+            tag_no_case("THEN"),
+            multispace0,
+            Column::without_alias,
+            multispace0,
+            opt(delimited(
+                terminated(tag_no_case("ELSE"), multispace0),
+                Literal::parse,
                 multispace0,
-                ConditionExpression::condition_expr,
-                multispace0,
-                tag_no_case("THEN"),
-                multispace0,
-                Column::without_alias,
-                multispace0,
-                opt(delimited(
-                    terminated(tag_no_case("ELSE"), multispace0),
-                    Literal::parse,
-                    multispace0,
-                )),
-                tag_no_case("END"),
-            ))(i)?;
+            )),
+            tag_no_case("END"),
+        ))(i)?;
 
         let then_expr = ColumnOrLiteral::Column(column);
         let else_expr = else_val.map(ColumnOrLiteral::Literal);
 
         Ok((
-            remaining_input,
+            input,
             CaseWhenExpression {
                 condition,
                 then_expr,

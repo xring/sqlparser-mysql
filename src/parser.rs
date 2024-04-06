@@ -2,35 +2,20 @@ use std::fmt;
 use std::io::BufRead;
 use std::str;
 
+use das::SetStatement;
+use dds::{
+    AlterDatabaseStatement, AlterTableStatement, CreateIndexStatement, CreateTableStatement,
+    DropDatabaseStatement, DropEventStatement, DropFunctionStatement, DropIndexStatement,
+    DropLogfileGroupStatement, DropProcedureStatement, DropServerStatement,
+    DropSpatialReferenceSystemStatement, DropTableStatement, DropTablespaceStatement,
+    DropTriggerStatement, DropViewStatement, RenameTableStatement, TruncateTableStatement,
+};
+use dms::{
+    CompoundSelectStatement, DeleteStatement, InsertStatement, SelectStatement, UpdateStatement,
+};
 use nom::branch::alt;
 use nom::combinator::map;
-use nom::{IResult, Offset};
-
-use base::error::ParseSQLError;
-use das::set_statement::SetStatement;
-use dds::alter_database::AlterDatabaseStatement;
-use dds::alter_table::AlterTableStatement;
-use dds::create_index::CreateIndexStatement;
-use dds::create_table::CreateTableStatement;
-use dds::drop_database::DropDatabaseStatement;
-use dds::drop_event::DropEventStatement;
-use dds::drop_function::DropFunctionStatement;
-use dds::drop_index::DropIndexStatement;
-use dds::drop_logfile_group::DropLogfileGroupStatement;
-use dds::drop_procedure::DropProcedureStatement;
-use dds::drop_server::DropServerStatement;
-use dds::drop_spatial_reference_system::DropSpatialReferenceSystemStatement;
-use dds::drop_table::DropTableStatement;
-use dds::drop_tablespace::DropTablespaceStatement;
-use dds::drop_trigger::DropTriggerStatement;
-use dds::drop_view::DropViewStatement;
-use dds::rename_table::RenameTableStatement;
-use dds::truncate_table::TruncateTableStatement;
-use dms::compound_select::CompoundSelectStatement;
-use dms::delete::DeleteStatement;
-use dms::insert::InsertStatement;
-use dms::select::SelectStatement;
-use dms::update::UpdateStatement;
+use nom::Offset;
 
 pub struct Parser;
 
@@ -156,7 +141,6 @@ mod tests {
     use std::hash::{Hash, Hasher};
 
     use base::table::Table;
-    use dms::insert::InsertStatement;
 
     use super::*;
 

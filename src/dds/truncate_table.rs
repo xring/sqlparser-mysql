@@ -10,7 +10,7 @@ use nom::IResult;
 
 use base::error::ParseSQLError;
 use base::table::Table;
-use common::statement_terminator;
+use base::CommonParser;
 
 /// TRUNCATE \[TABLE] tbl_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ impl TruncateTableStatement {
             opt(tag_no_case("TABLE ")),
             multispace0,
             Table::without_alias,
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (remaining_input, (_, _, _, _, table, _)) = parser(i)?;
 

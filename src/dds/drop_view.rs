@@ -11,7 +11,7 @@ use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 
 use base::error::ParseSQLError;
-use common::{parse_if_exists, sql_identifier, statement_terminator, ws_sep_comma};
+use base::CommonParser;
 
 /// DROP VIEW [IF EXISTS]
 ///     view_name [, view_name] ...
@@ -34,14 +34,18 @@ impl DropViewStatement {
             tag_no_case("DROP "),
             multispace0,
             tag_no_case("VIEW "),
-            parse_if_exists,
+            CommonParser::parse_if_exists,
             multispace0,
-            map(many0(terminated(sql_identifier, opt(ws_sep_comma))), |x| {
-                x.iter().map(|v| String::from(*v)).collect::<Vec<String>>()
-            }),
+            map(
+                many0(terminated(
+                    CommonParser::sql_identifier,
+                    opt(CommonParser::ws_sep_comma),
+                )),
+                |x| x.iter().map(|v| String::from(*v)).collect::<Vec<String>>(),
+            ),
             opt(delimited(multispace1, tag_no_case("RESTRICT"), multispace0)),
             opt(delimited(multispace1, tag_no_case("CASCADE"), multispace0)),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ));
         let (
             remaining_input,

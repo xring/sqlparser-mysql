@@ -9,17 +9,17 @@ use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
+use base::check_constraint::CheckConstraintDefinition;
 use base::column::{Column, ColumnSpecification};
 use base::error::ParseSQLError;
+use base::fulltext_or_spatial_type::FulltextOrSpatialType;
+use base::index_option::IndexOption;
+use base::index_or_key_type::IndexOrKeyType;
+use base::index_type::IndexType;
 use base::table::Table;
-use common::index_option::IndexOption;
-use common::table_option::TableOption;
-use common::{
-    opt_index_name, CheckConstraintDefinition, FulltextOrSpatialType, IndexOrKeyType, IndexType,
-    ReferenceDefinition,
-};
-use common::{sql_identifier, statement_terminator, ws_sep_comma, KeyPart};
-use dms::select::SelectStatement;
+use base::table_option::TableOption;
+use base::{CommonParser, KeyPart, ReferenceDefinition};
+use dms::SelectStatement;
 
 /// **CreateTableStatement**
 /// [MySQL Doc](https://dev.mysql.com/doc/refman/8.0/en/create-table.html)
@@ -148,7 +148,7 @@ impl CreateTableType {
                 multispace0,
                 // [partition_options]
                 opt(CreatePartitionOption::parse),
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |(x)| {
                 let temporary = x.0 .0;
@@ -235,7 +235,7 @@ impl CreateTableType {
                     )),
                     |x| CreateTableType::LikeOldTable { table: x },
                 ),
-                statement_terminator,
+                CommonParser::statement_terminator,
             )),
             |(x, _, create_type, _)| {
                 let table = x.2;
@@ -254,7 +254,10 @@ impl CreateTableType {
     /// parse `[table_options]` part
     fn create_table_options(i: &str) -> IResult<&str, Vec<TableOption>, ParseSQLError<&str>> {
         map(
-            many1(terminated(TableOption::parse, opt(ws_sep_comma))),
+            many1(terminated(
+                TableOption::parse,
+                opt(CommonParser::ws_sep_comma),
+            )),
             |x| x,
         )(i)
     }
@@ -393,7 +396,7 @@ impl CreateDefinition {
                     multispace0,
                     CreateDefinition::parse,
                     multispace0,
-                    opt(ws_sep_comma),
+                    opt(CommonParser::ws_sep_comma),
                     multispace0,
                 )),
                 |x| x.1,
@@ -409,7 +412,7 @@ impl CreateDefinition {
                 // {INDEX | KEY}
                 IndexOrKeyType::parse,
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
@@ -438,7 +441,7 @@ impl CreateDefinition {
                 // [INDEX | KEY]
                 preceded(multispace1, opt(IndexOrKeyType::parse)),
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // (key_part,...)
                 KeyPart::key_part_list,
                 // [index_option]
@@ -496,7 +499,7 @@ impl CreateDefinition {
                     )),
                     |(_, _, _, value)| value,
                 ), // UNIQUE [INDEX | KEY]
-                opt_index_name,                       // [index_name]
+                CommonParser::opt_index_name,         // [index_name]
                 IndexType::opt_index_type,            // [index_type]
                 KeyPart::key_part_list,               // (key_part,...)
                 IndexOption::opt_index_option,        // [index_option]
@@ -535,7 +538,7 @@ impl CreateDefinition {
                     tag_no_case("KEY"),
                 )),
                 // [index_name]
-                opt_index_name,
+                CommonParser::opt_index_name,
                 // (col_name,...)
                 map(
                     tuple((
@@ -607,7 +610,7 @@ impl CreateDefinition {
         map(
             opt(preceded(
                 tag_no_case("CONSTRAINT"),
-                opt(preceded(multispace1, sql_identifier)),
+                opt(preceded(multispace1, CommonParser::sql_identifier)),
             )),
             |(x)| x.and_then(|inner| inner.map(String::from)),
         )(i)

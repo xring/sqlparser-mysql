@@ -7,12 +7,11 @@ use nom::sequence::tuple;
 use nom::IResult;
 
 use base::column::Column;
+use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
+use base::keywords::escape_if_keyword;
 use base::table::Table;
-use base::FieldValueExpression;
-use common::condition::ConditionExpression;
-use common::keywords::escape_if_keyword;
-use common::statement_terminator;
+use base::{CommonParser, FieldValueExpression};
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct UpdateStatement {
@@ -33,7 +32,7 @@ impl UpdateStatement {
             FieldValueExpression::assignment_expr_list,
             multispace0,
             opt(ConditionExpression::parse),
-            statement_terminator,
+            CommonParser::statement_terminator,
         ))(i)?;
         Ok((
             remaining_input,
@@ -69,11 +68,10 @@ impl fmt::Display for UpdateStatement {
 
 #[cfg(test)]
 mod tests {
+    use base::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
+    use base::condition::ConditionExpression::{Base, ComparisonOp};
+    use base::condition::{ConditionBase, ConditionTree};
     use base::{FieldValueExpression, ItemPlaceholder, Literal, LiteralExpression, Operator, Real};
-    use common::arithmetic::{ArithmeticBase, ArithmeticExpression, ArithmeticOperator};
-    use common::condition::ConditionBase;
-    use common::condition::ConditionExpression::{Base, ComparisonOp};
-    use common::condition::ConditionTree;
 
     use super::*;
 
