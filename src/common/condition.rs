@@ -53,7 +53,7 @@ impl<'a> ConditionTree {
         let mut s = HashSet::new();
         let mut q = VecDeque::<&'a ConditionTree>::new();
         q.push_back(self);
-        while let Some(ref ct) = q.pop_front() {
+        while let Some(ct) = q.pop_front() {
             match *ct.left.as_ref() {
                 ConditionExpression::Base(ConditionBase::Field(ref c)) => {
                     s.insert(c);
@@ -585,7 +585,7 @@ mod tests {
             flat_condition_tree(
                 Operator::Equal,
                 ConditionBase::Field(Column::from("foo")),
-                ConditionBase::Literal(Literal::Integer(42 as i64)),
+                ConditionBase::Literal(Literal::Integer(42)),
             )
         );
 
@@ -611,7 +611,7 @@ mod tests {
             flat_condition_tree(
                 Operator::GreaterOrEqual,
                 ConditionBase::Field(Column::from("foo")),
-                ConditionBase::Literal(Literal::Integer(42 as i64)),
+                ConditionBase::Literal(Literal::Integer(42)),
             )
         );
 
@@ -621,7 +621,7 @@ mod tests {
             flat_condition_tree(
                 Operator::LessOrEqual,
                 ConditionBase::Field(Column::from("foo")),
-                ConditionBase::Literal(Literal::Integer(5 as i64)),
+                ConditionBase::Literal(Literal::Integer(5)),
             )
         );
     }

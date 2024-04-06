@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_drop_spatial_reference_system() {
-        let sqls = vec![
+        let sqls = [
             "DROP SPATIAL REFERENCE SYSTEM 4120;",
             "DROP SPATIAL REFERENCE SYSTEM IF EXISTS 4120;",
         ];

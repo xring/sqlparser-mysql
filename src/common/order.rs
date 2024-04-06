@@ -56,7 +56,7 @@ impl fmt::Display for OrderClause {
             "{}",
             self.columns
                 .iter()
-                .map(|&(ref c, ref o)| format!("{} {}", escape_if_keyword(&c.name), o))
+                .map(|(c, o)| format!("{} {}", escape_if_keyword(&c.name), o))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

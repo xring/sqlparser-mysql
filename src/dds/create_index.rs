@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_create_index() {
-        let sqls = vec![
+        let sqls = [
             "create index poster_order_employee_id_index on poster_order (employee_id);",
             "create index branch_id on poster_source (branch_id);",
             "create index poster_order_employee_id_index on poster_order (employee_id)",

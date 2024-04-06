@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_drop_trigger() {
-        let sqls = vec![
+        let sqls = [
             "DROP TRIGGER trigger_name;",
             "DROP TRIGGER db_name.trigger_name;",
             "DROP TRIGGER IF EXISTS trigger_name;",

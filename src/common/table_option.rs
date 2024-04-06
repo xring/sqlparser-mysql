@@ -213,7 +213,7 @@ impl TableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| TableOption::DefaultCharacterSet(charset_name),
@@ -232,7 +232,7 @@ impl TableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| TableOption::DefaultCharset(charset_name),
@@ -622,7 +622,7 @@ impl TableOption {
             tuple((
                 tag_no_case("TABLESPACE"),
                 multispace1,
-                map(sql_identifier, |x| String::from(x)), // tablespace_name
+                map(sql_identifier, String::from), // tablespace_name
                 multispace0,
                 opt(map(
                     tuple((tag_no_case("STORAGE"), multispace0, TablespaceType::parse)),

@@ -86,7 +86,7 @@ impl fmt::Display for SelectStatement {
                 .join(", ")
         )?;
 
-        if self.tables.len() > 0 {
+        if !self.tables.is_empty() {
             write!(f, " FROM ")?;
             write!(
                 f,
@@ -249,7 +249,7 @@ impl LimitClause {
             unsigned_number,
             opt(Self::offset),
         ))(i)?;
-        let offset = opt_offset.unwrap_or_else(|| 0);
+        let offset = opt_offset.unwrap_or(0);
 
         Ok((remaining_input, LimitClause { limit, offset }))
     }

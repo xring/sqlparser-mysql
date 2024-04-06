@@ -5,7 +5,7 @@ use std::str::FromStr;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{alphanumeric1, anychar, digit1, multispace0, multispace1};
-use nom::combinator::{map, opt, recognize};
+use nom::combinator::{map, opt, recognize, value};
 use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -363,7 +363,7 @@ impl AlterTableOption {
                     opt(preceded(multispace1, sql_identifier)),
                 )),
             )),
-            |(_, x)| x.and_then(|inner| inner.map(|value| String::from(value))),
+            |(_, x)| x.and_then(|inner| inner.map(String::from)),
         )(i)
     }
 
@@ -752,7 +752,7 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 multispace0,
                 // old_col_name
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace1,
                 ColumnSpecification::parse,
                 multispace0,
@@ -779,7 +779,7 @@ impl AlterTableOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
                 opt(map(
                     tuple((
@@ -814,7 +814,7 @@ impl AlterTableOption {
             tuple((
                 // CONVERT TO CHARACTER SET
                 prefix,
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
                 opt(map(
                     tuple((
@@ -935,7 +935,7 @@ impl AlterTableOption {
                 multispace1,
                 tag_no_case("KEY"),
                 multispace1,
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
             )),
             |x| AlterTableOption::DropForeignKey { fk_symbol: x.6 },
@@ -1000,12 +1000,12 @@ impl AlterTableOption {
                 opt(tag_no_case("COLUMN ")),
                 multispace0,
                 // old_col_name
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace1,
                 tag_no_case("TO"),
                 multispace1,
                 // new_col_name
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, _, old_col_name, _, _, _, new_col_name, _)| AlterTableOption::RenameColumn {
@@ -1173,34 +1173,34 @@ mod tests {
 
     #[test]
     fn test_add_column() {
-        let parts = vec![
+        let parts = [
             r###"ADD COLUMN filter   TINYINT(4) DEFAULT 0 COMMENT '统计过滤(1=启用过滤；0=禁用过滤)'"###,
             r###"ADD COLUMN filter_name VARCHAR(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '统计筛选字段名称';"###,
-            //r###"ADD replace_approver varchar(512) NOT NULL DEFAULT "0" COMMENT '指定代审员工'"###,
-            // "ADD template_admin_approver json NULL DEFAULT NULL COMMENT '模板管理员'",
-            // "ADD COLUMN (new_column8 INT, new_column9 VARCHAR(100));",
-            // "ADD COLUMN column1 VARCHAR(255)",
-            // "ADD column2 INT DEFAULT 10",
-            // "ADD COLUMN column3 DATE NOT NULL",
-            // "ADD COLUMN column4 TEXT UNIQUE;",
-            // "ADD column4 TEXT UNIQUE;",
-            // "ADD COLUMN column5 DECIMAL(10, 2)",
-            // "ADD column7 ENUM('small', 'medium', 'large')",
-            // "ADD COLUMN column7 ENUM('small', 'medium', 'large')",
-            // "ADD column8 BLOB",
-            // "ADD column9 VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            // "ADD COLUMN new_column2 VARCHAR(255) FIRST;",
-            // "ADD COLUMN new_column3 DATE AFTER existing_column;",
-            // "ADD COLUMN new_column5 TEXT COMMENT 'This is a comment';",
-            // "ADD new_column6 DECIMAL(10,2) NOT NULL;",
-            // "ADD COLUMN new_column8 INT",
-            // "ADD COLUMN new_column9 VARCHAR(100)",
-            // "ADD new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            // "ADD COLUMN new_column11 VARCHAR(50) NOT NULL UNIQUE;",
-            // "ADD (new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP, new_column11 VARCHAR(50) NOT NULL UNIQUE);",
-            // "ADD column6 TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;",
-            // "ADD new_column4 BOOLEAN DEFAULT FALSE;",
-            // "ADD new_column7 UUID UNIQUE;",
+            r###"ADD replace_approver varchar(512) NOT NULL DEFAULT "0" COMMENT '指定代审员工'"###,
+            "ADD template_admin_approver json NULL DEFAULT NULL COMMENT '模板管理员'",
+            "ADD COLUMN (new_column8 INT, new_column9 VARCHAR(100));",
+            "ADD COLUMN column1 VARCHAR(255)",
+            "ADD column2 INT DEFAULT 10",
+            "ADD COLUMN column3 DATE NOT NULL",
+            "ADD COLUMN column4 TEXT UNIQUE;",
+            "ADD column4 TEXT UNIQUE;",
+            "ADD COLUMN column5 DECIMAL(10, 2)",
+            "ADD column7 ENUM('small', 'medium', 'large')",
+            "ADD COLUMN column7 ENUM('small', 'medium', 'large')",
+            "ADD column8 BLOB",
+            "ADD column9 VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            "ADD COLUMN new_column2 VARCHAR(255) FIRST;",
+            "ADD COLUMN new_column3 DATE AFTER existing_column;",
+            "ADD COLUMN new_column5 TEXT COMMENT 'This is a comment';",
+            "ADD new_column6 DECIMAL(10,2) NOT NULL;",
+            "ADD COLUMN new_column8 INT",
+            "ADD COLUMN new_column9 VARCHAR(100)",
+            "ADD new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "ADD COLUMN new_column11 VARCHAR(50) NOT NULL UNIQUE;",
+            "ADD (new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP, new_column11 VARCHAR(50) NOT NULL UNIQUE);",
+            "ADD column6 TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;",
+            "ADD new_column4 BOOLEAN DEFAULT FALSE;",
+            "ADD new_column7 UUID UNIQUE;",
         ];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
@@ -1234,7 +1234,7 @@ mod tests {
 
     #[test]
     fn test_position() {
-        let parts = vec![
+        let parts = [
             "FIRST",
             " FIRST",
             " FIRST ",
@@ -1258,7 +1258,7 @@ mod tests {
 
     #[test]
     fn test_column_definition() {
-        let parts = vec![
+        let parts = [
             "column1 VARCHAR(255)",
             "column2 INT DEFAULT 10",
             "column3 DATE NOT NULL",
@@ -1281,6 +1281,7 @@ mod tests {
             "new_column11 VARCHAR(50) NOT NULL UNIQUE",
         ];
         for i in 0..parts.len() {
+            println!("{} / {}", i + 1, parts.len());
             let res = ColumnSpecification::parse(parts[i]);
             println!("{:?}", res);
             assert!(res.is_ok())
@@ -1289,7 +1290,7 @@ mod tests {
 
     #[test]
     fn test_add_index_or_key() {
-        let parts = vec![
+        let parts = [
             "ADD INDEX index_name (column_name);",
             "ADD KEY key_name (column_name);",
             "ADD INDEX index_name (column_name) USING BTREE;",
@@ -1310,7 +1311,7 @@ mod tests {
 
     #[test]
     fn test_add_fulltext_or_spatial() {
-        let parts = vec![
+        let parts = [
             "ADD FULLTEXT INDEX ft_index_name (column_name);",
             "ADD FULLTEXT INDEX ft_index_name (column_name) KEY_BLOCK_SIZE=1024 COMMENT 'Fulltext index on column_name' WITH PARSER ngram VISIBLE;",
             "ADD SPATIAL INDEX sp_index_name (column_name);",
@@ -1326,7 +1327,7 @@ mod tests {
 
     #[test]
     fn test_index_option() {
-        let parts = vec![
+        let parts = [
             "KEY_BLOCK_SIZE=1024",
             "COMMENT 'This is an index comment'",
             "INVISIBLE",
@@ -1344,7 +1345,7 @@ mod tests {
 
     #[test]
     fn test_add_unique() {
-        let parts = vec!["ADD CONSTRAINT UNIQUE (col_19)"];
+        let parts = ["ADD CONSTRAINT UNIQUE (col_19)"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_unique(parts[i]);
@@ -1356,7 +1357,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_character_set() {
-        let parts = vec!["CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"];
+        let parts = ["CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::convert_to_character_set(parts[i]);
@@ -1368,7 +1369,7 @@ mod tests {
 
     #[test]
     fn test_add_primary_key() {
-        let parts = vec!["ADD PRIMARY KEY (new_column)"];
+        let parts = ["ADD PRIMARY KEY (new_column)"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_primary_key(parts[i]);
@@ -1380,7 +1381,7 @@ mod tests {
 
     #[test]
     fn test_add_check() {
-        let parts = vec!["ADD CONSTRAINT chk_column CHECK (new_column > 0) NOT ENFORCED;"];
+        let parts = ["ADD CONSTRAINT chk_column CHECK (new_column > 0) NOT ENFORCED;"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_check(parts[i]);
@@ -1392,7 +1393,7 @@ mod tests {
 
     #[test]
     fn test_modify_column() {
-        let parts = vec!["MODIFY COLUMN another_column VARCHAR(255) FIRST;"];
+        let parts = ["MODIFY COLUMN another_column VARCHAR(255) FIRST;"];
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::modify_column(parts[i]);

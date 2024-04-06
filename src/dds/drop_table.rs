@@ -18,7 +18,7 @@ use common::{parse_if_exists, statement_terminator, ws_sep_comma};
 /// DROP [TEMPORARY] TABLE [IF EXISTS]
 //     tbl_name [, tbl_name] ...
 //     [RESTRICT | CASCADE]
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropTableStatement {
     pub if_temporary: bool,
     pub if_exists: bool,
@@ -75,18 +75,6 @@ impl DropTableStatement {
                 if_cascade: opt_if_cascade.is_some(),
             },
         ))
-    }
-}
-
-impl Default for DropTableStatement {
-    fn default() -> Self {
-        DropTableStatement {
-            if_temporary: false,
-            if_exists: false,
-            tables: vec![],
-            if_restrict: false,
-            if_cascade: false,
-        }
     }
 }
 
@@ -305,7 +293,7 @@ mod tests {
             );
         }
 
-        let bad_sqls = vec![
+        let bad_sqls = [
             "DROPTABLE tbl_name;",
             "DROP TABLE tbl_name as alias_name;",
             "DROP TABLE tbl_name alias_name;",
@@ -316,6 +304,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
+            println!("{} / {}", i + 1, bad_sqls.len());
             assert!(DropTableStatement::parse(bad_sqls[i]).is_err())
         }
     }

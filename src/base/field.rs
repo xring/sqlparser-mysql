@@ -18,8 +18,9 @@ use common::arithmetic::ArithmeticExpression;
 use common::keywords::escape_if_keyword;
 use common::ws_sep_comma;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldDefinitionExpression {
+    #[default]
     All,
     AllInTable(String),
     Col(Column),
@@ -41,7 +42,7 @@ impl FieldDefinitionExpression {
                 map(LiteralExpression::parse, |lit| {
                     FieldDefinitionExpression::Value(FieldValueExpression::Literal(lit))
                 }),
-                map(Column::parse, |col| FieldDefinitionExpression::Col(col)),
+                map(Column::parse, FieldDefinitionExpression::Col),
             )),
             opt(ws_sep_comma),
         ))(i)
@@ -61,12 +62,6 @@ impl Display for FieldDefinitionExpression {
     }
 }
 
-impl Default for FieldDefinitionExpression {
-    fn default() -> FieldDefinitionExpression {
-        FieldDefinitionExpression::All
-    }
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum FieldValueExpression {
     Arithmetic(ArithmeticExpression),
@@ -78,7 +73,7 @@ impl FieldValueExpression {
         alt((
             map(Literal::parse, |l| {
                 FieldValueExpression::Literal(LiteralExpression {
-                    value: l.into(),
+                    value: l,
                     alias: None,
                 })
             }),

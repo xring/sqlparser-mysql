@@ -39,77 +39,45 @@ impl Parser {
         let input = input.trim();
 
         let dds_parser = alt((
-            map(AlterDatabaseStatement::parse, |parsed| {
-                Statement::AlterDatabase(parsed)
-            }),
-            map(AlterTableStatement::parse, |parsed| {
-                Statement::AlterTable(parsed)
-            }),
-            map(CreateIndexStatement::parse, |parsed| {
-                Statement::CreateIndex(parsed)
-            }),
-            map(CreateTableStatement::parse, |parsed| {
-                Statement::CreateTable(parsed)
-            }),
-            map(DropDatabaseStatement::parse, |parsed| {
-                Statement::DropDatabase(parsed)
-            }),
-            map(DropEventStatement::parse, |parsed| {
-                Statement::DropEvent(parsed)
-            }),
-            map(DropFunctionStatement::parse, |parsed| {
-                Statement::DropFunction(parsed)
-            }),
-            map(DropIndexStatement::parse, |parsed| {
-                Statement::DropIndex(parsed)
-            }),
-            map(DropLogfileGroupStatement::parse, |parsed| {
-                Statement::DropLogfileGroup(parsed)
-            }),
-            map(DropProcedureStatement::parse, |parsed| {
-                Statement::DropProcedure(parsed)
-            }),
-            map(DropServerStatement::parse, |parsed| {
-                Statement::DropServer(parsed)
-            }),
-            map(DropSpatialReferenceSystemStatement::parse, |parsed| {
-                Statement::DropSpatialReferenceSystem(parsed)
-            }),
-            map(DropTableStatement::parse, |parsed| {
-                Statement::DropTable(parsed)
-            }),
-            map(DropTablespaceStatement::parse, |parsed| {
-                Statement::DropTableSpace(parsed)
-            }),
-            map(DropTriggerStatement::parse, |parsed| {
-                Statement::DropTrigger(parsed)
-            }),
-            map(DropViewStatement::parse, |parsed| {
-                Statement::DropView(parsed)
-            }),
-            map(RenameTableStatement::parse, |parsed| {
-                Statement::RenameTable(parsed)
-            }),
-            map(TruncateTableStatement::parse, |parsed| {
-                Statement::TruncateTable(parsed)
-            }),
+            map(AlterDatabaseStatement::parse, Statement::AlterDatabase),
+            map(AlterTableStatement::parse, Statement::AlterTable),
+            map(CreateIndexStatement::parse, Statement::CreateIndex),
+            map(CreateTableStatement::parse, Statement::CreateTable),
+            map(DropDatabaseStatement::parse, Statement::DropDatabase),
+            map(DropEventStatement::parse, Statement::DropEvent),
+            map(DropFunctionStatement::parse, Statement::DropFunction),
+            map(DropIndexStatement::parse, Statement::DropIndex),
+            map(
+                DropLogfileGroupStatement::parse,
+                Statement::DropLogfileGroup,
+            ),
+            map(DropProcedureStatement::parse, Statement::DropProcedure),
+            map(DropServerStatement::parse, Statement::DropServer),
+            map(
+                DropSpatialReferenceSystemStatement::parse,
+                Statement::DropSpatialReferenceSystem,
+            ),
+            map(DropTableStatement::parse, Statement::DropTable),
+            map(DropTablespaceStatement::parse, Statement::DropTableSpace),
+            map(DropTriggerStatement::parse, Statement::DropTrigger),
+            map(DropViewStatement::parse, Statement::DropView),
+            map(RenameTableStatement::parse, Statement::RenameTable),
+            map(TruncateTableStatement::parse, Statement::TruncateTable),
         ));
 
-        let das_parser = alt((map(SetStatement::parse, |parsed| Statement::Set(parsed)),));
+        let das_parser = alt((map(SetStatement::parse, Statement::Set),));
 
         let dms_parser = alt((
-            map(SelectStatement::parse, |parsed| Statement::Select(parsed)),
-            map(CompoundSelectStatement::parse, |parsed| {
-                Statement::CompoundSelect(parsed)
-            }),
-            map(InsertStatement::parse, |parsed| Statement::Insert(parsed)),
-            map(DeleteStatement::parse, |parsed| Statement::Delete(parsed)),
-            map(UpdateStatement::parse, |parsed| Statement::Update(parsed)),
+            map(SelectStatement::parse, Statement::Select),
+            map(CompoundSelectStatement::parse, Statement::CompoundSelect),
+            map(InsertStatement::parse, Statement::Insert),
+            map(DeleteStatement::parse, Statement::Delete),
+            map(UpdateStatement::parse, Statement::Update),
         ));
 
         let mut parser = alt((dds_parser, dms_parser, das_parser));
 
-        return match parser(input) {
+        match parser(input) {
             Ok(result) => Ok(result.1),
             Err(nom::Err::Error(err)) => {
                 if config.log_with_backtrace {
@@ -125,20 +93,13 @@ impl Parser {
                 Err(err_msg)
             }
             _ => Err(String::from("failed to parse sql: other error")),
-        };
-    }
-}
-
-pub struct ParseConfig {
-    pub log_with_backtrace: bool,
-}
-
-impl Default for ParseConfig {
-    fn default() -> Self {
-        ParseConfig {
-            log_with_backtrace: false,
         }
     }
+}
+
+#[derive(Default)]
+pub struct ParseConfig {
+    pub log_with_backtrace: bool,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

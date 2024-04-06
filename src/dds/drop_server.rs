@@ -25,7 +25,7 @@ impl DropServerStatement {
                 terminated(tag_no_case("DROP"), multispace1),
                 terminated(tag_no_case("SERVER"), multispace1),
                 parse_if_exists,
-                map(sql_identifier, |server_name| String::from(server_name)),
+                map(sql_identifier, String::from),
                 multispace0,
                 statement_terminator,
             )),
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_drop_server() {
-        let sqls = vec![
+        let sqls = [
             "DROP SERVER server_name;",
             "DROP SERVER IF EXISTS server_name;",
         ];

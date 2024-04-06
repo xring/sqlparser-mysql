@@ -22,10 +22,7 @@ impl Trigger {
             tuple((opt(pair(sql_identifier, tag("."))), sql_identifier)),
             |tup| Trigger {
                 name: String::from(tup.1),
-                schema: match tup.0 {
-                    Some((schema, _)) => Some(String::from(schema)),
-                    None => None,
-                },
+                schema: tup.0.map(|(schema, _)| String::from(schema)),
             },
         )(i)
     }

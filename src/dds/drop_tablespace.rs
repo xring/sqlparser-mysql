@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_drop_tablespace_parser() {
-        let sqls = vec![
+        let sqls = [
             "DROP TABLESPACE tablespace_name;",
             "DROP UNDO TABLESPACE tablespace_name;",
             "DROP TABLESPACE tablespace_name ENGINE = demo;",

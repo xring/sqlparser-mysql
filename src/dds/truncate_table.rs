@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_parse_truncate_table() {
-        let good_sqls = vec![
+        let good_sqls = [
             "TRUNCATE table_name",
             "TRUNCATE     db_name.table_name",
             "TRUNCATE   TABLE db_name.table_name",
@@ -85,7 +85,7 @@ mod tests {
             );
         }
 
-        let bad_sqls = vec![
+        let bad_sqls = [
             "TRUNCATE table_name as abc",
             "TRUNCATE table_name abc",
             "TRUNCATE SCHEMA table_name1, table_name2;",
@@ -94,6 +94,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
+            println!("{} / {}", i + 1, bad_sqls.len());
             assert!(TruncateTableStatement::parse(bad_sqls[i]).is_err())
         }
     }

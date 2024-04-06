@@ -36,14 +36,8 @@ impl Table {
             )),
             |tup| Table {
                 name: String::from(tup.1),
-                alias: match tup.2 {
-                    Some(a) => Some(String::from(a)),
-                    None => None,
-                },
-                schema: match tup.0 {
-                    Some((schema, _)) => Some(String::from(schema)),
-                    None => None,
-                },
+                alias: tup.2.map(String::from),
+                schema: tup.0.map(|(schema, _)| String::from(schema)),
             },
         )(i)
     }
@@ -52,10 +46,7 @@ impl Table {
     pub fn table_reference(i: &str) -> IResult<&str, Table, ParseSQLError<&str>> {
         map(pair(sql_identifier, opt(as_alias)), |tup| Table {
             name: String::from(tup.0),
-            alias: match tup.1 {
-                Some(a) => Some(String::from(a)),
-                None => None,
-            },
+            alias: tup.1.map(String::from),
             schema: None,
         })(i)
     }
@@ -67,10 +58,7 @@ impl Table {
             |tup| Table {
                 name: String::from(tup.1),
                 alias: None,
-                schema: match tup.0 {
-                    Some((schema, _)) => Some(String::from(schema)),
-                    None => None,
-                },
+                schema: tup.0.map(|(schema, _)| String::from(schema)),
             },
         )(i)
     }

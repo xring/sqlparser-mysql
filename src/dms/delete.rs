@@ -109,7 +109,6 @@ mod tests {
             DeleteStatement {
                 table: Table::from("users"),
                 where_clause: expected_where_cond,
-                ..Default::default()
             }
         );
     }

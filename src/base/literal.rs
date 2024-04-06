@@ -49,11 +49,11 @@ impl Literal {
         map(tuple((opt(tag("-")), digit1, tag("."), digit1)), |tup| {
             Literal::FixedPoint(Real {
                 integral: if (tup.0).is_some() {
-                    -1 * Self::unpack(tup.1)
+                    -Self::unpack(tup.1)
                 } else {
                     Self::unpack(tup.1)
                 },
-                fractional: Self::unpack(tup.3) as i32,
+                fractional: Self::unpack(tup.3),
             })
         })(i)
     }
@@ -90,7 +90,7 @@ impl Literal {
                     map(tag("\\Z"), |_| "\x1A"),
                     preceded(tag("\\"), take(1usize)),
                 )),
-                || String::new(),
+                String::new,
                 |mut acc: String, bytes: &str| {
                     acc.push_str(bytes);
                     acc
@@ -114,7 +114,7 @@ impl Literal {
                 Self::raw_string_single_quoted,
                 Self::raw_string_double_quoted,
             )),
-            |str| Literal::String(str),
+            Literal::String,
         )(i)
     }
 
@@ -201,13 +201,12 @@ impl ToString for Literal {
             Literal::UnsignedInteger(ref i) => format!("{}", i),
             Literal::FixedPoint(ref f) => format!("{}.{}", f.integral, f.fractional),
             Literal::String(ref s) => format!("'{}'", s.replace('\'', "''")),
-            Literal::Blob(ref bv) => format!(
-                "{}",
-                bv.iter()
-                    .map(|v| format!("{:x}", v))
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            ),
+            Literal::Blob(ref bv) => bv
+                .iter()
+                .map(|v| format!("{:x}", v))
+                .collect::<Vec<String>>()
+                .join(" ")
+                .to_string(),
             Literal::CurrentTime => "CURRENT_TIME".to_string(),
             Literal::CurrentDate => "CURRENT_DATE".to_string(),
             Literal::CurrentTimestamp => "CURRENT_TIMESTAMP".to_string(),
@@ -266,9 +265,10 @@ mod tests {
     use base::Literal;
 
     #[test]
+    #[allow(clippy::redundant_slicing)]
     fn literal_string_single_backslash_escape() {
         let all_escaped = r#"\0\'\"\b\n\r\t\Z\\\%\_"#;
-        for quote in [&"'"[..], &"\""[..]].iter() {
+        for quote in ["'", "\""].iter() {
             let quoted = &[quote, &all_escaped[..], quote].concat();
             let res = Literal::string_literal(quoted);
             let expected = Literal::String("\0\'\"\x7F\n\r\t\x1a\\%_".to_string());

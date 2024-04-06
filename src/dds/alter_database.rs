@@ -37,7 +37,7 @@ impl AlterDatabaseStatement {
                 multispace0,
                 alt((tag_no_case("DATABASE"), tag_no_case("SCHEMA"))),
                 multispace1,
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace1,
                 many1(terminated(AlterDatabaseOption::parse, multispace0)),
             )),
@@ -90,7 +90,7 @@ impl AlterDatabaseOption {
                     opt(tag("=")),
                     multispace0,
                 )),
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
             )),
             |(_, _, _, charset_name, _)| AlterDatabaseOption::CharacterSet(charset_name),
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_alter_database() {
-        let sqls = vec![
+        let sqls = [
             "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE = utf8mb4_unicode_ci;",
             "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci DEFAULT ENCRYPTION = 'Y' READ ONLY = 1;",
             "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4",

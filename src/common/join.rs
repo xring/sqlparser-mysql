@@ -39,7 +39,7 @@ impl JoinRightSide {
         let nested_join = map(delimited(tag("("), JoinClause::parse, tag(")")), |nj| {
             JoinRightSide::NestedJoin(Box::new(nj))
         });
-        let table = map(Table::table_reference, |t| JoinRightSide::Table(t));
+        let table = map(Table::table_reference, JoinRightSide::Table);
         let tables = map(delimited(tag("("), Table::table_list, tag(")")), |tables| {
             JoinRightSide::Tables(tables)
         });

@@ -40,15 +40,16 @@ impl IndexOption {
     /// }
     pub fn parse(i: &str) -> IResult<&str, IndexOption, ParseSQLError<&str>> {
         alt((
-            map(Self::key_block_size, |x| IndexOption::KeyBlockSize(x)),
-            map(IndexType::parse, |x| IndexOption::IndexType(x)),
-            map(Self::with_parser, |x| IndexOption::WithParser(x)),
-            map(parse_comment, |x| IndexOption::Comment(x)),
-            map(VisibleType::parse, |x| IndexOption::VisibleType(x)),
-            map(Self::engine_attribute, |x| IndexOption::EngineAttribute(x)),
-            map(Self::secondary_engine_attribute, |x| {
-                IndexOption::SecondaryEngineAttribute(x)
-            }),
+            map(Self::key_block_size, IndexOption::KeyBlockSize),
+            map(IndexType::parse, IndexOption::IndexType),
+            map(Self::with_parser, IndexOption::WithParser),
+            map(parse_comment, IndexOption::Comment),
+            map(VisibleType::parse, IndexOption::VisibleType),
+            map(Self::engine_attribute, IndexOption::EngineAttribute),
+            map(
+                Self::secondary_engine_attribute,
+                IndexOption::SecondaryEngineAttribute,
+            ),
         ))(i)
     }
 

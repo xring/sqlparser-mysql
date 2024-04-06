@@ -25,7 +25,7 @@ impl DropEventStatement {
                 terminated(tag_no_case("DROP"), multispace1),
                 terminated(tag_no_case("EVENT"), multispace1),
                 parse_if_exists,
-                map(sql_identifier, |event_name| String::from(event_name)),
+                map(sql_identifier, String::from),
                 multispace0,
                 statement_terminator,
             )),
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_drop_event() {
-        let sqls = vec!["DROP EVENT event_name;", "DROP EVENT IF EXISTS event_name;"];
+        let sqls = ["DROP EVENT event_name;", "DROP EVENT IF EXISTS event_name;"];
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());
             let res = DropEventStatement::parse(sqls[i]);

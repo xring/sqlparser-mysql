@@ -25,7 +25,7 @@ impl DropProcedureStatement {
                 terminated(tag_no_case("DROP"), multispace1),
                 terminated(tag_no_case("PROCEDURE"), multispace1),
                 parse_if_exists,
-                map(sql_identifier, |sp_name| String::from(sp_name)),
+                map(sql_identifier, String::from),
                 multispace0,
                 statement_terminator,
             )),
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_drop_procedure() {
-        let sqls = vec![
+        let sqls = [
             "DROP PROCEDURE sp_name;",
             "DROP PROCEDURE IF EXISTS sp_name;",
         ];

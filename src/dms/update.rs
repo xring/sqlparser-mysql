@@ -49,13 +49,13 @@ impl UpdateStatement {
 impl fmt::Display for UpdateStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "UPDATE {} ", escape_if_keyword(&self.table.name))?;
-        assert!(self.fields.len() > 0);
+        assert!(!self.fields.is_empty());
         write!(
             f,
             "SET {}",
             self.fields
                 .iter()
-                .map(|&(ref col, ref literal)| format!("{} = {}", col, literal.to_string()))
+                .map(|(col, literal)| format!("{} = {}", col, literal))
                 .collect::<Vec<_>>()
                 .join(", ")
         )?;
@@ -131,7 +131,6 @@ mod tests {
                     ),
                 ],
                 where_clause: expected_where_cond,
-                ..Default::default()
             }
         );
     }
@@ -171,7 +170,6 @@ mod tests {
                     ),)),
                 ),],
                 where_clause: expected_where_cond,
-                ..Default::default()
             }
         );
     }
@@ -203,7 +201,6 @@ mod tests {
                     FieldValueExpression::Arithmetic(expected_ae),
                 ),],
                 where_clause: expected_where_cond,
-                ..Default::default()
             }
         );
     }

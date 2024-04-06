@@ -16,7 +16,7 @@ use common::{parse_if_exists, sql_identifier, statement_terminator, ws_sep_comma
 /// DROP VIEW [IF EXISTS]
 ///     view_name [, view_name] ...
 ///     [RESTRICT | CASCADE]
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropViewStatement {
     pub if_exists: bool,
     /// A name of a table, view, custom type, etc., possibly multipart, i.e. db.schema.obj
@@ -60,17 +60,6 @@ impl DropViewStatement {
     }
 }
 
-impl Default for DropViewStatement {
-    fn default() -> Self {
-        DropViewStatement {
-            if_exists: false,
-            views: vec![],
-            if_restrict: false,
-            if_cascade: false,
-        }
-    }
-}
-
 impl fmt::Display for DropViewStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP VIEW")?;
@@ -97,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_drop_view() {
-        let sqls = vec![
+        let sqls = [
             "DROP VIEW view_name;",
             "DROP VIEW IF EXISTS view_name;",
             "DROP VIEW view_name CASCADE;",

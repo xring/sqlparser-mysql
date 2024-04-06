@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_parse_drop_table() {
-        let good_sqls = vec![
+        let good_sqls = [
             "RENAME TABLE tbl_name1 TO tbl_name2;",
             "RENAME TABLE db1.tbl_name1 TO db2.tbl_name2;",
             "RENAME TABLE tbl_name1 TO tbl_name2, tbl_name3 TO tbl_name4;",
@@ -168,7 +168,7 @@ mod tests {
             ),
         ];
 
-        let good_statements = vec![
+        let good_statements = [
             RenameTableStatement {
                 tables: one_table.clone(),
             },
@@ -246,7 +246,7 @@ mod tests {
             );
         }
 
-        let bad_sqls = vec![
+        let bad_sqls = [
             "RENAME  TABLE tbl_name;",
             "RENAME TABLE tbl_name tp;",
             "RENAME tbl_name to alias_name;",
@@ -257,6 +257,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
+            println!("{} / {}", i + 1, bad_sqls.len());
             assert!(RenameTableStatement::parse(bad_sqls[i]).is_err())
         }
     }

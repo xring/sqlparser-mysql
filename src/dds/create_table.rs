@@ -588,7 +588,7 @@ impl CreateDefinition {
                 tag_no_case("CONSTRAINT"),
                 opt(preceded(multispace1, sql_identifier)),
             )),
-            |(x)| x.and_then(|inner| inner.map(|value| String::from(value))),
+            |(x)| x.and_then(|inner| inner.map(String::from)),
         )(i)
     }
 }

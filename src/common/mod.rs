@@ -392,10 +392,11 @@ impl fmt::Display for IndexType {
 pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
     opt(map(
         delimited(multispace1, sql_identifier, multispace0),
-        |(x)| String::from(x),
+        String::from,
     ))(i)
 }
 
+#[allow(clippy::type_complexity)]
 pub fn index_col_name(
     i: &str,
 ) -> IResult<&str, (Column, Option<u16>, Option<OrderType>), ParseSQLError<&str>> {
@@ -526,14 +527,14 @@ pub fn parse_comment(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
                 delimited(multispace0, tag_no_case("COMMENT"), multispace1),
                 delimited(tag("'"), take_until("'"), tag("'")),
             ),
-            |comment| String::from(comment),
+            String::from,
         ),
         map(
             preceded(
                 delimited(multispace0, tag_no_case("COMMENT"), multispace1),
                 delimited(tag("\""), take_until("\""), tag("\"")),
             ),
-            |comment| String::from(comment),
+            String::from,
         ),
     ))(i)
 }

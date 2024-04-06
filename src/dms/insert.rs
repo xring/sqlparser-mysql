@@ -108,7 +108,7 @@ impl fmt::Display for InsertStatement {
                 " ({})",
                 fields
                     .iter()
-                    .map(|ref col| col.name.to_owned())
+                    .map(|col| col.name.to_owned())
                     .collect::<Vec<_>>()
                     .join(", ")
             )?;
@@ -120,7 +120,7 @@ impl fmt::Display for InsertStatement {
                 .iter()
                 .map(|data| format!(
                     "({})",
-                    data.into_iter()
+                    data.iter()
                         .map(|l| l.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")

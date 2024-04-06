@@ -48,7 +48,7 @@ impl ReferenceDefinition {
             tuple((
                 tuple((multispace0, tag_no_case("REFERENCES"), multispace1)),
                 // tbl_name
-                map(sql_identifier, |x| String::from(x)),
+                map(sql_identifier, String::from),
                 multispace0,
                 KeyPart::key_part_list, // (key_part,...)
                 multispace0,

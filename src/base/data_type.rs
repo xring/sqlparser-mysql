@@ -110,7 +110,7 @@ impl DataType {
             map(preceded(tag_no_case("datetime"), opt(delim_digit)), |fsp| {
                 DataType::DateTime(match fsp {
                     Some(fsp) => Self::len_as_u16(fsp),
-                    None => 0 as u16,
+                    None => 0,
                 })
             }),
             map(tag_no_case("date"), |_| DataType::Date),
@@ -126,7 +126,7 @@ impl DataType {
                     ),
                     multispace0,
                 ),
-                |v| DataType::Enum(v),
+                DataType::Enum,
             ),
             map(
                 tuple((
@@ -197,18 +197,18 @@ impl DataType {
                 if sign.eq_ignore_ascii_case("unsigned") {
                     Ok((
                         remaining_input,
-                        DataType::UnsignedTinyint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                        DataType::UnsignedTinyint(len.map(Self::len_as_u16).unwrap_or(1)),
                     ))
                 } else {
                     Ok((
                         remaining_input,
-                        DataType::Tinyint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                        DataType::Tinyint(len.map(Self::len_as_u16).unwrap_or(1)),
                     ))
                 }
             }
             None => Ok((
                 remaining_input,
-                DataType::Tinyint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                DataType::Tinyint(len.map(Self::len_as_u16).unwrap_or(1)),
             )),
         }
     }
@@ -229,18 +229,18 @@ impl DataType {
                 if sign.eq_ignore_ascii_case("unsigned") {
                     Ok((
                         remaining_input,
-                        DataType::UnsignedBigint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                        DataType::UnsignedBigint(len.map(Self::len_as_u16).unwrap_or(1)),
                     ))
                 } else {
                     Ok((
                         remaining_input,
-                        DataType::Bigint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                        DataType::Bigint(len.map(Self::len_as_u16).unwrap_or(1)),
                     ))
                 }
             }
             None => Ok((
                 remaining_input,
-                DataType::Bigint(len.map(|l| Self::len_as_u16(l)).unwrap_or(1)),
+                DataType::Bigint(len.map(Self::len_as_u16).unwrap_or(1)),
             )),
         }
     }
@@ -265,18 +265,18 @@ impl DataType {
                 if sign.eq_ignore_ascii_case("unsigned") {
                     Ok((
                         remaining_input,
-                        DataType::UnsignedInt(len.map(|l| Self::len_as_u16(l)).unwrap_or(32)),
+                        DataType::UnsignedInt(len.map(Self::len_as_u16).unwrap_or(32)),
                     ))
                 } else {
                     Ok((
                         remaining_input,
-                        DataType::Int(len.map(|l| Self::len_as_u16(l)).unwrap_or(32)),
+                        DataType::Int(len.map(Self::len_as_u16).unwrap_or(32)),
                     ))
                 }
             }
             None => Ok((
                 remaining_input,
-                DataType::Int(len.map(|l| Self::len_as_u16(l)).unwrap_or(32)),
+                DataType::Int(len.map(Self::len_as_u16).unwrap_or(32)),
             )),
         }
     }
@@ -334,6 +334,6 @@ mod tests {
             vec![DataType::Bool, DataType::Int(16), DataType::DateTime(16)]
         );
 
-        assert!(res_not_ok.into_iter().all(|r| r == false));
+        assert!(res_not_ok.into_iter().all(|r| !r));
     }
 }

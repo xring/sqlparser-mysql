@@ -31,7 +31,7 @@ impl DropLogfileGroupStatement {
             multispace0,
             tag_no_case("GROUP"),
             multispace0,
-            map(sql_identifier, |logfile_group| String::from(logfile_group)),
+            map(sql_identifier, String::from),
             multispace0,
             map(
                 tuple((
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_drop_logfile_group_parser() {
-        let sqls = vec!["DROP LOGFILE GROUP logfile_group ENGINE = demo;"];
+        let sqls = ["DROP LOGFILE GROUP logfile_group ENGINE = demo;"];
 
         for i in 0..sqls.len() {
             println!("{}/{}", i + 1, sqls.len());

@@ -41,7 +41,7 @@ impl CaseWhenExpression {
             ))(i)?;
 
         let then_expr = ColumnOrLiteral::Column(column);
-        let else_expr = else_val.map(|v| ColumnOrLiteral::Literal(v));
+        let else_expr = else_val.map(ColumnOrLiteral::Literal);
 
         Ok((
             remaining_input,

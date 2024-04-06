@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn test_drop_index() {
-        let sqls = vec![
+        let sqls = [
             "drop index agent_id_index on stat_agent_organ_201912;",
             "drop index agent_id_index on stat_agent_organ_201912 ALGORITHM = COPY;",
             "DROP INDEX IX_brand_id ON esta_developer_brand LOCK = default;",

@@ -145,7 +145,7 @@ impl Display for FunctionArguments {
     }
 }
 
-impl<'a> From<Vec<FunctionArgument>> for FunctionArguments {
+impl From<Vec<FunctionArgument>> for FunctionArguments {
     fn from(args: Vec<FunctionArgument>) -> FunctionArguments {
         FunctionArguments { arguments: args }
     }
@@ -164,7 +164,7 @@ impl FunctionArgument {
             map(CaseWhenExpression::parse, |cw| {
                 FunctionArgument::Conditional(cw)
             }),
-            map(Column::without_alias, |c| FunctionArgument::Column(c)),
+            map(Column::without_alias, FunctionArgument::Column),
         ))(i)
     }
 
@@ -229,10 +229,7 @@ impl Column {
             map(table_parser, |tup| Column {
                 name: tup.1.to_string(),
                 alias: None,
-                table: match tup.0 {
-                    None => None,
-                    Some(t) => Some(t.to_string()),
-                },
+                table: tup.0.map(|t| t.to_string()),
                 function: None,
             }),
         ))(i)
@@ -246,10 +243,7 @@ impl Column {
                     None => format!("{}", tup.0),
                     Some(a) => String::from(a),
                 },
-                alias: match tup.1 {
-                    None => None,
-                    Some(a) => Some(String::from(a)),
-                },
+                alias: tup.1.map(String::from),
                 table: None,
                 function: Some(Box::new(tup.0)),
             }
@@ -262,14 +256,8 @@ impl Column {
             )),
             |tup| Column {
                 name: tup.1.to_string(),
-                alias: match tup.2 {
-                    None => None,
-                    Some(a) => Some(String::from(a)),
-                },
-                table: match tup.0 {
-                    None => None,
-                    Some(t) => Some(t.to_string()),
-                },
+                alias: tup.2.map(String::from),
+                table: tup.0.map(|t| t.to_string()),
                 function: None,
             },
         );
@@ -300,7 +288,7 @@ impl fmt::Display for Column {
 
 impl From<String> for Column {
     fn from(value: String) -> Self {
-        match value.find(".") {
+        match value.find('.') {
             None => Column {
                 name: value,
                 alias: None,
@@ -319,7 +307,7 @@ impl From<String> for Column {
 
 impl<'a> From<&'a str> for Column {
     fn from(c: &str) -> Column {
-        match c.find(".") {
+        match c.find('.') {
             None => Column {
                 name: String::from(c),
                 alias: None,
@@ -349,6 +337,7 @@ impl Ord for Column {
     }
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for Column {
     fn partial_cmp(&self, other: &Column) -> Option<Ordering> {
         if self.table.is_some() && other.table.is_some() {
@@ -473,9 +462,9 @@ impl ColumnConstraint {
                     })
                 }),
                 map(tuple((opt(tag("-")), digit1)), |d: (Option<&str>, &str)| {
-                    let d_i64 = d.1.parse().unwrap();
+                    let d_i64: i64 = d.1.parse().unwrap();
                     if d.0.is_some() {
-                        Literal::Integer(-1 * d_i64)
+                        Literal::Integer(-d_i64)
                     } else {
                         Literal::Integer(d_i64)
                     }
@@ -547,7 +536,7 @@ impl Display for ColumnPosition {
             ColumnPosition::After(column) => {
                 let column_name = match &column.table {
                     Some(table) => format!("{}.{}", table, &column.name),
-                    None => format!("{}", &column.name),
+                    None => column.name.to_string(),
                 };
                 Ok(write!(f, "AFTER {column_name}")?)
             }
@@ -594,7 +583,7 @@ impl ColumnSpecification {
                     ColumnSpecification {
                         column,
                         sql_type,
-                        constraints: constraints.into_iter().filter_map(|m| m).collect(),
+                        constraints: constraints.into_iter().flatten().collect(),
                         comment,
                         position,
                     },

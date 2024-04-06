@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_parse_drop_database() {
-        let good_sqls = vec![
+        let good_sqls = [
             "DROP DATABASE db_name",
             "DROP SCHEMA db_name;",
             "DROP DATABASE IF EXISTS db_name;",
@@ -95,7 +95,7 @@ mod tests {
 
         let database_name = String::from("db_name");
 
-        let good_statements = vec![
+        let good_statements = [
             DropDatabaseStatement {
                 if_exists: false,
                 name: database_name.clone(),
@@ -129,7 +129,7 @@ mod tests {
             );
         }
 
-        let bad_sqls = vec![
+        let bad_sqls = [
             "DROP DATABASE db_name_1, db_name2",
             "DROP SCHEMA db_name_1, db_name2;",
             "DROP DATABASE IF NOT EXISTS db_name;",
@@ -141,6 +141,7 @@ mod tests {
         ];
 
         for i in 0..bad_sqls.len() {
+            println!("{} / {}", i + 1, bad_sqls.len());
             assert!(DropDatabaseStatement::parse(bad_sqls[i]).is_err())
         }
     }
