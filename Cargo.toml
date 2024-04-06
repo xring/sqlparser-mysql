@@ -9,7 +9,7 @@ repository = "https://github.com/xring/sqlparser-mysql.git"
 
 description = "A SQL parser for MySQL with nom."
 
-license = "Apache-2.0"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 serde = "1"
