@@ -21,29 +21,43 @@ use common::{
 use common::{sql_identifier, statement_terminator, ws_sep_comma, KeyPart};
 use dms::select::SelectStatement;
 
+/// **CreateTableStatement**
+/// [MySQL Doc](https://dev.mysql.com/doc/refman/8.0/en/create-table.html)
+///
+/// - Simple Create:
+/// ```sql
+/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+///     (create_definition,...)
+///     [table_options]
+///     [partition_options]
+///```
+/// - Create as Select:
+/// ```sql
+/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+///     [(create_definition,...)]
+///     [table_options]
+///     [partition_options]
+///     [IGNORE | REPLACE]
+///     [AS] query_expression
+///```
+/// - Create Like:
+/// ```sql
+/// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
+/// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
-    pub table: Table,
+    /// `[TEMPORARY]` part
     pub temporary: bool,
+    /// `[IF NOT EXISTS]` part
     pub if_not_exists: bool,
+    /// `tbl_name` part
+    pub table: Table,
+    /// simple definition | as select definition | like other table definition
     pub create_type: CreateTableType,
 }
 
 impl CreateTableStatement {
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     (create_definition,...)
-    ///     \[table_options]
-    ///     \[partition_options]
-    ///
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     \[(create_definition,...)]
-    ///     \[table_options]
-    ///     \[partition_options]
-    ///     \[IGNORE | REPLACE]
-    ///     \[AS] query_expression
-    ///
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
     pub fn parse(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         alt((
             CreateTableType::create_simple,
@@ -70,24 +84,39 @@ pub enum IgnoreOrReplaceType {
     Replace,
 }
 
+impl IgnoreOrReplaceType {
+    fn parse(i: &str) -> IResult<&str, IgnoreOrReplaceType, ParseSQLError<&str>> {
+        alt((
+            map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
+            map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
+        ))(i)
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CreateTableType {
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
+    /// Simple Create
+    /// ```sql
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
     ///     (create_definition,...)
-    ///     \[table_options]
-    ///     \[partition_options]
+    ///     [table_options]
+    ///     [partition_options]
+    /// ```
     Simple {
         create_definition: Vec<CreateDefinition>, // (create_definition,...)
         table_options: Option<Vec<TableOption>>,  // [table_options]
         partition_options: Option<CreatePartitionOption>, // [partition_options]
     },
 
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     \[(create_definition,...)]
-    ///     \[table_options]
-    ///     \[partition_options]
-    ///     \[IGNORE | REPLACE]
-    ///     \[AS] query_expression
+    /// Select Create
+    /// ```sql
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    ///     [(create_definition,...)]
+    ///     [table_options]
+    ///     [partition_options]
+    ///     [IGNORE | REPLACE]
+    ///     [AS] query_expression
+    /// ```
     AsQuery {
         create_definition: Option<Vec<CreateDefinition>>, // (create_definition,...)
         table_options: Option<Vec<TableOption>>,          // [table_options]
@@ -96,16 +125,16 @@ pub enum CreateTableType {
         query_expression: SelectStatement,                // [AS] query_expression
     },
 
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
+    /// Like Create
+    /// ```sql
+    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
+    /// ```
     LikeOldTable { table: Table },
 }
 
 impl CreateTableType {
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     (create_definition,...)
-    ///     \[table_options]
-    ///     \[partition_options]
+    /// parse [CreateTableType::Simple]
     fn create_simple(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -140,12 +169,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     \[(create_definition,...)]
-    ///     \[table_options]
-    ///     \[partition_options]
-    ///     \[IGNORE | REPLACE]
-    ///     \[AS] query_expression
+    /// parse [CreateTableType::AsQuery]
     fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -160,10 +184,7 @@ impl CreateTableType {
                 // [partition_options]
                 opt(CreatePartitionOption::parse),
                 multispace0,
-                opt(alt((
-                    map(tag_no_case("IGNORE"), |_| IgnoreOrReplaceType::Ignore),
-                    map(tag_no_case("REPLACE"), |_| IgnoreOrReplaceType::Replace),
-                ))),
+                opt(IgnoreOrReplaceType::parse),
                 multispace0,
                 opt(tag_no_case("AS")),
                 multispace0,
@@ -190,8 +211,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
-    ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
+    /// parse [CreateTableType::LikeOldTable]
     fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -231,6 +251,7 @@ impl CreateTableType {
         )(i)
     }
 
+    /// parse `[table_options]` part
     fn create_table_options(i: &str) -> IResult<&str, Vec<TableOption>, ParseSQLError<&str>> {
         map(
             many1(terminated(TableOption::parse, opt(ws_sep_comma))),
@@ -238,7 +259,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE \[TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// parse `CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name` part:
     fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table), ParseSQLError<&str>> {
         map(
             tuple((
@@ -256,7 +277,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// \[IF NOT EXISTS]
+    /// parse `[IF NOT EXISTS]` part
     fn if_not_exists(i: &str) -> IResult<&str, bool, ParseSQLError<&str>> {
         map(
             opt(tuple((

@@ -12,10 +12,14 @@ use base::error::ParseSQLError;
 use common::keywords::escape_if_keyword;
 use common::{as_alias, sql_identifier, ws_sep_comma};
 
+/// **Table Definition**
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Table {
+    /// Table name
     pub name: String,
+    /// Optional table name alias
     pub alias: Option<String>,
+    /// Optional schema/database name
     pub schema: Option<String>,
 }
 
