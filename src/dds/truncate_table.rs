@@ -12,14 +12,14 @@ use base::error::ParseSQLError;
 use base::table::Table;
 use common::statement_terminator;
 
-/// TRUNCATE [TABLE] tbl_name
+/// TRUNCATE \[TABLE] tbl_name
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct TruncateTableStatement {
     pub table: Table,
 }
 
 impl TruncateTableStatement {
-    /// TRUNCATE [TABLE] tbl_name
+    /// TRUNCATE \[TABLE] tbl_name
     pub fn parse(i: &str) -> IResult<&str, TruncateTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("TRUNCATE "),

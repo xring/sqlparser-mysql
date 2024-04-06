@@ -13,33 +13,33 @@ use common::{
 };
 
 /// table_option: {
-///     AUTOEXTEND_SIZE [=] value
-///   | AUTO_INCREMENT [=] value
-///   | AVG_ROW_LENGTH [=] value
-///   | [DEFAULT] CHARACTER SET [=] charset_name
-///   | CHECKSUM [=] {0 | 1}
-///   | [DEFAULT] COLLATE [=] collation_name
-///   | COMMENT [=] 'string'
-///   | COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
-///   | CONNECTION [=] 'connect_string'
-///   | {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-///   | DELAY_KEY_WRITE [=] {0 | 1}
-///   | ENCRYPTION [=] {'Y' | 'N'}
-///   | ENGINE [=] engine_name
-///   | ENGINE_ATTRIBUTE [=] 'string'
-///   | INSERT_METHOD [=] { NO | FIRST | LAST }
-///   | KEY_BLOCK_SIZE [=] value
-///   | MAX_ROWS [=] value
-///   | MIN_ROWS [=] value
-///   | PACK_KEYS [=] {0 | 1 | DEFAULT}
-///  | PASSWORD [=] 'string'
-///   | ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
-///   | STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
-///   | STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
-///   | STATS_SAMPLE_PAGES [=] value
-///   | TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
-///   | UNION [=] (tbl_name[,tbl_name]...)
+///     AUTOEXTEND_SIZE \[=] value
+///   | AUTO_INCREMENT \[=] value
+///   | AVG_ROW_LENGTH \[=] value
+///   | \[DEFAULT] CHARACTER SET \[=] charset_name
+///   | CHECKSUM \[=] {0 | 1}
+///   | \[DEFAULT] COLLATE \[=] collation_name
+///   | COMMENT \[=] 'string'
+///   | COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
+///   | CONNECTION \[=] 'connect_string'
+///   | {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
+///   | DELAY_KEY_WRITE \[=] {0 | 1}
+///   | ENCRYPTION \[=] {'Y' | 'N'}
+///   | ENGINE \[=] engine_name
+///   | ENGINE_ATTRIBUTE \[=] 'string'
+///   | INSERT_METHOD \[=] { NO | FIRST | LAST }
+///   | KEY_BLOCK_SIZE \[=] value
+///   | MAX_ROWS \[=] value
+///   | MIN_ROWS \[=] value
+///   | PACK_KEYS \[=] {0 | 1 | DEFAULT}
+///  | PASSWORD \[=] 'string'
+///   | ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+///   | SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
+///   | STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
+///   | STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
+///   | STATS_SAMPLE_PAGES \[=] value
+///   | TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
+///   | UNION \[=] (tbl_name\[,tbl_name]...)
 ///  }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum TableOption {
@@ -77,33 +77,33 @@ pub enum TableOption {
 
 impl TableOption {
     /// table_option: {
-    ///     AUTOEXTEND_SIZE [=] value
-    ///   | AUTO_INCREMENT [=] value
-    ///   | AVG_ROW_LENGTH [=] value
-    ///   | [DEFAULT] CHARACTER SET [=] charset_name
-    ///   | CHECKSUM [=] {0 | 1}
-    ///   | [DEFAULT] COLLATE [=] collation_name
-    ///   | COMMENT [=] 'string'
-    ///   | COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
-    ///   | CONNECTION [=] 'connect_string'
-    ///   | {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
-    ///   | DELAY_KEY_WRITE [=] {0 | 1}
-    ///   | ENCRYPTION [=] {'Y' | 'N'}
-    ///   | ENGINE [=] engine_name
-    ///   | ENGINE_ATTRIBUTE [=] 'string'
-    ///   | INSERT_METHOD [=] { NO | FIRST | LAST }
-    ///   | KEY_BLOCK_SIZE [=] value
-    ///   | MAX_ROWS [=] value
-    ///   | MIN_ROWS [=] value
-    ///   | PACK_KEYS [=] {0 | 1 | DEFAULT}
-    ///  | PASSWORD [=] 'string'
-    ///   | ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-    ///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
-    ///   | STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
-    ///   | STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
-    ///   | STATS_SAMPLE_PAGES [=] value
-    ///   | TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
-    ///   | UNION [=] (tbl_name[,tbl_name]...)
+    ///     AUTOEXTEND_SIZE \[=] value
+    ///   | AUTO_INCREMENT \[=] value
+    ///   | AVG_ROW_LENGTH \[=] value
+    ///   | \[DEFAULT] CHARACTER SET \[=] charset_name
+    ///   | CHECKSUM \[=] {0 | 1}
+    ///   | \[DEFAULT] COLLATE \[=] collation_name
+    ///   | COMMENT \[=] 'string'
+    ///   | COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
+    ///   | CONNECTION \[=] 'connect_string'
+    ///   | {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
+    ///   | DELAY_KEY_WRITE \[=] {0 | 1}
+    ///   | ENCRYPTION \[=] {'Y' | 'N'}
+    ///   | ENGINE \[=] engine_name
+    ///   | ENGINE_ATTRIBUTE \[=] 'string'
+    ///   | INSERT_METHOD \[=] { NO | FIRST | LAST }
+    ///   | KEY_BLOCK_SIZE \[=] value
+    ///   | MAX_ROWS \[=] value
+    ///   | MIN_ROWS \[=] value
+    ///   | PACK_KEYS \[=] {0 | 1 | DEFAULT}
+    ///  | PASSWORD \[=] 'string'
+    ///   | ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+    ///   | SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
+    ///   | STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
+    ///   | STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
+    ///   | STATS_SAMPLE_PAGES \[=] value
+    ///   | TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
+    ///   | UNION \[=] (tbl_name\[,tbl_name]...)
     ///  }
     pub fn parse(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((Self::table_option_part_1, Self::table_option_part_2))(i)
@@ -148,7 +148,7 @@ impl TableOption {
         ))(i)
     }
 
-    /// AUTOEXTEND_SIZE [=] value
+    /// AUTOEXTEND_SIZE \[=] value
     fn autoextend_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -165,7 +165,7 @@ impl TableOption {
         )(i)
     }
 
-    /// AUTO_INCREMENT [=] value
+    /// AUTO_INCREMENT \[=] value
     fn auto_increment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -182,7 +182,7 @@ impl TableOption {
         )(i)
     }
 
-    /// AVG_ROW_LENGTH [=] value
+    /// AVG_ROW_LENGTH \[=] value
     fn avg_row_length(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -199,7 +199,7 @@ impl TableOption {
         )(i)
     }
 
-    /// [DEFAULT] CHARACTER SET [=] charset_name
+    /// \[DEFAULT] CHARACTER SET \[=] charset_name
     fn default_character_set(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -220,7 +220,7 @@ impl TableOption {
         )(i)
     }
 
-    /// [DEFAULT] CHARSET [=] charset_name
+    /// \[DEFAULT] CHARSET \[=] charset_name
     fn default_charset(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -239,7 +239,7 @@ impl TableOption {
         )(i)
     }
 
-    /// CHECKSUM [=] {0 | 1}
+    /// CHECKSUM \[=] {0 | 1}
     fn checksum(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -254,7 +254,7 @@ impl TableOption {
         )(i)
     }
 
-    /// [DEFAULT] COLLATE [=] collation_name
+    /// \[DEFAULT] COLLATE \[=] collation_name
     fn default_collate(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -277,7 +277,7 @@ impl TableOption {
         )(i)
     }
 
-    /// COMMENT [=] 'string'
+    /// COMMENT \[=] 'string'
     fn comment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -294,7 +294,7 @@ impl TableOption {
         )(i)
     }
 
-    /// COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
+    /// COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
     fn compression(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -309,7 +309,7 @@ impl TableOption {
         )(i)
     }
 
-    /// CONNECTION [=] 'connect_string'
+    /// CONNECTION \[=] 'connect_string'
     fn connection(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -326,7 +326,7 @@ impl TableOption {
         )(i)
     }
 
-    /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
+    /// {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
     fn data_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -345,7 +345,7 @@ impl TableOption {
         )(i)
     }
 
-    /// {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
+    /// {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
     fn index_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -364,7 +364,7 @@ impl TableOption {
         )(i)
     }
 
-    /// DELAY_KEY_WRITE [=] {0 | 1}
+    /// DELAY_KEY_WRITE \[=] {0 | 1}
     fn delay_key_write(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -379,7 +379,7 @@ impl TableOption {
         )(i)
     }
 
-    /// ENCRYPTION [=] {'Y' | 'N'}
+    /// ENCRYPTION \[=] {'Y' | 'N'}
     fn encryption(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -394,7 +394,7 @@ impl TableOption {
         )(i)
     }
 
-    /// ENGINE [=] engine_name
+    /// ENGINE \[=] engine_name
     fn engine(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -409,7 +409,7 @@ impl TableOption {
         )(i)
     }
 
-    /// ENGINE_ATTRIBUTE [=] 'string'
+    /// ENGINE_ATTRIBUTE \[=] 'string'
     fn engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -426,7 +426,7 @@ impl TableOption {
         )(i)
     }
 
-    /// INSERT_METHOD [=] { NO | FIRST | LAST }
+    /// INSERT_METHOD \[=] { NO | FIRST | LAST }
     fn insert_method(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -441,7 +441,7 @@ impl TableOption {
         )(i)
     }
 
-    /// KEY_BLOCK_SIZE [=] value
+    /// KEY_BLOCK_SIZE \[=] value
     fn key_block_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -458,7 +458,7 @@ impl TableOption {
         )(i)
     }
 
-    /// MAX_ROWS [=] value
+    /// MAX_ROWS \[=] value
     fn max_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -475,7 +475,7 @@ impl TableOption {
         )(i)
     }
 
-    /// MIN_ROWS [=] value
+    /// MIN_ROWS \[=] value
     fn min_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -492,7 +492,7 @@ impl TableOption {
         )(i)
     }
 
-    /// PACK_KEYS [=] {0 | 1 | DEFAULT}
+    /// PACK_KEYS \[=] {0 | 1 | DEFAULT}
     fn pack_keys(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -507,7 +507,7 @@ impl TableOption {
         )(i)
     }
 
-    /// PASSWORD [=] 'string'
+    /// PASSWORD \[=] 'string'
     fn password(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -524,7 +524,7 @@ impl TableOption {
         )(i)
     }
 
-    /// ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+    /// ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
     fn row_format(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -552,7 +552,7 @@ impl TableOption {
         )(i)
     }
 
-    /// SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
+    /// SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
     fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -569,7 +569,7 @@ impl TableOption {
         )(i)
     }
 
-    /// STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
+    /// STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
     fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -584,7 +584,7 @@ impl TableOption {
         )(i)
     }
 
-    /// STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
+    /// STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
     fn stats_persistent(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -599,7 +599,7 @@ impl TableOption {
         )(i)
     }
 
-    /// STATS_SAMPLE_PAGES [=] value
+    /// STATS_SAMPLE_PAGES \[=] value
     fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -616,7 +616,7 @@ impl TableOption {
         )(i)
     }
 
-    /// TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
+    /// TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
     fn tablespace(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -636,7 +636,7 @@ impl TableOption {
         )(i)
     }
 
-    /// UNION [=] (tbl_name[,tbl_name]...)
+    /// UNION \[=] (tbl_name\[,tbl_name]...)
     fn union(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((

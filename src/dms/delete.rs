@@ -13,7 +13,7 @@ use common::keywords::escape_if_keyword;
 use common::statement_terminator;
 
 // FIXME TODO
-/// DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM tbl_name [[AS] tbl_alias]
+/// DELETE \[LOW_PRIORITY] \[QUICK] \[IGNORE] FROM tbl_name \[\[AS] tbl_alias]
 ///     [PARTITION (partition_name [, partition_name] ...)]
 ///     [WHERE where_condition]
 ///     [ORDER BY ...]

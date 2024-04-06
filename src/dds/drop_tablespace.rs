@@ -12,8 +12,8 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use common::{sql_identifier, statement_terminator};
 
-/// DROP [UNDO] TABLESPACE tablespace_name
-///     [ENGINE [=] engine_name]
+/// DROP \[UNDO] TABLESPACE tablespace_name
+///     \[ENGINE \[=] engine_name]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropTablespaceStatement {
     pub undo: bool,
@@ -22,7 +22,7 @@ pub struct DropTablespaceStatement {
 }
 
 impl DropTablespaceStatement {
-    /// DROP [UNDO] TABLESPACE tablespace_name
+    /// DROP \[UNDO] TABLESPACE tablespace_name
     ///     [ENGINE [=] engine_name]
     pub fn parse(i: &str) -> IResult<&str, DropTablespaceStatement, ParseSQLError<&str>> {
         let mut parser = tuple((

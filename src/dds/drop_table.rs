@@ -14,10 +14,10 @@ use base::error::ParseSQLError;
 use base::table::Table;
 use common::{parse_if_exists, statement_terminator, ws_sep_comma};
 
-/// https://dev.mysql.com/doc/refman/8.0/en/drop-table.html
-/// DROP [TEMPORARY] TABLE [IF EXISTS]
-//     tbl_name [, tbl_name] ...
-//     [RESTRICT | CASCADE]
+/// <https://dev.mysql.com/doc/refman/8.0/en/drop-table.html>
+/// DROP \[TEMPORARY] TABLE \[IF EXISTS]
+///     tbl_name \[, tbl_name] ...
+///     \[RESTRICT | CASCADE]
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropTableStatement {
     pub if_temporary: bool,
@@ -29,9 +29,9 @@ pub struct DropTableStatement {
 }
 
 impl DropTableStatement {
-    /// DROP [TEMPORARY] TABLE [IF EXISTS]
-    ///     tbl_name [, tbl_name] ...
-    ///     [RESTRICT | CASCADE]
+    /// DROP \[TEMPORARY] TABLE \[IF EXISTS]
+    ///     tbl_name \[, tbl_name] ...
+    ///     \[RESTRICT | CASCADE]
     pub fn parse(i: &str) -> IResult<&str, DropTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),

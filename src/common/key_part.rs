@@ -10,7 +10,7 @@ use base::error::ParseSQLError;
 use common::OrderType;
 use common::{sql_identifier, ws_sep_comma};
 
-/// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
+/// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct KeyPart {
     r#type: KeyPartType,
@@ -18,7 +18,7 @@ pub struct KeyPart {
 }
 
 impl KeyPart {
-    /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
+    /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
     fn parse(i: &str) -> IResult<&str, KeyPart, ParseSQLError<&str>> {
         map(
             tuple((
@@ -33,7 +33,7 @@ impl KeyPart {
     }
 
     /// (key_part,...)
-    /// key_part: {col_name [(length)] | (expr)} [ASC | DESC]
+    /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
     pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>, ParseSQLError<&str>> {
         map(
             tuple((
@@ -53,7 +53,7 @@ impl KeyPart {
     }
 }
 
-/// {col_name [(length)] | (expr)}
+/// {col_name \[(length)] | (expr)}
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum KeyPartType {
     ColumnNameWithLength {
@@ -66,7 +66,7 @@ pub enum KeyPartType {
 }
 
 impl KeyPartType {
-    /// {col_name [(length)] | (expr)}
+    /// {col_name \[(length)] | (expr)}
     fn parse(i: &str) -> IResult<&str, KeyPartType, ParseSQLError<&str>> {
         // {col_name [(length)]
         let col_name_with_length = tuple((

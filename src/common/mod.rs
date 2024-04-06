@@ -322,7 +322,7 @@ impl IndexOrKeyType {
     }
 }
 
-/// [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
+/// \[CONSTRAINT \[symbol]] CHECK (expr) \[\[NOT] ENFORCED]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CheckConstraintDefinition {
     pub symbol: Option<String>,
@@ -368,7 +368,7 @@ impl IndexType {
         )(i)
     }
 
-    /// [index_type]
+    /// \[index_type]
     /// USING {BTREE | HASH}
     pub fn opt_index_type(i: &str) -> IResult<&str, Option<IndexType>, ParseSQLError<&str>> {
         opt(map(
@@ -388,7 +388,7 @@ impl fmt::Display for IndexType {
     }
 }
 
-/// [index_name]
+/// \[index_name]
 pub fn opt_index_name(i: &str) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
     opt(map(
         delimited(multispace1, sql_identifier, multispace0),

@@ -22,7 +22,7 @@ impl ReferenceDefinition {
     ///     REFERENCES tbl_name (key_part,...)
     ///       [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
     ///       [ON DELETE reference_option]
-    ///       [ON UPDATE reference_option]
+    ///       \[ON UPDATE reference_option]
     pub fn parse(i: &str) -> IResult<&str, ReferenceDefinition, ParseSQLError<&str>> {
         let opt_on_delete = opt(map(
             tuple((

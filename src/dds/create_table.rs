@@ -30,19 +30,19 @@ pub struct CreateTableStatement {
 }
 
 impl CreateTableStatement {
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     (create_definition,...)
-    ///     [table_options]
-    ///     [partition_options]
+    ///     \[table_options]
+    ///     \[partition_options]
     ///
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-    ///     [(create_definition,...)]
-    ///     [table_options]
-    ///     [partition_options]
-    ///     [IGNORE | REPLACE]
-    ///     [AS] query_expression
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
+    ///     \[(create_definition,...)]
+    ///     \[table_options]
+    ///     \[partition_options]
+    ///     \[IGNORE | REPLACE]
+    ///     \[AS] query_expression
     ///
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
     pub fn parse(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         alt((
@@ -72,22 +72,22 @@ pub enum IgnoreOrReplaceType {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CreateTableType {
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     (create_definition,...)
-    ///     [table_options]
-    ///     [partition_options]
+    ///     \[table_options]
+    ///     \[partition_options]
     Simple {
         create_definition: Vec<CreateDefinition>, // (create_definition,...)
         table_options: Option<Vec<TableOption>>,  // [table_options]
         partition_options: Option<CreatePartitionOption>, // [partition_options]
     },
 
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-    ///     [(create_definition,...)]
-    ///     [table_options]
-    ///     [partition_options]
-    ///     [IGNORE | REPLACE]
-    ///     [AS] query_expression
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
+    ///     \[(create_definition,...)]
+    ///     \[table_options]
+    ///     \[partition_options]
+    ///     \[IGNORE | REPLACE]
+    ///     \[AS] query_expression
     AsQuery {
         create_definition: Option<Vec<CreateDefinition>>, // (create_definition,...)
         table_options: Option<Vec<TableOption>>,          // [table_options]
@@ -96,16 +96,16 @@ pub enum CreateTableType {
         query_expression: SelectStatement,                // [AS] query_expression
     },
 
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
     LikeOldTable { table: Table },
 }
 
 impl CreateTableType {
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     (create_definition,...)
-    ///     [table_options]
-    ///     [partition_options]
+    ///     \[table_options]
+    ///     \[partition_options]
     fn create_simple(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -140,12 +140,12 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
-    ///     [(create_definition,...)]
-    ///     [table_options]
-    ///     [partition_options]
-    ///     [IGNORE | REPLACE]
-    ///     [AS] query_expression
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
+    ///     \[(create_definition,...)]
+    ///     \[table_options]
+    ///     \[partition_options]
+    ///     \[IGNORE | REPLACE]
+    ///     \[AS] query_expression
     fn create_as_query(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -190,7 +190,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE \[IF NOT EXISTS] tbl_name
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
     fn create_like_old_table(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         map(
@@ -238,7 +238,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
+    /// CREATE \[TEMPORARY] TABLE [IF NOT EXISTS] tbl_name
     fn create_table_with_name(i: &str) -> IResult<&str, (bool, bool, Table), ParseSQLError<&str>> {
         map(
             tuple((
@@ -256,7 +256,7 @@ impl CreateTableType {
         )(i)
     }
 
-    /// [IF NOT EXISTS]
+    /// \[IF NOT EXISTS]
     fn if_not_exists(i: &str) -> IResult<&str, bool, ParseSQLError<&str>> {
         map(
             opt(tuple((
@@ -278,7 +278,7 @@ pub enum CreateDefinition {
         column_definition: ColumnSpecification,
     },
 
-    /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
+    /// {INDEX | KEY} \[index_name] \[index_type] (key_part,...) \[index_option] ...
     IndexOrKey {
         index_or_key: IndexOrKeyType,          // {INDEX | KEY}
         opt_index_name: Option<String>,        // [index_name]
@@ -287,7 +287,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
+    /// {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...) \[index_option] ...
     FulltextOrSpatial {
         fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
@@ -296,7 +296,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>,      // [index_option]
     },
 
-    /// [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
+    /// \[CONSTRAINT \[symbol]] PRIMARY KEY \[index_type] (key_part,...) \[index_option] ...
     PrimaryKey {
         opt_symbol: Option<String>,            // [symbol]
         opt_index_type: Option<IndexType>,     // [index_type]
@@ -304,7 +304,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
+    /// \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY] \[index_name] \[index_type] (key_part,...) \[index_option] ...
     Unique {
         opt_symbol: Option<String>,               // [symbol]
         opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
@@ -314,7 +314,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>,    // [index_option]
     },
 
-    /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
+    /// \[CONSTRAINT \[symbol]] FOREIGN KEY \[index_name] (col_name,...) reference_definition
     ForeignKey {
         opt_symbol: Option<String>,                // [symbol]
         opt_index_name: Option<String>,            // [index_name]
@@ -331,18 +331,18 @@ pub enum CreateDefinition {
 impl CreateDefinition {
     /// create_definition: {
     ///     col_name column_definition
-    ///   | {INDEX | KEY} [index_name] [index_type] (key_part,...)
-    ///       [index_option] ...
-    ///   | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...)
-    ///       [index_option] ...
-    ///   | [CONSTRAINT [symbol]] PRIMARY KEY
-    ///       [index_type] (key_part,...)
-    ///       [index_option] ...
-    ///   | [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
-    ///       [index_name] [index_type] (key_part,...)
-    ///       [index_option] ...
-    ///   | [CONSTRAINT [symbol]] FOREIGN KEY
-    ///       [index_name] (col_name,...)
+    ///   | {INDEX | KEY} \[index_name] \[index_type] (key_part,...)
+    ///       \[index_option] ...
+    ///   | {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...)
+    ///       \[index_option] ...
+    ///   | \[CONSTRAINT \[symbol]] PRIMARY KEY
+    ///       \[index_type] (key_part,...)
+    ///       \[index_option] ...
+    ///   | \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY]
+    ///       \[index_name] \[index_type] (key_part,...)
+    ///       \[index_option] ...
+    ///   | \[CONSTRAINT \[symbol]] FOREIGN KEY
+    ///       \[index_name] (col_name,...)
     ///       reference_definition
     ///   | check_constraint_definition
     /// }
@@ -381,7 +381,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...
+    /// {INDEX | KEY} \[index_name] \[index_type] (key_part,...) \[index_option] ...
     fn index_or_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -408,7 +408,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...
+    /// | {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...) \[index_option] ...
     fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -435,7 +435,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...
+    /// | \[CONSTRAINT \[symbol]] PRIMARY KEY \[index_type] (key_part,...) \[index_option] ...
     fn primary_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -461,7 +461,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...
+    /// \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY] \[index_name] \[index_type] (key_part,...) \[index_option] ...
     fn unique(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -500,7 +500,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition
+    /// \[CONSTRAINT \[symbol]] FOREIGN KEY \[index_name] (col_name,...) reference_definition
     fn foreign_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -543,7 +543,7 @@ impl CreateDefinition {
     }
 
     /// check_constraint_definition
-    /// | [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]
+    /// | \[CONSTRAINT \[symbol]] CHECK (expr) \[\[NOT] ENFORCED]
     fn check_constraint_definition(
         i: &str,
     ) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
@@ -579,7 +579,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// [CONSTRAINT [symbol]]
+    /// \[CONSTRAINT \[symbol]]
     fn opt_constraint_with_opt_symbol(
         i: &str,
     ) -> IResult<&str, Option<String>, ParseSQLError<&str>> {

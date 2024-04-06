@@ -13,14 +13,14 @@ use base::error::ParseSQLError;
 use common::sql_identifier;
 use common::DefaultOrZeroOrOne;
 
-/// ALTER {DATABASE | SCHEMA} [db_name]
+/// ALTER {DATABASE | SCHEMA} \[db_name]
 ///     alter_option ...
 ///
 /// alter_option: {
-///     [DEFAULT] CHARACTER SET [=] charset_name
-///   | [DEFAULT] COLLATE [=] collation_name
-///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
-///   | READ ONLY [=] {DEFAULT | 0 | 1}
+///     \[DEFAULT] CHARACTER SET \[=] charset_name
+///   | \[DEFAULT] COLLATE \[=] collation_name
+///   | \[DEFAULT] ENCRYPTION \[=] {'Y' | 'N'}
+///   | READ ONLY \[=] {DEFAULT | 0 | 1}
 /// }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterDatabaseStatement {
@@ -62,10 +62,10 @@ impl fmt::Display for AlterDatabaseStatement {
 }
 
 /// alter_option: {
-///     [DEFAULT] CHARACTER SET [=] charset_name
-///   | [DEFAULT] COLLATE [=] collation_name
-///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
-///   | READ ONLY [=] {DEFAULT | 0 | 1}
+///     \[DEFAULT] CHARACTER SET \[=] charset_name
+///   | \[DEFAULT] COLLATE \[=] collation_name
+///   | \[DEFAULT] ENCRYPTION \[=] {'Y' | 'N'}
+///   | READ ONLY \[=] {DEFAULT | 0 | 1}
 /// }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterDatabaseOption {
