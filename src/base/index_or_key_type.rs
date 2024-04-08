@@ -5,7 +5,7 @@ use nom::IResult;
 
 use base::ParseSQLError;
 
-/// {INDEX | KEY}
+/// parse `{INDEX | KEY}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexOrKeyType {
     Index,
@@ -19,5 +19,23 @@ impl IndexOrKeyType {
             map(tag_no_case("KEY"), |_| IndexOrKeyType::Key),
             map(tag_no_case("INDEX"), |_| IndexOrKeyType::Index),
         ))(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::index_or_key_type::IndexOrKeyType;
+
+    #[test]
+    fn parse_index_or_key_type() {
+        let str1 = "index";
+        let res1 = IndexOrKeyType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, IndexOrKeyType::Index);
+
+        let str2 = "KEY";
+        let res2 = IndexOrKeyType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, IndexOrKeyType::Key);
     }
 }

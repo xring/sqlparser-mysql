@@ -11,6 +11,13 @@ use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::Literal;
 
+/// ```sql
+/// CASE expression
+///     WHEN {value1 | condition1} THEN result1
+///     ...
+///     ELSE resultN
+/// END
+/// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CaseWhenExpression {
     pub condition: ConditionExpression,
@@ -76,5 +83,44 @@ impl fmt::Display for ColumnOrLiteral {
             ColumnOrLiteral::Literal(ref l) => write!(f, "{}", l.to_string())?,
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::condition::ConditionBase::{Field, Literal};
+    use base::condition::ConditionExpression::{Base, ComparisonOp};
+    use base::condition::ConditionTree;
+    use base::Literal::Integer;
+    use base::Operator::Greater;
+    use base::{CaseWhenExpression, Column, ColumnOrLiteral};
+
+    #[test]
+    fn parse_case() {
+        let str = "CASE WHEN age > 10 THEN col_name ELSE 22 END;";
+        let res = CaseWhenExpression::parse(str);
+
+        let exp = CaseWhenExpression {
+            condition: ComparisonOp(ConditionTree {
+                operator: Greater,
+                left: Box::new(Base(Field(Column {
+                    name: "age".to_string(),
+                    alias: None,
+                    table: None,
+                    function: None,
+                }))),
+                right: Box::new(Base(Literal(Integer(10)))),
+            }),
+            then_expr: ColumnOrLiteral::Column(Column {
+                name: "col_name".to_string(),
+                alias: None,
+                table: None,
+                function: None,
+            }),
+            else_expr: Some(ColumnOrLiteral::Literal(Integer(22))),
+        };
+
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().1, exp);
     }
 }

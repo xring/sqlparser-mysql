@@ -12,11 +12,11 @@ use base::table::Table;
 use base::{CommonParser, DisplayUtil};
 
 // FIXME TODO
-/// DELETE \[LOW_PRIORITY] \[QUICK] \[IGNORE] FROM tbl_name \[\[AS] tbl_alias]
+/// `DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM tbl_name [[AS] tbl_alias]
 ///     [PARTITION (partition_name [, partition_name] ...)]
 ///     [WHERE where_condition]
 ///     [ORDER BY ...]
-///     [LIMIT row_count]
+///     [LIMIT row_count]`
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DeleteStatement {
     pub table: Table,

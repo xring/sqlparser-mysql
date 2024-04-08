@@ -1,12 +1,13 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::combinator::map;
-use nom::sequence::delimited;
+use nom::character::complete::multispace0;
+use nom::combinator::{map, opt};
+use nom::sequence::{delimited, tuple};
 use nom::IResult;
 
 use base::ParseSQLError;
 
-/// {'ZLIB' | 'LZ4' | 'NONE'}
+/// parse `COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CompressionType {
     ZLIB,
@@ -16,31 +17,40 @@ pub enum CompressionType {
 
 impl CompressionType {
     pub fn parse(i: &str) -> IResult<&str, CompressionType, ParseSQLError<&str>> {
-        alt((
-            map(
-                delimited(
-                    alt((tag("'"), tag("\""))),
-                    tag_no_case("ZLIB"),
-                    alt((tag("'"), tag("\""))),
-                ),
-                |_| CompressionType::ZLIB,
-            ),
-            map(
-                delimited(
-                    alt((tag("'"), tag("\""))),
-                    tag_no_case("LZ4"),
-                    alt((tag("'"), tag("\""))),
-                ),
-                |_| CompressionType::LZ4,
-            ),
-            map(
-                delimited(
-                    alt((tag("'"), tag("\""))),
-                    tag_no_case("NONE"),
-                    alt((tag("'"), tag("\""))),
-                ),
-                |_| CompressionType::NONE,
-            ),
-        ))(i)
+        map(
+            tuple((
+                tag_no_case("COMPRESSION"),
+                multispace0,
+                opt(tag("=")),
+                multispace0,
+                alt((
+                    map(
+                        alt((tag_no_case("'ZLIB'"), tag_no_case("\"ZLIB\""))),
+                        |_| CompressionType::ZLIB,
+                    ),
+                    map(alt((tag_no_case("'LZ4'"), tag_no_case("\"LZ4\""))), |_| {
+                        CompressionType::LZ4
+                    }),
+                    map(
+                        alt((tag_no_case("'NONE'"), tag_no_case("\"NONE\""))),
+                        |_| CompressionType::NONE,
+                    ),
+                )),
+            )),
+            |(_, _, _, _, compression_type)| compression_type,
+        )(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::CompressionType;
+
+    #[test]
+    fn parse_compression_type() {
+        let str1 = "COMPRESSION 'ZLIB'";
+        let res1 = CompressionType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, CompressionType::ZLIB);
     }
 }

@@ -12,8 +12,8 @@ use nom::{
     IResult,
 };
 
-use base::column::Column;
-use base::error::ParseSQLErrorKind;
+use base::Column;
+use base::ParseSQLErrorKind;
 use base::{CommonParser, DataType, Literal, ParseSQLError};
 
 #[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -275,9 +275,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_parses_arithmetic_expressions() {
+    fn parses_arithmetic_expressions() {
         use super::{
-            ArithmeticBase::{Column as ABColumn, Scalar},
+            ArithmeticBase::{Column as ArithmeticBaseColumn, Scalar},
             ArithmeticOperator::*,
         };
 
@@ -315,18 +315,33 @@ mod tests {
             ),
         ];
         let expected_col_lit_ae = [
-            ArithmeticExpression::new(Add, ABColumn("foo".into()), Scalar(5.into()), None),
-            ArithmeticExpression::new(Add, ABColumn("foo".into()), Scalar(5.into()), None),
-            ArithmeticExpression::new(Add, Scalar(5.into()), ABColumn("foo".into()), None),
+            ArithmeticExpression::new(
+                Add,
+                ArithmeticBaseColumn("foo".into()),
+                Scalar(5.into()),
+                None,
+            ),
+            ArithmeticExpression::new(
+                Add,
+                ArithmeticBaseColumn("foo".into()),
+                Scalar(5.into()),
+                None,
+            ),
+            ArithmeticExpression::new(
+                Add,
+                Scalar(5.into()),
+                ArithmeticBaseColumn("foo".into()),
+                None,
+            ),
             ArithmeticExpression::new(
                 Multiply,
-                ABColumn("foo".into()),
-                ABColumn("bar".into()),
+                ArithmeticBaseColumn("foo".into()),
+                ArithmeticBaseColumn("bar".into()),
                 Some(String::from("foobar")),
             ),
             ArithmeticExpression::new(
                 Subtract,
-                ABColumn(Column {
+                ArithmeticBaseColumn(Column {
                     name: String::from("max(foo)"),
                     alias: None,
                     table: None,
@@ -353,19 +368,29 @@ mod tests {
     }
 
     #[test]
-    fn it_displays_arithmetic_expressions() {
+    fn displays_arithmetic_expressions() {
         use super::{
-            ArithmeticBase::{Column as ABColumn, Scalar},
+            ArithmeticBase::{Column as ArithmeticBaseColumn, Scalar},
             ArithmeticOperator::*,
         };
 
         let expressions = [
-            ArithmeticExpression::new(Add, ABColumn("foo".into()), Scalar(5.into()), None),
-            ArithmeticExpression::new(Subtract, Scalar(5.into()), ABColumn("foo".into()), None),
+            ArithmeticExpression::new(
+                Add,
+                ArithmeticBaseColumn("foo".into()),
+                Scalar(5.into()),
+                None,
+            ),
+            ArithmeticExpression::new(
+                Subtract,
+                Scalar(5.into()),
+                ArithmeticBaseColumn("foo".into()),
+                None,
+            ),
             ArithmeticExpression::new(
                 Multiply,
-                ABColumn("foo".into()),
-                ABColumn("bar".into()),
+                ArithmeticBaseColumn("foo".into()),
+                ArithmeticBaseColumn("bar".into()),
                 None,
             ),
             ArithmeticExpression::new(Divide, Scalar(10.into()), Scalar(2.into()), None),
@@ -384,9 +409,9 @@ mod tests {
     }
 
     #[test]
-    fn it_parses_arithmetic_casts() {
+    fn parses_arithmetic_casts() {
         use super::{
-            ArithmeticBase::{Column as ABColumn, Scalar},
+            ArithmeticBase::{Column as ArithmeticBaseColumn, Scalar},
             ArithmeticOperator::*,
         };
 
@@ -400,15 +425,20 @@ mod tests {
         let expected = [
             ArithmeticExpression::new(
                 Add,
-                ABColumn(Column::from("t.foo")),
-                ABColumn(Column::from("t.bar")),
+                ArithmeticBaseColumn(Column::from("t.foo")),
+                ArithmeticBaseColumn(Column::from("t.bar")),
                 None,
             ),
-            ArithmeticExpression::new(Subtract, Scalar(5.into()), ABColumn("foo".into()), None),
             ArithmeticExpression::new(
                 Subtract,
                 Scalar(5.into()),
-                ABColumn("foo".into()),
+                ArithmeticBaseColumn("foo".into()),
+                None,
+            ),
+            ArithmeticExpression::new(
+                Subtract,
+                Scalar(5.into()),
+                ArithmeticBaseColumn("foo".into()),
                 Some("5_minus_foo".into()),
             ),
         ];
@@ -416,13 +446,12 @@ mod tests {
         for (i, e) in exprs.iter().enumerate() {
             let res = ArithmeticExpression::parse(e);
             assert!(res.is_ok(), "{} failed to parse", e);
-            println!("{:?}", res);
             assert_eq!(res.unwrap().1, expected[i]);
         }
     }
 
     #[test]
-    fn nested_arithmetic() {
+    fn parse_nested_arithmetic() {
         let qs = [
             "1 + 1",
             "1 + 2 - 3",
@@ -483,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn arithmetic_scalar() {
+    fn parse_arithmetic_scalar() {
         let qs = "56";
         let res = Arithmetic::parse(qs);
         assert!(res.is_err());

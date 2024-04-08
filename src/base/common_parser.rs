@@ -370,7 +370,7 @@ mod tests {
     use base::CommonParser;
 
     #[test]
-    fn sql_identifiers() {
+    fn parse_sql_identifiers() {
         let id1 = "foo";
         let id2 = "f_o_o";
         let id3 = "foo12";
@@ -391,29 +391,25 @@ mod tests {
     }
 
     #[test]
-    fn opt_delimited_tests() {
-        // let ok1 = IResult::Ok(("".as_bytes(), "abc".as_bytes()));
-        assert_eq!(test_opt_delimited_fn_call("abc"), IResult::Ok(("", "abc")));
-        assert_eq!(
-            test_opt_delimited_fn_call("(abc)"),
-            IResult::Ok(("", "abc"))
-        );
+    fn parse_opt_delimited() {
+        assert_eq!(test_opt_delimited_fn_call("abc"), Ok(("", "abc")));
+        assert_eq!(test_opt_delimited_fn_call("(abc)"), Ok(("", "abc")));
         assert!(test_opt_delimited_fn_call("(abc").is_err());
-        assert_eq!(
-            test_opt_delimited_fn_call("abc)"),
-            IResult::Ok((")", "abc"))
-        );
+        assert_eq!(test_opt_delimited_fn_call("abc)"), Ok((")", "abc")));
         assert!(test_opt_delimited_fn_call("ab").is_err());
     }
 
     #[test]
-    fn comment_data() {
+    fn parse_comment() {
         let res = CommonParser::parse_comment(" COMMENT 'test'");
+        assert_eq!(res.unwrap().1, "test");
+
+        let res = CommonParser::parse_comment(" COMMENT \"test\"");
         assert_eq!(res.unwrap().1, "test");
     }
 
     #[test]
-    fn terminated_by_semicolon() {
+    fn parse_statement_terminator() {
         let res = CommonParser::statement_terminator("   ;  ");
         assert_eq!(res, Ok(("", ())));
     }

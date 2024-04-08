@@ -67,13 +67,10 @@ mod tests {
             "DROP TRIGGER IF EXISTS db_name.trigger_name;",
         ];
 
-        for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
-            let res = DropTriggerStatement::parse(sqls[i]);
-            // res.unwrap();
+        for sql in sqls {
+            let res = DropTriggerStatement::parse(sql);
             println!("{:?}", res);
-            // assert!(res.is_ok());
-            // println!("{:?}", res);
+            assert!(res.is_ok());
         }
     }
 }

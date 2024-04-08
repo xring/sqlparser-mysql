@@ -12,7 +12,6 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{IResult, Parser};
 
 use base::algorithm_type::AlgorithmType;
-use base::check_constraint::CheckConstraintDefinition;
 use base::column::{Column, ColumnSpecification};
 use base::fulltext_or_spatial_type::FulltextOrSpatialType;
 use base::index_option::IndexOption;
@@ -22,8 +21,12 @@ use base::lock_type::LockType;
 use base::table::Table;
 use base::table_option::TableOption;
 use base::visible_type::VisibleType;
-use base::{CommonParser, KeyPart, ParseSQLError, PartitionDefinition, ReferenceDefinition};
+use base::{
+    CheckConstraintDefinition, CommonParser, KeyPart, ParseSQLError, PartitionDefinition,
+    ReferenceDefinition,
+};
 
+/// parse `ALTER TABLE tbl_name [alter_option [, alter_option] ...] [partition_options]`
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStatement {
     pub table: Table,
@@ -32,7 +35,6 @@ pub struct AlterTableStatement {
 }
 
 impl AlterTableStatement {
-    /// ALTER TABLE tbl_name \[alter_option \[, alter_option] ...] \[partition_options]
     pub fn parse(i: &str) -> IResult<&str, AlterTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tuple((
@@ -106,16 +108,15 @@ pub enum AlterTableOption {
     /// table_options
     TableOptions { table_options: Vec<TableOption> },
 
-    /// ADD \[COLUMN] col_name column_definition
-    ///     \[FIRST | AFTER col_name]
-    /// ADD \[COLUMN] (col_name column_definition,...)
+    /// `ADD [COLUMN] col_name column_definition
+    ///     [FIRST | AFTER col_name]`
+    /// `ADD [COLUMN] (col_name column_definition,...)`
     AddColumn {
         opt_column: bool, // [COLUMN]
         columns: Vec<ColumnSpecification>,
     },
 
-    /// ADD {INDEX | KEY} \[index_name]
-    ///     \[index_type] (key_part,...) \[index_option] ...
+    /// `ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     AddIndexOrKey {
         index_or_key: IndexOrKeyType,          // {INDEX | KEY}
         opt_index_name: Option<String>,        // [index_name]
@@ -124,8 +125,7 @@ pub enum AlterTableOption {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// ADD {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name]
-    ///     (key_part,...) \[index_option] ...
+    /// `ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     AddFulltextOrSpatial {
         fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
@@ -134,9 +134,7 @@ pub enum AlterTableOption {
         opt_index_option: Option<IndexOption>,      // [index_option]
     },
 
-    /// ADD \[CONSTRAINT \[symbol]] PRIMARY KEY
-    ///     \[index_type] (key_part,...)
-    ///     \[index_option] ...
+    /// `ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     AddPrimaryKey {
         opt_symbol: Option<String>,            // [symbol]
         opt_index_type: Option<IndexType>,     // [index_type]
@@ -144,9 +142,8 @@ pub enum AlterTableOption {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// ADD \[CONSTRAINT \[symbol]] UNIQUE [INDEX | KEY]
-    ///     \[index_name] \[index_type] (key_part,...)
-    ///     \[index_option] ...
+    /// `ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
+    ///     [index_name] [index_type] (key_part,...) [index_option] ...`
     AddUnique {
         opt_symbol: Option<String>,               // [symbol]
         opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
@@ -156,9 +153,8 @@ pub enum AlterTableOption {
         opt_index_option: Option<IndexOption>,    // [index_option]
     },
 
-    /// ADD \[CONSTRAINT \[symbol]] FOREIGN KEY
-    ///     \[index_name] (col_name,...)
-    ///     reference_definition
+    /// `ADD [CONSTRAINT [symbol]] FOREIGN KEY
+    ///     [index_name] (col_name,...) reference_definition`
     AddForeignKey {
         opt_symbol: Option<String>,                // [symbol]
         opt_index_name: Option<String>,            // [index_name]
@@ -166,115 +162,116 @@ pub enum AlterTableOption {
         reference_definition: ReferenceDefinition, // reference_definition
     },
 
-    /// ADD \[CONSTRAINT \[symbol]] CHECK (expr) \[\[NOT] ENFORCED]
+    /// `ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]`
     AddCheck {
         check_constraint: CheckConstraintDefinition,
     },
 
-    /// DROP {CHECK | CONSTRAINT} symbol
+    /// `DROP {CHECK | CONSTRAINT} symbol`
     DropCheckOrConstraint {
         check_or_constraint: CheckOrConstraintType,
         symbol: String,
     },
 
-    /// ALTER {CHECK | CONSTRAINT} symbol \[NOT] ENFORCED
+    /// `ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED`
     AlterCheckOrConstraintEnforced {
         check_or_constraint: CheckOrConstraintType,
         symbol: String,
         enforced: bool,
     },
 
-    /// ALGORITHM \[=] {DEFAULT | INSTANT | INPLACE | COPY}
+    /// `ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}`
     Algorithm { algorithm: AlgorithmType },
 
-    /// ALTER \[COLUMN] col_name { SET DEFAULT {literal | (expr)} | SET {VISIBLE | INVISIBLE} | DROP DEFAULT }
+    /// `ALTER [COLUMN] col_name
+    /// { SET DEFAULT {literal | (expr)} | SET {VISIBLE | INVISIBLE} | DROP DEFAULT }`
     AlterColumn {
         col_name: String,
         alter_column_operation: AlertColumnOperation,
     },
 
-    /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
+    /// `ALTER INDEX index_name {VISIBLE | INVISIBLE}`
     AlterIndexVisibility {
         index_name: String,
         visible: VisibleType,
     },
 
-    /// CHANGE \[COLUMN] old_col_name new_col_name column_definition \[FIRST | AFTER col_name]
+    /// `CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]`
     ChangeColumn {
         old_col_name: String,
         column_definition: ColumnSpecification,
     },
 
-    /// \[DEFAULT] CHARACTER SET \[=] charset_name [COLLATE \[=] collation_name]
+    /// `[DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]`
     DefaultCharacterSet {
         charset_name: String,
         collation_name: Option<String>,
     },
 
-    /// CONVERT TO CHARACTER SET charset_name \[COLLATE collation_name]
+    /// `CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]`
     ConvertToCharacterSet {
         charset_name: String,
         collation_name: Option<String>,
     },
 
-    /// {DISABLE | ENABLE} KEYS
+    /// `{DISABLE | ENABLE} KEYS`
     DisableKeys,
 
-    /// {DISABLE | ENABLE} KEYS
+    /// `{DISABLE | ENABLE} KEYS`
     EnableKeys,
 
-    /// {DISCARD | IMPORT} TABLESPACE
+    /// `{DISCARD | IMPORT} TABLESPACE`
     DiscardTablespace,
 
-    /// {DISCARD | IMPORT} TABLESPACE
+    /// `{DISCARD | IMPORT} TABLESPACE`
     ImportTablespace,
 
-    /// DROP \[COLUMN] col_name
+    /// `DROP [COLUMN] col_name`
     DropColumn { col_name: String },
 
-    /// DROP {INDEX | KEY} index_name
+    /// `DROP {INDEX | KEY} index_name`
     DropIndexOrKey {
         index_or_key: IndexOrKeyType,
         index_name: String,
     },
 
-    /// DROP PRIMARY KEY
+    /// `DROP PRIMARY KEY`
     DropPrimaryKey,
 
-    /// DROP FOREIGN KEY fk_symbol
+    /// `DROP FOREIGN KEY fk_symbol`
     DropForeignKey { fk_symbol: String },
 
     /// FORCE
     Force,
 
-    /// LOCK \[=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+    /// `LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
     Lock { lock_type: LockType },
 
-    /// MODIFY \[COLUMN] col_name column_definition \[FIRST | AFTER col_name]
+    /// `MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]`
     ModifyColumn {
         column_definition: ColumnSpecification,
     },
 
-    /// ORDER BY col_name \[, col_name] ...
+    /// `ORDER BY col_name [, col_name] ...`
     OrderBy { columns: Vec<String> },
 
-    /// RENAME COLUMN old_col_name TO new_col_name
+    /// `RENAME COLUMN old_col_name TO new_col_name`
     RenameColumn {
         old_col_name: String,
         new_col_name: String,
     },
 
-    /// RENAME {INDEX | KEY} old_index_name TO new_index_name
+    /// `RENAME {INDEX | KEY} old_index_name TO new_index_name`
     RenameIndexOrKey {
         index_or_key: IndexOrKeyType,
         old_index_name: String,
         new_index_name: String,
     },
 
-    /// RENAME \[TO | AS] new_tbl_name
+    /// `RENAME [TO | AS] new_tbl_name`
     RenameTable { new_tbl_name: String },
 
-    /// {WITHOUT | WITH} VALIDATION
+    /// `{WITHOUT | WITH} VALIDATION`
     Validation { with_validation: bool },
 }
 
@@ -289,8 +286,8 @@ impl AlterTableOption {
         Ok((remaining_input, res))
     }
 
-    /// table_options:
-    ///     table_option \[\[,] table_option] ...
+    /// `table_options:
+    ///     table_option [[,] table_option] ...`
     pub fn alter_table_options(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             many1(terminated(
@@ -342,7 +339,7 @@ impl AlterTableOption {
         ))(i)
     }
 
-    /// \[CONSTRAINT \[symbol]]
+    /// `[CONSTRAINT [symbol]]`
     fn opt_constraint_with_opt_symbol_and_operation(
         i: &str,
     ) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
@@ -358,9 +355,9 @@ impl AlterTableOption {
         )(i)
     }
 
-    ///  | ADD \[COLUMN] col_name column_definition
-    ///        \[FIRST | AFTER col_name]
-    ///  | ADD \[COLUMN] (col_name column_definition,...)
+    /// `ADD [COLUMN] col_name column_definition
+    ///     [FIRST | AFTER col_name]`
+    /// `ADD [COLUMN] (col_name column_definition,...)`
     fn add_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -412,7 +409,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ADD {INDEX | KEY} \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     fn add_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -424,7 +421,7 @@ impl AlterTableOption {
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -440,7 +437,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// | ADD {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...) \[index_option] ...
+    /// `ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     fn add_fulltext_or_spatial(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -452,7 +449,7 @@ impl AlterTableOption {
                 // [index_name]
                 CommonParser::opt_index_name,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -468,7 +465,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// | ADD \[CONSTRAINT \[symbol]] PRIMARY KEY \[index_type] (key_part,...) \[index_option] ...
+    /// `ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     fn add_primary_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -484,7 +481,7 @@ impl AlterTableOption {
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -499,7 +496,8 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// | ADD \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY] \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
+    ///     [index_name] [index_type] (key_part,...) [index_option] ...`
     fn add_unique(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -523,7 +521,7 @@ impl AlterTableOption {
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -547,7 +545,8 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ADD \[CONSTRAINT \[symbol]] FOREIGN KEY \[index_name] (col_name,...) reference_definition
+    /// `ADD [CONSTRAINT [symbol]] FOREIGN KEY
+    ///     [index_name] (col_name,...) reference_definition`
     fn add_foreign_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -588,7 +587,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// | ADD \[CONSTRAINT \[symbol]] CHECK (expr) \[\[NOT] ENFORCED]
+    /// `ADD [CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]`
     fn add_check(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -622,7 +621,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// DROP {CHECK | CONSTRAINT} symbol
+    /// `DROP {CHECK | CONSTRAINT} symbol`
     fn drop_check_or_constraint(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -642,7 +641,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ALTER {CHECK | CONSTRAINT} symbol \[NOT] ENFORCED
+    /// `ALTER {CHECK | CONSTRAINT} symbol [NOT] ENFORCED`
     fn alter_check_or_constraint_enforced(
         i: &str,
     ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
@@ -669,11 +668,11 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ALTER \[COLUMN] col_name {
+    /// `ALTER [COLUMN] col_name {
     ///   SET DEFAULT {literal | (expr)}
     ///   | SET {VISIBLE | INVISIBLE}
     ///   | DROP DEFAULT
-    /// }
+    /// }`
     fn alter_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -695,7 +694,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ALTER INDEX index_name {VISIBLE | INVISIBLE}
+    /// `ALTER INDEX index_name {VISIBLE | INVISIBLE}`
     fn alter_index_visibility(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -717,7 +716,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// CHANGE \[COLUMN] old_col_name new_col_name column_definition \[FIRST | AFTER col_name]
+    /// `CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST | AFTER col_name]`
     fn change_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -738,7 +737,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// \[DEFAULT] CHARACTER SET \[=] charset_name [COLLATE \[=] collation_name]
+    /// `[DEFAULT] CHARACTER SET [=] charset_name [COLLATE [=] collation_name]`
     fn default_character_set(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -772,7 +771,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// CONVERT TO CHARACTER SET charset_name \[COLLATE collation_name]
+    /// `CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]`
     fn convert_to_character_set(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         let prefix = tuple((
             tag_no_case("CONVERT"),
@@ -807,7 +806,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// {DISCARD | IMPORT} TABLESPACE
+    /// `{DISCARD | IMPORT} TABLESPACE`
     fn disable_or_enable_keys(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -823,7 +822,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// {DISCARD | IMPORT} TABLESPACE
+    /// `{DISCARD | IMPORT} TABLESPACE`
     fn discard_or_import_tablespace(
         i: &str,
     ) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
@@ -845,7 +844,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// DROP \[COLUMN] col_name
+    /// `DROP [COLUMN] col_name`
     fn drop_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -863,7 +862,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// DROP {INDEX | KEY} index_name
+    /// `DROP {INDEX | KEY} index_name`
     fn drop_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -884,7 +883,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// DROP PRIMARY KEY
+    /// `DROP PRIMARY KEY`
     fn drop_primary_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -899,7 +898,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// DROP FOREIGN KEY fk_symbol
+    /// `DROP FOREIGN KEY fk_symbol`
     fn drop_foreign_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -916,21 +915,21 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// FORCE
+    /// `FORCE`
     fn force(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(tuple((tag_no_case("FORCE"), multispace0)), |_| {
             AlterTableOption::Force
         })(i)
     }
 
-    /// LOCK \[=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+    /// `LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
     fn lock(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(LockType::parse, |(lock_type)| AlterTableOption::Lock {
             lock_type,
         })(i)
     }
 
-    /// MODIFY \[COLUMN] col_name column_definition \[FIRST | AFTER col_name]
+    /// `MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]`
     fn modify_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -947,7 +946,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// ORDER BY col_name \[, col_name] ...
+    /// `ORDER BY col_name [, col_name] ...`
     fn order_by(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -965,7 +964,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// RENAME COLUMN old_col_name TO new_col_name
+    /// `RENAME COLUMN old_col_name TO new_col_name`
     fn rename_column(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -989,7 +988,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// RENAME {INDEX | KEY} old_index_name TO new_index_name
+    /// `RENAME {INDEX | KEY} old_index_name TO new_index_name`
     fn rename_index_or_key(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -1019,7 +1018,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// RENAME \[TO | AS] new_tbl_name
+    /// `RENAME [TO | AS] new_tbl_name`
     fn rename_table(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -1037,7 +1036,7 @@ impl AlterTableOption {
         )(i)
     }
 
-    /// {WITHOUT | WITH} VALIDATION
+    /// `{WITHOUT | WITH} VALIDATION`
     fn without_or_with_validation(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -1277,9 +1276,7 @@ mod tests {
         for i in 0..parts.len() {
             println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_index_or_key(parts[i]);
-            // res.unwrap();
             assert!(res.is_ok());
-            println!("{:?}", res.unwrap().1)
         }
     }
 

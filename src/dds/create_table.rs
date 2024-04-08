@@ -9,7 +9,6 @@ use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
-use base::check_constraint::CheckConstraintDefinition;
 use base::column::{Column, ColumnSpecification};
 use base::error::ParseSQLError;
 use base::fulltext_or_spatial_type::FulltextOrSpatialType;
@@ -18,7 +17,7 @@ use base::index_or_key_type::IndexOrKeyType;
 use base::index_type::IndexType;
 use base::table::Table;
 use base::table_option::TableOption;
-use base::{CommonParser, KeyPart, ReferenceDefinition};
+use base::{CheckConstraintDefinition, CommonParser, KeyPart, ReferenceDefinition};
 use dms::SelectStatement;
 
 /// **CreateTableStatement**
@@ -254,9 +253,13 @@ impl CreateTableType {
     /// parse `[table_options]` part
     fn create_table_options(i: &str) -> IResult<&str, Vec<TableOption>, ParseSQLError<&str>> {
         map(
-            many1(terminated(
-                TableOption::parse,
-                opt(CommonParser::ws_sep_comma),
+            many1(map(
+                tuple((
+                    TableOption::parse,
+                    multispace0,
+                    opt(CommonParser::ws_sep_comma),
+                )),
+                |x| x.0,
             )),
             |x| x,
         )(i)
@@ -302,7 +305,7 @@ pub enum CreateDefinition {
         column_definition: ColumnSpecification,
     },
 
-    /// {INDEX | KEY} \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `{INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     IndexOrKey {
         index_or_key: IndexOrKeyType,          // {INDEX | KEY}
         opt_index_name: Option<String>,        // [index_name]
@@ -311,7 +314,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...) \[index_option] ...
+    /// `{FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     FulltextOrSpatial {
         fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
@@ -320,7 +323,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>,      // [index_option]
     },
 
-    /// \[CONSTRAINT \[symbol]] PRIMARY KEY \[index_type] (key_part,...) \[index_option] ...
+    /// `[CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     PrimaryKey {
         opt_symbol: Option<String>,            // [symbol]
         opt_index_type: Option<IndexType>,     // [index_type]
@@ -328,7 +331,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>, // [index_option]
     },
 
-    /// \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY] \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `[CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...`
     Unique {
         opt_symbol: Option<String>,               // [symbol]
         opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
@@ -338,7 +341,7 @@ pub enum CreateDefinition {
         opt_index_option: Option<IndexOption>,    // [index_option]
     },
 
-    /// \[CONSTRAINT \[symbol]] FOREIGN KEY \[index_name] (col_name,...) reference_definition
+    /// `[CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition`
     ForeignKey {
         opt_symbol: Option<String>,                // [symbol]
         opt_index_name: Option<String>,            // [index_name]
@@ -346,30 +349,30 @@ pub enum CreateDefinition {
         reference_definition: ReferenceDefinition, // reference_definition
     },
 
-    /// check_constraint_definition
+    /// `check_constraint_definition`
     Check {
         check_constraint_definition: CheckConstraintDefinition,
     },
 }
 
 impl CreateDefinition {
-    /// create_definition: {
+    /// `create_definition: {
     ///     col_name column_definition
-    ///   | {INDEX | KEY} \[index_name] \[index_type] (key_part,...)
-    ///       \[index_option] ...
-    ///   | {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...)
-    ///       \[index_option] ...
-    ///   | \[CONSTRAINT \[symbol]] PRIMARY KEY
-    ///       \[index_type] (key_part,...)
-    ///       \[index_option] ...
-    ///   | \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY]
-    ///       \[index_name] \[index_type] (key_part,...)
-    ///       \[index_option] ...
-    ///   | \[CONSTRAINT \[symbol]] FOREIGN KEY
-    ///       \[index_name] (col_name,...)
+    ///   | {INDEX | KEY} [index_name] [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] PRIMARY KEY
+    ///       [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
+    ///       [index_name] [index_type] (key_part,...)
+    ///       [index_option] ...
+    ///   | [CONSTRAINT [symbol]] FOREIGN KEY
+    ///       [index_name] (col_name,...)
     ///       reference_definition
     ///   | check_constraint_definition
-    /// }
+    /// }`
     pub fn parse(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         alt((
             map(ColumnSpecification::parse, |x| {
@@ -405,7 +408,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// {INDEX | KEY} \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `{INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     fn index_or_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -416,7 +419,7 @@ impl CreateDefinition {
                 // [index_type]
                 IndexType::opt_index_type,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -432,7 +435,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// | {FULLTEXT | SPATIAL} \[INDEX | KEY] \[index_name] (key_part,...) \[index_option] ...
+    /// `{FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     fn fulltext_or_spatial(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -443,7 +446,7 @@ impl CreateDefinition {
                 // [index_name]
                 CommonParser::opt_index_name,
                 // (key_part,...)
-                KeyPart::key_part_list,
+                KeyPart::parse,
                 // [index_option]
                 IndexOption::opt_index_option,
             )),
@@ -459,7 +462,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// | \[CONSTRAINT \[symbol]] PRIMARY KEY \[index_type] (key_part,...) \[index_option] ...
+    /// `[CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     fn primary_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -471,7 +474,7 @@ impl CreateDefinition {
                     tag_no_case("KEY"),
                 )), // PRIMARY KEY
                 IndexType::opt_index_type,            // [index_type]
-                KeyPart::key_part_list,               // (key_part,...)
+                KeyPart::parse,                       // (key_part,...)
                 IndexOption::opt_index_option,        // [index_option]
             )),
             |(opt_symbol, _, opt_index_type, key_part, opt_index_option)| {
@@ -485,7 +488,8 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// \[CONSTRAINT \[symbol]] UNIQUE \[INDEX | KEY] \[index_name] \[index_type] (key_part,...) \[index_option] ...
+    /// `[CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type]
+    ///  (key_part,...) [index_option] ...`
     fn unique(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -501,7 +505,7 @@ impl CreateDefinition {
                 ), // UNIQUE [INDEX | KEY]
                 CommonParser::opt_index_name,         // [index_name]
                 IndexType::opt_index_type,            // [index_type]
-                KeyPart::key_part_list,               // (key_part,...)
+                KeyPart::parse,                       // (key_part,...)
                 IndexOption::opt_index_option,        // [index_option]
             )),
             |(
@@ -524,7 +528,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// \[CONSTRAINT \[symbol]] FOREIGN KEY \[index_name] (col_name,...) reference_definition
+    /// `[CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition`
     fn foreign_key(i: &str) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
         map(
             tuple((
@@ -567,7 +571,7 @@ impl CreateDefinition {
     }
 
     /// check_constraint_definition
-    /// | \[CONSTRAINT \[symbol]] CHECK (expr) \[\[NOT] ENFORCED]
+    /// `[CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]`
     fn check_constraint_definition(
         i: &str,
     ) -> IResult<&str, CreateDefinition, ParseSQLError<&str>> {
@@ -603,7 +607,7 @@ impl CreateDefinition {
         )(i)
     }
 
-    /// \[CONSTRAINT \[symbol]]
+    /// `[CONSTRAINT [symbol]]`
     fn opt_constraint_with_opt_symbol(
         i: &str,
     ) -> IResult<&str, Option<String>, ParseSQLError<&str>> {
@@ -666,13 +670,13 @@ mod tests {
             "CREATE TEMPORARY TABLE temp_employee AS SELECT * FROM employee WHERE department_id = 3",
             "CREATE TABLE IF NOT EXISTS employee_backup AS SELECT * FROM employee",
             "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100",
-            "CREATE TABLE `admin_assert` (`assert_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Assert ID',`assert_type` varchar(20) DEFAULT NULL COMMENT 'Assert Type',`assert_data` text COMMENT 'Assert Data',PRIMARY KEY (`assert_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
-            "CREATE TABLE `admin_role` (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',`parent_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'Parent Role ID',`tree_level` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Tree Level',`sort_order` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Sort Order',`role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',`user_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'User ID',`role_name` varchar(50) DEFAULT NULL COMMENT 'Role Name',PRIMARY KEY (`role_id`),KEY `IDX_ADMIN_ROLE_PARENT_ID_SORT_ORDER` (`parent_id`,`sort_order`),KEY `IDX_ADMIN_ROLE_TREE_LEVEL` (`tree_level`)) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';",
-            "CREATE TABLE `postcode_city` (`id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Id',`country_code` varchar(5) NOT NULL COMMENT 'Country Code',`postcode` varchar(20) NOT NULL COMMENT 'Postcode',`city` text NOT NULL COMMENT 'City',PRIMARY KEY (`id`)) ENGINE=InnoDB Auto_Increment=52142 DEFAULT CHARSET=utf8 COMMENT='Postcode -> City';",
             "CREATE TABLE author ( a_id int not null, a_fname varchar(20), a_lname varchar(20), a_mname varchar(20), a_dob date, a_bio int, PRIMARY KEY(a_id))",
             "CREATE TABLE customer ( c_id int not null, c_uname varchar(20), c_passwd varchar(20), c_fname varchar(17), c_lname varchar(17), c_addr_id int, c_phone varchar(18), c_email varchar(50), c_since date, c_last_login date, c_login timestamp, c_expiration timestamp, c_discount real, c_balance double, c_ytd_pmt double, c_birthdate date, c_data int, PRIMARY KEY(c_id))",
             "CREATE TABLE item ( i_id int not null, i_title varchar(60), i_a_id int, i_pub_date date, i_publisher varchar(60), i_subject varchar(60), i_desc text, i_related1 int, i_related2 int, i_related3 int, i_related4 int, i_related5 int, i_thumbnail varchar(40), i_image varchar(40), i_srp double, i_cost double, i_avail date, i_stock int, i_isbn char(13), i_page int, i_backing varchar(15), i_dimensions varchar(25), PRIMARY KEY(i_id))",
             "CREATE TABLE user (user_id int(5) unsigned NOT NULL auto_increment,user_name varchar(255) binary NOT NULL default '',user_rights tinyblob NOT NULL default '',user_password tinyblob NOT NULL default '',user_newpassword tinyblob NOT NULL default '',user_email tinytext NOT NULL default '',user_options blob NOT NULL default '',user_touched char(14) binary NOT NULL default '',UNIQUE KEY user_id (user_id)) ENGINE=MyISAM PACK_KEYS=1;",
+            "CREATE TABLE `admin_assert` (`assert_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Assert ID',`assert_type` varchar(20) DEFAULT NULL COMMENT 'Assert Type',`assert_data` text COMMENT 'Assert Data',PRIMARY KEY (`assert_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
+            "CREATE TABLE `admin_role` (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',`parent_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'Parent Role ID',`tree_level` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Tree Level',`sort_order` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Sort Order',`role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',`user_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'User ID',`role_name` varchar(50) DEFAULT NULL COMMENT 'Role Name',PRIMARY KEY (`role_id`),KEY `IDX_ADMIN_ROLE_PARENT_ID_SORT_ORDER` (`parent_id`,`sort_order`),KEY `IDX_ADMIN_ROLE_TREE_LEVEL` (`tree_level`)) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';",
+            "CREATE TABLE `postcode_city` (`id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Id',`country_code` varchar(5) NOT NULL COMMENT 'Country Code',`postcode` varchar(20) NOT NULL COMMENT 'Postcode',`city` text NOT NULL COMMENT 'City',PRIMARY KEY (`id`)) ENGINE=InnoDB Auto_Increment=52142 DEFAULT CHARSET=utf8 COMMENT='Postcode -> City';",
         ];
 
         for i in 0..create_sqls.len() {

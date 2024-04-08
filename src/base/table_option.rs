@@ -12,35 +12,35 @@ use base::{
     TablespaceType,
 };
 
-/// table_option: {
-///     AUTOEXTEND_SIZE \[=] value
-///   | AUTO_INCREMENT \[=] value
-///   | AVG_ROW_LENGTH \[=] value
-///   | \[DEFAULT] CHARACTER SET \[=] charset_name
-///   | CHECKSUM \[=] {0 | 1}
-///   | \[DEFAULT] COLLATE \[=] collation_name
-///   | COMMENT \[=] 'string'
-///   | COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
-///   | CONNECTION \[=] 'connect_string'
-///   | {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
-///   | DELAY_KEY_WRITE \[=] {0 | 1}
-///   | ENCRYPTION \[=] {'Y' | 'N'}
-///   | ENGINE \[=] engine_name
-///   | ENGINE_ATTRIBUTE \[=] 'string'
-///   | INSERT_METHOD \[=] { NO | FIRST | LAST }
-///   | KEY_BLOCK_SIZE \[=] value
-///   | MAX_ROWS \[=] value
-///   | MIN_ROWS \[=] value
-///   | PACK_KEYS \[=] {0 | 1 | DEFAULT}
-///  | PASSWORD \[=] 'string'
-///   | ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-///   | SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
-///   | STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
-///   | STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
-///   | STATS_SAMPLE_PAGES \[=] value
-///   | TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
-///   | UNION \[=] (tbl_name\[,tbl_name]...)
-///  }
+/// table_option: `{
+///     AUTOEXTEND_SIZE [=] value
+///   | AUTO_INCREMENT [=] value
+///   | AVG_ROW_LENGTH [=] value
+///   | [DEFAULT] CHARACTER SET [=] charset_name
+///   | CHECKSUM [=] {0 | 1}
+///   | [DEFAULT] COLLATE [=] collation_name
+///   | COMMENT [=] 'string'
+///   | COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}
+///   | CONNECTION [=] 'connect_string'
+///   | {DATA | INDEX} DIRECTORY [=] 'absolute path to directory'
+///   | DELAY_KEY_WRITE [=] {0 | 1}
+///   | ENCRYPTION [=] {'Y' | 'N'}
+///   | ENGINE [=] engine_name
+///   | ENGINE_ATTRIBUTE [=] 'string'
+///   | INSERT_METHOD [=] { NO | FIRST | LAST }
+///   | KEY_BLOCK_SIZE [=] value
+///   | MAX_ROWS [=] value
+///   | MIN_ROWS [=] value
+///   | PACK_KEYS [=] {0 | 1 | DEFAULT}
+///   | PASSWORD [=] 'string'
+///   | ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
+///   | STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}
+///   | STATS_PERSISTENT [=] {DEFAULT | 0 | 1}
+///   | STATS_SAMPLE_PAGES [=] value
+///   | TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]
+///   | UNION [=] (tbl_name[,tbl_name]...)
+///  }`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum TableOption {
     AutoextendSize(u64),
@@ -76,35 +76,6 @@ pub enum TableOption {
 }
 
 impl TableOption {
-    /// table_option: {
-    ///     AUTOEXTEND_SIZE \[=] value
-    ///   | AUTO_INCREMENT \[=] value
-    ///   | AVG_ROW_LENGTH \[=] value
-    ///   | \[DEFAULT] CHARACTER SET \[=] charset_name
-    ///   | CHECKSUM \[=] {0 | 1}
-    ///   | \[DEFAULT] COLLATE \[=] collation_name
-    ///   | COMMENT \[=] 'string'
-    ///   | COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
-    ///   | CONNECTION \[=] 'connect_string'
-    ///   | {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
-    ///   | DELAY_KEY_WRITE \[=] {0 | 1}
-    ///   | ENCRYPTION \[=] {'Y' | 'N'}
-    ///   | ENGINE \[=] engine_name
-    ///   | ENGINE_ATTRIBUTE \[=] 'string'
-    ///   | INSERT_METHOD \[=] { NO | FIRST | LAST }
-    ///   | KEY_BLOCK_SIZE \[=] value
-    ///   | MAX_ROWS \[=] value
-    ///   | MIN_ROWS \[=] value
-    ///   | PACK_KEYS \[=] {0 | 1 | DEFAULT}
-    ///  | PASSWORD \[=] 'string'
-    ///   | ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
-    ///   | SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
-    ///   | STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
-    ///   | STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
-    ///   | STATS_SAMPLE_PAGES \[=] value
-    ///   | TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
-    ///   | UNION \[=] (tbl_name\[,tbl_name]...)
-    ///  }
     pub fn parse(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((Self::table_option_part_1, Self::table_option_part_2))(i)
     }
@@ -148,7 +119,7 @@ impl TableOption {
         ))(i)
     }
 
-    /// AUTOEXTEND_SIZE \[=] value
+    /// parse `AUTOEXTEND_SIZE [=] value`
     fn autoextend_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -157,15 +128,14 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::AutoextendSize(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// AUTO_INCREMENT \[=] value
+    /// parse `AUTO_INCREMENT [=] value`
     fn auto_increment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -174,15 +144,14 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, _, value, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::AutoIncrement(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// AVG_ROW_LENGTH \[=] value
+    /// parse `AVG_ROW_LENGTH [=] value`
     fn avg_row_length(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -191,15 +160,14 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::AvgRowLength(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// \[DEFAULT] CHARACTER SET \[=] charset_name
+    /// parse `[DEFAULT] CHARACTER SET [=] charset_name`
     fn default_character_set(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -214,18 +182,17 @@ impl TableOption {
                     multispace0,
                 )),
                 map(CommonParser::sql_identifier, String::from),
-                multispace0,
             )),
-            |(_, _, _, charset_name, _)| TableOption::DefaultCharacterSet(charset_name),
+            |(_, _, _, charset_name)| TableOption::DefaultCharacterSet(charset_name),
         )(i)
     }
 
-    /// \[DEFAULT] CHARSET \[=] charset_name
+    /// parse `[DEFAULT] CHARSET [=] charset_name`
     fn default_charset(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                opt(tag_no_case("DEFAULT ")),
-                multispace0,
+                opt(tag_no_case("DEFAULT")),
+                multispace1,
                 tuple((
                     tag_no_case("CHARSET"),
                     multispace0,
@@ -233,13 +200,12 @@ impl TableOption {
                     multispace0,
                 )),
                 map(CommonParser::sql_identifier, String::from),
-                multispace0,
             )),
-            |(_, _, _, charset_name, _)| TableOption::DefaultCharset(charset_name),
+            |(_, _, _, charset_name)| TableOption::DefaultCharset(charset_name),
         )(i)
     }
 
-    /// CHECKSUM \[=] {0 | 1}
+    /// parse `CHECKSUM [=] {0 | 1}`
     fn checksum(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -248,13 +214,12 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
-                multispace0,
             )),
-            |x| TableOption::Checksum(x.4),
+            |(_, _, _, _, checksum)| TableOption::Checksum(checksum),
         )(i)
     }
 
-    /// \[DEFAULT] COLLATE \[=] collation_name
+    /// parse `[DEFAULT] COLLATE [=] collation_name`
     fn default_collate(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -267,17 +232,15 @@ impl TableOption {
                         opt(tag("=")),
                         multispace0,
                         CommonParser::sql_identifier,
-                        multispace0,
                     )),
-                    |(_, _, _, _, collation_name, _)| String::from(collation_name),
+                    |(_, _, _, _, collation_name)| String::from(collation_name),
                 ),
-                multispace0,
             )),
-            |(_, _, collation_name, _)| TableOption::DefaultCollate(collation_name),
+            |(_, _, collation_name)| TableOption::DefaultCollate(collation_name),
         )(i)
     }
 
-    /// COMMENT \[=] 'string'
+    /// parse COMMENT [=] 'string'`
     fn comment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -288,113 +251,101 @@ impl TableOption {
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, comment, _)| TableOption::Comment(comment),
+            |(_, _, _, _, comment)| TableOption::Comment(comment),
         )(i)
     }
 
-    /// COMPRESSION \[=] {'ZLIB' | 'LZ4' | 'NONE'}
+    /// parse `COMPRESSION [=] {'ZLIB' | 'LZ4' | 'NONE'}`
     fn compression(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("COMPRESSION "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                CompressionType::parse,
-                multispace0,
-            )),
-            |(_, _, _, _, compression_type, _)| TableOption::Compression(compression_type),
-        )(i)
+        map(CompressionType::parse, TableOption::Compression)(i)
     }
 
-    /// CONNECTION \[=] 'connect_string'
+    /// parse `CONNECTION [=] 'connect_string'`
     fn connection(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("CONNECTION "),
+                tag_no_case("CONNECTION"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, connect_string, _)| TableOption::Connection(connect_string),
+            |(_, _, _, _, connect_string)| TableOption::Connection(connect_string),
         )(i)
     }
 
-    /// {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
+    /// parse `{DATA | INDEX} DIRECTORY [=] 'absolute path to directory'`
     fn data_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("DATA"),
                 multispace1,
-                tag_no_case("DIRECTORY "),
+                tag_no_case("DIRECTORY"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-                multispace0,
+                map(
+                    alt((
+                        delimited(tag("'"), take_until("'"), tag("'")),
+                        delimited(tag("\""), take_until("\""), tag("\"")),
+                    )),
+                    String::from,
+                ),
             )),
-            |(_, _, _, _, _, _, path, _)| TableOption::DataDirectory(path),
+            |(_, _, _, _, _, _, path)| TableOption::DataDirectory(path),
         )(i)
     }
 
-    /// {DATA | INDEX} DIRECTORY \[=] 'absolute path to directory'
+    /// parse `{DATA | INDEX} DIRECTORY [=] 'absolute path to directory'`
     fn index_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
                 tag_no_case("INDEX"),
                 multispace1,
-                tag_no_case("DIRECTORY "),
+                tag_no_case("DIRECTORY"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, _, _, path, _)| TableOption::DataDirectory(path),
+            |(_, _, _, _, _, _, path)| TableOption::DataDirectory(path),
         )(i)
     }
 
-    /// DELAY_KEY_WRITE \[=] {0 | 1}
+    /// parse `DELAY_KEY_WRITE [=] {0 | 1}`
     fn delay_key_write(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("DELAY_KEY_RITE "),
+                tag_no_case("DELAY_KEY_RITE"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
-                multispace0,
             )),
-            |x| TableOption::DelayKeyWrite(x.4),
+            |(_, _, _, _, delay_key_rite)| TableOption::DelayKeyWrite(delay_key_rite),
         )(i)
     }
 
-    /// ENCRYPTION \[=] {'Y' | 'N'}
+    /// parse `ENCRYPTION [=] {'Y' | 'N'}`
     fn encryption(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("ENCRYPTION "),
+                tag_no_case("ENCRYPTION"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
-                multispace0,
             )),
-            |x| TableOption::Encryption(x.4),
+            |(_, _, _, _, encryption)| TableOption::Encryption(encryption),
         )(i)
     }
 
-    /// ENGINE \[=] engine_name
+    /// parse `ENGINE [=] engine_name`
     fn engine(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -403,96 +354,81 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 CommonParser::sql_identifier,
-                multispace0,
             )),
-            |(_, _, _, _, engine, _)| TableOption::Engine(String::from(engine)),
+            |(_, _, _, _, engine)| TableOption::Engine(String::from(engine)),
         )(i)
     }
 
-    /// ENGINE_ATTRIBUTE \[=] 'string'
+    /// parse `ENGINE_ATTRIBUTE [=] 'string'`
     fn engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("ENGINE_ATTRIBUTE "),
+                tag_no_case("ENGINE_ATTRIBUTE"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, attribute, _)| TableOption::EngineAttribute(attribute),
+            |(_, _, _, _, attribute)| TableOption::EngineAttribute(attribute),
         )(i)
     }
 
-    /// INSERT_METHOD \[=] { NO | FIRST | LAST }
+    /// parse `INSERT_METHOD [=] { NO | FIRST | LAST }`
     fn insert_method(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("INSERT METHOD "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                InsertMethodType::parse,
-                multispace0,
-            )),
-            |x| TableOption::InsertMethod(x.4),
-        )(i)
+        map(InsertMethodType::parse, TableOption::InsertMethod)(i)
     }
 
-    /// KEY_BLOCK_SIZE \[=] value
+    /// parse `KEY_BLOCK_SIZE [=] value`
     fn key_block_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("KEY_BLOCK_SIZE "),
+                tag_no_case("KEY_BLOCK_SIZE"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::KeyBlockSize(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// MAX_ROWS \[=] value
+    /// parse `MAX_ROWS [=] value`
     fn max_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("MAX_ROWS "),
+                tag_no_case("MAX_ROWS"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::MaxRows(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// MIN_ROWS \[=] value
+    /// parse `MIN_ROWS [=] value`
     fn min_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("MIN_ROWS "),
+                tag_no_case("MIN_ROWS"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::MinRows(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// PACK_KEYS \[=] {0 | 1 | DEFAULT}
+    /// parse `PACK_KEYS [=] {0 | 1 | DEFAULT}`
     fn pack_keys(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -501,45 +437,33 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 DefaultOrZeroOrOne::parse,
-                multispace0,
             )),
-            |x| TableOption::PackKeys(x.4),
+            |(_, _, _, _, value)| TableOption::PackKeys(value),
         )(i)
     }
 
-    /// PASSWORD \[=] 'string'
+    /// parse `PASSWORD [=] 'string'`
     fn password(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("PASSWORD "),
+                tag_no_case("PASSWORD"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, password, _)| TableOption::Password(password),
+            |(_, _, _, _, password)| TableOption::Password(password),
         )(i)
     }
 
-    /// ROW_FORMAT \[=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+    /// parse `ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}`
     fn row_format(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("INSERT METHOD "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                RowFormatType::parse,
-                multispace0,
-            )),
-            |x| TableOption::RowFormat(x.4),
-        )(i)
+        map(RowFormatType::parse, TableOption::RowFormat)(i)
     }
 
-    /// START TRANSACTION
+    /// parse `START TRANSACTION`
     /// create table only
     fn start_transaction(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
@@ -552,54 +476,51 @@ impl TableOption {
         )(i)
     }
 
-    /// SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
+    /// parse `SECONDARY_ENGINE_ATTRIBUTE [=] 'string'`
     fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
+                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
                     String::from(x)
                 }),
-                multispace0,
             )),
-            |(_, _, _, _, engine, _)| TableOption::SecondaryEngineAttribute(engine),
+            |(_, _, _, _, engine)| TableOption::SecondaryEngineAttribute(engine),
         )(i)
     }
 
-    /// STATS_AUTO_RECALC \[=] {DEFAULT | 0 | 1}
+    /// parse `STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}`
     fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("STATS_AUTO_RECALC "),
+                tag_no_case("STATS_AUTO_RECALC"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 DefaultOrZeroOrOne::parse,
-                multispace0,
             )),
-            |x| TableOption::StatsAutoRecalc(x.4),
+            |(_, _, _, _, value)| TableOption::StatsAutoRecalc(value),
         )(i)
     }
 
-    /// STATS_PERSISTENT \[=] {DEFAULT | 0 | 1}
+    /// parse `STATS_PERSISTENT [=] {DEFAULT | 0 | 1}`
     fn stats_persistent(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("STATS_PERSISTENT "),
+                tag_no_case("STATS_PERSISTENT"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
                 DefaultOrZeroOrOne::parse,
-                multispace0,
             )),
-            |x| TableOption::StatsPersistent(x.4),
+            |(_, _, _, _, value)| TableOption::StatsAutoRecalc(value),
         )(i)
     }
 
-    /// STATS_SAMPLE_PAGES \[=] value
+    /// parse `STATS_SAMPLE_PAGES [=] value`
     fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -608,15 +529,14 @@ impl TableOption {
                 opt(tag("=")),
                 multispace0,
                 digit1,
-                multispace0,
             )),
-            |(_, _, _, value, _, _): (&str, &str, Option<&str>, &str, &str, &str)| {
+            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
                 TableOption::StatsSamplePages(value.parse::<u64>().unwrap())
             },
         )(i)
     }
 
-    /// TABLESPACE tablespace_name \[STORAGE {DISK | MEMORY}]
+    /// parse `TABLESPACE tablespace_name [STORAGE {DISK | MEMORY}]`
     fn tablespace(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -624,19 +544,13 @@ impl TableOption {
                 multispace1,
                 map(CommonParser::sql_identifier, String::from), // tablespace_name
                 multispace0,
-                opt(map(
-                    tuple((tag_no_case("STORAGE"), multispace0, TablespaceType::parse)),
-                    |x| x.2,
-                )),
-                multispace0,
+                opt(TablespaceType::parse),
             )),
-            |(_, _, tablespace_name, _, storage, _)| {
-                TableOption::Tablespace(tablespace_name, storage)
-            },
+            |(_, _, tablespace_name, _, storage)| TableOption::Tablespace(tablespace_name, storage),
         )(i)
     }
 
-    /// UNION \[=] (tbl_name\[,tbl_name]...)
+    /// parse `UNION [=] (tbl_name[,tbl_name]...)`
     fn union(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
             tuple((
@@ -655,9 +569,43 @@ impl TableOption {
                     )),
                     |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
                 ),
-                multispace0,
             )),
-            |x| TableOption::Union(x.4),
+            |(_, _, _, _, union)| TableOption::Union(union),
         )(i)
+    }
+}
+
+/// `[CONSTRAINT [symbol]] CHECK (expr) [[NOT] ENFORCED]`
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct CheckConstraintDefinition {
+    pub symbol: Option<String>,
+    pub expr: String,
+    pub enforced: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use base::table_option::TableOption;
+    use base::DefaultOrZeroOrOne;
+
+    #[test]
+    fn parse_table_option() {
+        let str1 = "PACK_KEYS=1;";
+        let res1 = TableOption::parse(str1);
+        let exp = TableOption::PackKeys(DefaultOrZeroOrOne::One);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, exp);
+
+        let str2 = "DEFAULT CHARSET=utf8;";
+        let res2 = TableOption::parse(str2);
+        let exp = TableOption::DefaultCharset("utf8".to_string());
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, exp);
+
+        let str3 = "DATA DIRECTORY='/some/path';";
+        let res3 = TableOption::parse(str3);
+        let exp = TableOption::DataDirectory("/some/path".to_string());
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, exp);
     }
 }

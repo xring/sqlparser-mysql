@@ -10,7 +10,7 @@ use nom::IResult;
 
 use base::ParseSQLError;
 
-/// USING {BTREE | HASH}
+/// parse `USING {BTREE | HASH}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexType {
     Btree,
@@ -49,5 +49,23 @@ impl fmt::Display for IndexType {
             IndexType::Hash => write!(f, " USING HASH")?,
         };
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::index_type::IndexType;
+
+    #[test]
+    fn parse_index_type() {
+        let str1 = "using   hash";
+        let res1 = IndexType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, IndexType::Hash);
+
+        let str2 = "USING btree   ";
+        let res2 = IndexType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, IndexType::Btree);
     }
 }

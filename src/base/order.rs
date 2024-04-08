@@ -62,7 +62,7 @@ impl fmt::Display for OrderClause {
     }
 }
 
-/// [ASC | DESC]
+/// parse `[ASC | DESC]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum OrderType {
     Asc,
@@ -92,7 +92,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn order_clause() {
+    fn parse_order_clause() {
         let str1 = "order by name desc";
         let str2 = "order by name asc, age desc";
         let str3 = "order by name";
@@ -116,5 +116,18 @@ mod tests {
         assert_eq!(res1.unwrap().1, expected_ord1);
         assert_eq!(res2.unwrap().1, expected_ord2);
         assert_eq!(res3.unwrap().1, expected_ord3);
+    }
+
+    #[test]
+    fn parse_order_type() {
+        let str1 = "aSc";
+        let res1 = OrderType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, OrderType::Asc);
+
+        let str2 = "desc";
+        let res2 = OrderType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, OrderType::Desc);
     }
 }

@@ -94,20 +94,20 @@ impl DataType {
             Self::tiny_int,
             Self::big_int,
             Self::sql_int_type,
-            map(alt((tag_no_case("boolean"), tag_no_case("bool"))), |_| {
+            map(alt((tag_no_case("BOOLEAN"), tag_no_case("BOOL"))), |_| {
                 DataType::Bool
             }),
             map(
                 tuple((
-                    tag_no_case("char"),
+                    tag_no_case("CHAR"),
                     CommonParser::delim_digit,
                     multispace0,
-                    opt(tag_no_case("binary")),
+                    opt(tag_no_case("BINARY")),
                 )),
                 |t| DataType::Char(Self::len_as_u16(t.1)),
             ),
             map(
-                preceded(tag_no_case("datetime"), opt(CommonParser::delim_digit)),
+                preceded(tag_no_case("DATETIME"), opt(CommonParser::delim_digit)),
                 |fsp| {
                     DataType::DateTime(match fsp {
                         Some(fsp) => Self::len_as_u16(fsp),
@@ -115,15 +115,15 @@ impl DataType {
                     })
                 },
             ),
-            map(tag_no_case("date"), |_| DataType::Date),
+            map(tag_no_case("DATE"), |_| DataType::Date),
             map(
-                tuple((tag_no_case("double"), multispace0, Self::opt_signed)),
+                tuple((tag_no_case("DOUBLE"), multispace0, Self::opt_signed)),
                 |_| DataType::Double,
             ),
             map(
                 terminated(
                     preceded(
-                        tag_no_case("enum"),
+                        tag_no_case("ENUM"),
                         delimited(tag("("), Literal::value_list, tag(")")),
                     ),
                     multispace0,
@@ -132,7 +132,7 @@ impl DataType {
             ),
             map(
                 tuple((
-                    tag_no_case("float"),
+                    tag_no_case("FLOAT"),
                     multispace0,
                     opt(CommonParser::precision),
                     multispace0,
@@ -140,15 +140,15 @@ impl DataType {
                 |_| DataType::Float,
             ),
             map(
-                tuple((tag_no_case("real"), multispace0, Self::opt_signed)),
+                tuple((tag_no_case("REAL"), multispace0, Self::opt_signed)),
                 |_| DataType::Real,
             ),
-            map(tag_no_case("text"), |_| DataType::Text),
-            map(tag_no_case("json"), |_| DataType::Json),
-            map(tag_no_case("uuid"), |_| DataType::Uuid),
+            map(tag_no_case("TEXT"), |_| DataType::Text),
+            map(tag_no_case("JSON"), |_| DataType::Json),
+            map(tag_no_case("UUID"), |_| DataType::Uuid),
             map(
                 tuple((
-                    tag_no_case("timestamp"),
+                    tag_no_case("TIMESTAMP"),
                     opt(CommonParser::delim_digit),
                     multispace0,
                 )),
@@ -156,10 +156,10 @@ impl DataType {
             ),
             map(
                 tuple((
-                    tag_no_case("varchar"),
+                    tag_no_case("VARCHAR"),
                     CommonParser::delim_digit,
                     multispace0,
-                    opt(tag_no_case("binary")),
+                    opt(tag_no_case("BINARY")),
                 )),
                 |t| DataType::Varchar(Self::len_as_u16(t.1)),
             ),
@@ -171,22 +171,22 @@ impl DataType {
         alt((
             map(
                 tuple((
-                    tag_no_case("binary"),
+                    tag_no_case("BINARY"),
                     CommonParser::delim_digit,
                     multispace0,
                 )),
                 |t| DataType::Binary(Self::len_as_u16(t.1)),
             ),
-            map(tag_no_case("blob"), |_| DataType::Blob),
-            map(tag_no_case("longblob"), |_| DataType::Longblob),
-            map(tag_no_case("mediumblob"), |_| DataType::Mediumblob),
-            map(tag_no_case("mediumtext"), |_| DataType::Mediumtext),
-            map(tag_no_case("longtext"), |_| DataType::Longtext),
-            map(tag_no_case("tinyblob"), |_| DataType::Tinyblob),
-            map(tag_no_case("tinytext"), |_| DataType::Tinytext),
+            map(tag_no_case("BLOB"), |_| DataType::Blob),
+            map(tag_no_case("LONGBLOB"), |_| DataType::Longblob),
+            map(tag_no_case("MEDIUMBLOB"), |_| DataType::Mediumblob),
+            map(tag_no_case("MEDIUMTEXT"), |_| DataType::Mediumtext),
+            map(tag_no_case("LONGTEXT"), |_| DataType::Longtext),
+            map(tag_no_case("TINYBLOB"), |_| DataType::Tinyblob),
+            map(tag_no_case("TINYTEXT"), |_| DataType::Tinytext),
             map(
                 tuple((
-                    tag_no_case("varbinary"),
+                    tag_no_case("VARBINARY"),
                     CommonParser::delim_digit,
                     multispace0,
                 )),
@@ -199,7 +199,7 @@ impl DataType {
     // based on the sql int type, just like nom does
     fn tiny_int(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
-            tag_no_case("tinyint"),
+            tag_no_case("TINYINT"),
             multispace0,
             opt(CommonParser::delim_digit),
             multispace0,
@@ -208,7 +208,7 @@ impl DataType {
 
         match signed {
             Some(sign) => {
-                if sign.eq_ignore_ascii_case("unsigned") {
+                if sign.eq_ignore_ascii_case("UNSIGNED") {
                     Ok((
                         remaining_input,
                         DataType::UnsignedTinyint(len.map(Self::len_as_u16).unwrap_or(1)),
@@ -231,7 +231,7 @@ impl DataType {
     // based on the sql int type, just like nom does
     fn big_int(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
-            tag_no_case("bigint"),
+            tag_no_case("BIGINT"),
             multispace0,
             opt(CommonParser::delim_digit),
             multispace0,
@@ -240,7 +240,7 @@ impl DataType {
 
         match signed {
             Some(sign) => {
-                if sign.eq_ignore_ascii_case("unsigned") {
+                if sign.eq_ignore_ascii_case("UNSIGNED") {
                     Ok((
                         remaining_input,
                         DataType::UnsignedBigint(len.map(Self::len_as_u16).unwrap_or(1)),
@@ -264,9 +264,9 @@ impl DataType {
     fn sql_int_type(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, (_, _, len, _, signed)) = tuple((
             alt((
-                tag_no_case("integer"),
-                tag_no_case("int"),
-                tag_no_case("smallint"),
+                tag_no_case("INTEGER"),
+                tag_no_case("INT"),
+                tag_no_case("SMALLINT"),
             )),
             multispace0,
             opt(CommonParser::delim_digit),
@@ -276,7 +276,7 @@ impl DataType {
 
         match signed {
             Some(sign) => {
-                if sign.eq_ignore_ascii_case("unsigned") {
+                if sign.eq_ignore_ascii_case("UNSIGNED") {
                     Ok((
                         remaining_input,
                         DataType::UnsignedInt(len.map(Self::len_as_u16).unwrap_or(32)),
@@ -300,7 +300,7 @@ impl DataType {
     // See https://dev.mysql.com/doc/refman/5.7/en/precision-math-decimal-characteristics.html
     fn decimal_or_numeric(i: &str) -> IResult<&str, DataType, ParseSQLError<&str>> {
         let (remaining_input, precision) = delimited(
-            alt((tag_no_case("decimal"), tag_no_case("numeric"))),
+            alt((tag_no_case("DECIMAL"), tag_no_case("NUMERIC"))),
             opt(CommonParser::precision),
             multispace0,
         )(i)?;
@@ -313,7 +313,7 @@ impl DataType {
     }
 
     fn opt_signed(i: &str) -> IResult<&str, Option<&str>, ParseSQLError<&str>> {
-        opt(alt((tag_no_case("unsigned"), tag_no_case("signed"))))(i)
+        opt(alt((tag_no_case("UNSIGNED"), tag_no_case("SIGNED"))))(i)
     }
 
     #[inline]
@@ -332,21 +332,21 @@ mod tests {
     #[test]
     fn sql_types() {
         let ok = ["bool", "integer(16)", "datetime(16)"];
-        let not_ok = ["varchar"];
-
         let res_ok: Vec<_> = ok
             .iter()
             .map(|t| DataType::type_identifier(t).unwrap().1)
-            .collect();
-        let res_not_ok: Vec<_> = not_ok
-            .iter()
-            .map(|t| DataType::type_identifier(t).is_ok())
             .collect();
 
         assert_eq!(
             res_ok,
             vec![DataType::Bool, DataType::Int(16), DataType::DateTime(16)]
         );
+
+        let not_ok = ["varchar"];
+        let res_not_ok: Vec<_> = not_ok
+            .iter()
+            .map(|t| DataType::type_identifier(t).is_ok())
+            .collect();
 
         assert!(res_not_ok.into_iter().all(|r| !r));
     }

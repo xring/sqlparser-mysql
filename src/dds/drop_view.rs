@@ -98,13 +98,9 @@ mod tests {
             "DROP VIEW  view_name1, view_name2 RESTRICT;",
         ];
 
-        for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
-            let res = DropViewStatement::parse(sqls[i]);
-            // res.unwrap();
-            println!("{:?}", res);
-            // assert!(res.is_ok());
-            // println!("{:?}", res);
+        for sql in sqls {
+            let res = DropViewStatement::parse(sql);
+            assert!(res.is_ok());
         }
     }
 }

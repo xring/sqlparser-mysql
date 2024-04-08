@@ -36,3 +36,26 @@ impl fmt::Display for DefaultOrZeroOrOne {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use base::DefaultOrZeroOrOne;
+
+    #[test]
+    fn parse_default_or_zero_or_one() {
+        let str1 = "0";
+        let res1 = DefaultOrZeroOrOne::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, DefaultOrZeroOrOne::Zero);
+
+        let str2 = "DEFAULT";
+        let res2 = DefaultOrZeroOrOne::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, DefaultOrZeroOrOne::Default);
+
+        let str3 = "1";
+        let res3 = DefaultOrZeroOrOne::parse(str3);
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, DefaultOrZeroOrOne::One);
+    }
+}

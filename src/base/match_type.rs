@@ -7,7 +7,7 @@ use nom::IResult;
 
 use base::ParseSQLError;
 
-/// `[MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]`
+/// parse `[MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum MatchType {
     Full,
@@ -16,7 +16,6 @@ pub enum MatchType {
 }
 
 impl MatchType {
-    /// [MATCH FULL | MATCH PARTIAL | MATCH SIMPLE]
     pub fn parse(i: &str) -> IResult<&str, MatchType, ParseSQLError<&str>> {
         map(
             tuple((
@@ -30,5 +29,28 @@ impl MatchType {
             )),
             |x| x.2,
         )(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::MatchType;
+
+    #[test]
+    fn parse_algorithm_type() {
+        let str1 = "MATCH Full ";
+        let res1 = MatchType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, MatchType::Full);
+
+        let str2 = "match PARTIAL";
+        let res2 = MatchType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, MatchType::Partial);
+
+        let str3 = "match  SIMPLE   ";
+        let res3 = MatchType::parse(str3);
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, MatchType::Simple);
     }
 }

@@ -5,9 +5,9 @@ use std::fmt::Display;
 pub enum ItemPlaceholder {
     /// ?
     QuestionMark,
-    /// $
+    /// $1 $2 $3
     DollarNumber(i32),
-    /// :
+    /// :1 :2 :3
     ColonNumber(i32),
 }
 

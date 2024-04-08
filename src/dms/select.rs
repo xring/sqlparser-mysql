@@ -13,8 +13,8 @@ use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::table::Table;
 use base::{
-    CommonParser, FieldDefinitionExpression, JoinConstraint, JoinOperator, JoinRightSide,
-    OrderClause,
+    CommonParser, FieldDefinitionExpression, JoinClause, JoinConstraint, JoinOperator,
+    JoinRightSide, OrderClause,
 };
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -157,45 +157,6 @@ impl fmt::Display for GroupByClause {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct JoinClause {
-    pub operator: JoinOperator,
-    pub right: JoinRightSide,
-    pub constraint: JoinConstraint,
-}
-
-impl JoinClause {
-    pub fn parse(i: &str) -> IResult<&str, JoinClause, ParseSQLError<&str>> {
-        let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
-            multispace0,
-            opt(terminated(tag_no_case("NATURAL"), multispace1)),
-            JoinOperator::parse,
-            multispace1,
-            JoinRightSide::parse,
-            multispace1,
-            JoinConstraint::parse,
-        ))(i)?;
-
-        Ok((
-            remaining_input,
-            JoinClause {
-                operator,
-                right,
-                constraint,
-            },
-        ))
-    }
-}
-
-impl fmt::Display for JoinClause {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.operator)?;
-        write!(f, " {}", self.right)?;
-        write!(f, " {}", self.constraint)?;
-        Ok(())
-    }
-}
-
 // TODO need parse as detailed data type
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct BetweenAndClause {
@@ -284,8 +245,8 @@ mod tests {
     use base::condition::{ConditionBase, ConditionExpression, ConditionTree};
     use base::table::Table;
     use base::{
-        CaseWhenExpression, ColumnOrLiteral, FieldValueExpression, ItemPlaceholder, JoinConstraint,
-        JoinOperator, JoinRightSide, Operator, OrderClause,
+        CaseWhenExpression, ColumnOrLiteral, FieldValueExpression, ItemPlaceholder, JoinClause,
+        JoinConstraint, JoinOperator, JoinRightSide, Operator, OrderClause,
     };
     use base::{Literal, OrderType};
 

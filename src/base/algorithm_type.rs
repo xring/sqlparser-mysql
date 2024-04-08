@@ -7,7 +7,7 @@ use nom::IResult;
 
 use base::ParseSQLError;
 
-/// ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
+/// parse `ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlgorithmType {
     Instant, // alter table only
@@ -35,5 +35,38 @@ impl AlgorithmType {
             )),
             |x| x.4,
         )(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::algorithm_type::AlgorithmType;
+
+    #[test]
+    fn parse_algorithm_type() {
+        let str1 = "ALGORITHM INSTANT";
+        let res1 = AlgorithmType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, AlgorithmType::Instant);
+
+        let str2 = "ALGORITHM=DEFAULT";
+        let res2 = AlgorithmType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, AlgorithmType::Default);
+
+        let str3 = "ALGORITHM= INPLACE";
+        let res3 = AlgorithmType::parse(str3);
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, AlgorithmType::Inplace);
+
+        let str4 = "ALGORITHM =COPY";
+        let res4 = AlgorithmType::parse(str4);
+        assert!(res4.is_ok());
+        assert_eq!(res4.unwrap().1, AlgorithmType::Copy);
+
+        let str5 = "ALGORITHM = DEFAULT";
+        let res5 = AlgorithmType::parse(str5);
+        assert!(res5.is_ok());
+        assert_eq!(res5.unwrap().1, AlgorithmType::Default);
     }
 }

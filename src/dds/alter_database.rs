@@ -12,15 +12,15 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::{CommonParser, DefaultOrZeroOrOne};
 
-/// ALTER {DATABASE | SCHEMA} \[db_name]
-///     alter_option ...
+/// `ALTER {DATABASE | SCHEMA} [db_name]
+///     alter_option ...`
 ///
-/// alter_option: {
-///     \[DEFAULT] CHARACTER SET \[=] charset_name
-///   | \[DEFAULT] COLLATE \[=] collation_name
-///   | \[DEFAULT] ENCRYPTION \[=] {'Y' | 'N'}
-///   | READ ONLY \[=] {DEFAULT | 0 | 1}
-/// }
+/// `alter_option: {
+///     [DEFAULT] CHARACTER SET [=] charset_name
+///   | [DEFAULT] COLLATE [=] collation_name
+///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
+///   | READ ONLY [=] {DEFAULT | 0 | 1}
+/// }`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct AlterDatabaseStatement {
     // we parse SQL, db_name is needed
@@ -60,12 +60,12 @@ impl fmt::Display for AlterDatabaseStatement {
     }
 }
 
-/// alter_option: {
-///     \[DEFAULT] CHARACTER SET \[=] charset_name
-///   | \[DEFAULT] COLLATE \[=] collation_name
-///   | \[DEFAULT] ENCRYPTION \[=] {'Y' | 'N'}
-///   | READ ONLY \[=] {DEFAULT | 0 | 1}
-/// }
+/// `alter_option: {
+///     [DEFAULT] CHARACTER SET [=] charset_name
+///   | [DEFAULT] COLLATE [=] collation_name
+///   | [DEFAULT] ENCRYPTION [=] {'Y' | 'N'}
+///   | READ ONLY [=] {DEFAULT | 0 | 1}
+/// }`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum AlterDatabaseOption {
     CharacterSet(String),

@@ -13,8 +13,49 @@ use base::condition::ConditionExpression;
 use base::error::ParseSQLError;
 use base::table::Table;
 use base::CommonParser;
-use dms::{JoinClause, SelectStatement};
+use dms::SelectStatement;
 
+/// parse `join ...` part
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct JoinClause {
+    pub operator: JoinOperator,
+    pub right: JoinRightSide,
+    pub constraint: JoinConstraint,
+}
+
+impl JoinClause {
+    pub fn parse(i: &str) -> IResult<&str, JoinClause, ParseSQLError<&str>> {
+        let (remaining_input, (_, _natural, operator, _, right, _, constraint)) = tuple((
+            multispace0,
+            opt(terminated(tag_no_case("NATURAL"), multispace1)),
+            JoinOperator::parse,
+            multispace1,
+            JoinRightSide::parse,
+            multispace1,
+            JoinConstraint::parse,
+        ))(i)?;
+
+        Ok((
+            remaining_input,
+            JoinClause {
+                operator,
+                right,
+                constraint,
+            },
+        ))
+    }
+}
+
+impl fmt::Display for JoinClause {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.operator)?;
+        write!(f, " {}", self.right)?;
+        write!(f, " {}", self.constraint)?;
+        Ok(())
+    }
+}
+
+/// right side of a [JoinOperator]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum JoinRightSide {
     /// A single table.
@@ -64,6 +105,14 @@ impl fmt::Display for JoinRightSide {
     }
 }
 
+/// join types
+/// - join
+/// - left join
+/// - left outer join
+/// - right join
+/// - inner join
+/// - cross join
+/// - straight join
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum JoinOperator {
     Join,
@@ -126,6 +175,9 @@ impl fmt::Display for JoinOperator {
     }
 }
 
+/// join constraint
+/// - on xxx
+/// - using xxx
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum JoinConstraint {
     On(ConditionExpression),
@@ -136,7 +188,7 @@ impl JoinConstraint {
     pub fn parse(i: &str) -> IResult<&str, JoinConstraint, ParseSQLError<&str>> {
         let using_clause = map(
             tuple((
-                tag_no_case("using"),
+                tag_no_case("USING"),
                 multispace1,
                 delimited(
                     terminated(tag("("), multispace0),
@@ -146,6 +198,7 @@ impl JoinConstraint {
             )),
             |t| JoinConstraint::Using(t.2),
         );
+
         let on_condition = alt((
             delimited(
                 terminated(tag("("), multispace0),
@@ -154,7 +207,7 @@ impl JoinConstraint {
             ),
             ConditionExpression::condition_expr,
         ));
-        let on_clause = map(tuple((tag_no_case("on"), multispace1, on_condition)), |t| {
+        let on_clause = map(tuple((tag_no_case("ON"), multispace1, on_condition)), |t| {
             JoinConstraint::On(t.2)
         });
 
@@ -186,12 +239,11 @@ mod tests {
     use base::condition::ConditionExpression::Base;
     use base::condition::{ConditionExpression, ConditionTree};
     use base::Operator;
-    use dms::JoinClause;
 
     use super::*;
 
     #[test]
-    fn inner_join() {
+    fn parse_join() {
         let str = "INNER JOIN tagging ON tags.id = tagging.tag_id";
         let res = JoinClause::parse(str);
 

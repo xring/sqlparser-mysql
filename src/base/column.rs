@@ -157,9 +157,7 @@ impl FunctionArgument {
     // Parses the argument for an aggregation function
     pub fn parse(i: &str) -> IResult<&str, FunctionArgument, ParseSQLError<&str>> {
         alt((
-            map(CaseWhenExpression::parse, |cw| {
-                FunctionArgument::Conditional(cw)
-            }),
+            map(CaseWhenExpression::parse, FunctionArgument::Conditional),
             map(Column::without_alias, FunctionArgument::Column),
         ))(i)
     }
@@ -375,7 +373,11 @@ pub enum ColumnConstraint {
 impl ColumnConstraint {
     pub fn parse(i: &str) -> IResult<&str, Option<ColumnConstraint>, ParseSQLError<&str>> {
         let not_null = map(
-            delimited(multispace0, tag_no_case("NOT NULL"), multispace0),
+            delimited(
+                multispace0,
+                tuple((tag_no_case("NOT"), multispace1, tag_no_case("NULL"))),
+                multispace0,
+            ),
             |_| Some(ColumnConstraint::NotNull),
         );
         let null = map(
@@ -387,7 +389,11 @@ impl ColumnConstraint {
             |_| Some(ColumnConstraint::AutoIncrement),
         );
         let primary_key = map(
-            delimited(multispace0, tag_no_case("PRIMARY KEY"), multispace0),
+            delimited(
+                multispace0,
+                tuple((tag_no_case("PRIMARY"), multispace1, tag_no_case("KEY"))),
+                multispace0,
+            ),
             |_| Some(ColumnConstraint::PrimaryKey),
         );
         let unique = map(
@@ -396,7 +402,25 @@ impl ColumnConstraint {
         );
         let character_set = map(
             preceded(
-                delimited(multispace0, tag_no_case("CHARACTER SET"), multispace1),
+                delimited(
+                    multispace0,
+                    tuple((tag_no_case("CHARACTER"), multispace1, tag_no_case("SET"))),
+                    multispace1,
+                ),
+                alt((
+                    CommonParser::sql_identifier,
+                    delimited(tag("'"), CommonParser::sql_identifier, tag("'")),
+                    delimited(tag("\""), CommonParser::sql_identifier, tag("\"")),
+                )),
+            ),
+            |cs| {
+                let char_set = cs.to_owned();
+                Some(ColumnConstraint::CharacterSet(char_set))
+            },
+        );
+        let charset = map(
+            preceded(
+                delimited(multispace0, tag_no_case("CHARSET"), multispace1),
                 alt((
                     CommonParser::sql_identifier,
                     delimited(tag("'"), CommonParser::sql_identifier, tag("'")),
@@ -444,6 +468,7 @@ impl ColumnConstraint {
             primary_key,
             unique,
             character_set,
+            charset,
             collate,
             on_update,
         ))(i)
@@ -553,10 +578,16 @@ impl Display for ColumnPosition {
     }
 }
 
+/// stands for column definition include
+/// - column: column metadata include name alias
+/// - data_type: data type for this column
+/// - constraints: collection of constraint, like primary key, not null
+/// - comment: column definition comment
+/// - position: column position info, like FIRST or AFTER other_column
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ColumnSpecification {
     pub column: Column,
-    pub sql_type: DataType,
+    pub data_type: DataType,
     pub constraints: Vec<ColumnConstraint>,
     pub comment: Option<String>,
     pub position: Option<ColumnPosition>,
@@ -591,7 +622,7 @@ impl ColumnSpecification {
                     input,
                     ColumnSpecification {
                         column,
-                        sql_type,
+                        data_type: sql_type,
                         constraints: constraints.into_iter().flatten().collect(),
                         comment,
                         position,
@@ -609,13 +640,16 @@ impl fmt::Display for ColumnSpecification {
             f,
             "{} {}",
             DisplayUtil::escape_if_keyword(&self.column.name),
-            self.sql_type
+            self.data_type
         )?;
         for constraint in self.constraints.iter() {
             write!(f, " {}", constraint)?;
         }
         if let Some(ref comment) = self.comment {
             write!(f, " COMMENT '{}'", comment)?;
+        }
+        if let Some(ref position) = self.position {
+            write!(f, " {}", position)?;
         }
         Ok(())
     }
@@ -625,7 +659,7 @@ impl ColumnSpecification {
     pub fn new(column: Column, sql_type: DataType) -> ColumnSpecification {
         ColumnSpecification {
             column,
-            sql_type,
+            data_type: sql_type,
             constraints: vec![],
             comment: None,
             position: None,
@@ -639,7 +673,7 @@ impl ColumnSpecification {
     ) -> ColumnSpecification {
         ColumnSpecification {
             column,
-            sql_type,
+            data_type: sql_type,
             constraints,
             comment: None,
             position: None,
@@ -697,31 +731,15 @@ mod tests {
     }
 
     #[test]
-    fn simple_column_function() {
-        let qs = "max(addr_id)";
-
-        let res = Column::parse(qs);
-        let expected = Column {
-            name: String::from("max(addr_id)"),
-            alias: None,
-            table: None,
-            function: Some(Box::new(FunctionExpression::Max(FunctionArgument::Column(
-                Column::from("addr_id"),
-            )))),
-        };
-        assert_eq!(res.unwrap().1, expected);
-    }
-
-    #[test]
     fn simple_generic_function() {
-        let qlist = [
+        let list = [
             "coalesce(a,b,c)",
             "coalesce (a,b,c)",
             "coalesce(a ,b,c)",
             "coalesce(a, b,c)",
         ];
-        for q in qlist.iter() {
-            let res = FunctionExpression::parse(q);
+        for part in list.iter() {
+            let res = FunctionExpression::parse(part);
             let expected = FunctionExpression::Generic(
                 "coalesce".to_string(),
                 FunctionArguments::from(vec![
@@ -732,5 +750,77 @@ mod tests {
             );
             assert_eq!(res, Ok(("", expected)));
         }
+    }
+
+    #[test]
+    fn parse_function_expression() {
+        let str1 = "count(*)";
+        let res1 = FunctionExpression::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, FunctionExpression::CountStar);
+
+        let str2 = "max(addr_id)";
+        let res2 = FunctionExpression::parse(str2);
+        let expected = FunctionExpression::Max(FunctionArgument::Column(Column::from("addr_id")));
+        assert_eq!(res2.unwrap().1, expected);
+
+        let str3 = "count(num)";
+        let res3 = FunctionExpression::parse(str3);
+        assert!(res3.is_ok());
+        let expected =
+            FunctionExpression::Count(FunctionArgument::Column(Column::from("num")), false);
+        assert_eq!(res3.unwrap().1, expected);
+    }
+
+    #[test]
+    fn parse_column_constraint() {
+        let str1 = "NOT null ";
+        let res1 = ColumnConstraint::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1.unwrap(), ColumnConstraint::NotNull);
+
+        let str2 = "AUTO_INCREMENT";
+        let res2 = ColumnConstraint::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1.unwrap(), ColumnConstraint::AutoIncrement);
+
+        let str3 = "CHARACTER SET utf8";
+        let res3 = ColumnConstraint::parse(str3);
+        assert!(res3.is_ok());
+        assert_eq!(
+            res3.unwrap().1.unwrap(),
+            ColumnConstraint::CharacterSet("utf8".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_column() {
+        let str1 = "some_column VARCHAR(255) FIRST;";
+        let res1 = ColumnSpecification::parse(str1);
+        let expected = ColumnSpecification {
+            column: "some_column".into(),
+            data_type: DataType::Varchar(255),
+            constraints: vec![],
+            comment: None,
+            position: Some(ColumnPosition::First),
+        };
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, expected);
+
+        let str2 = "another_column int not null auto_increment primary key After age;";
+        let res2 = ColumnSpecification::parse(str2);
+        let expected = ColumnSpecification {
+            column: "another_column".into(),
+            data_type: DataType::Int(32),
+            constraints: vec![
+                ColumnConstraint::NotNull,
+                ColumnConstraint::AutoIncrement,
+                ColumnConstraint::PrimaryKey,
+            ],
+            comment: None,
+            position: Some(ColumnPosition::After("age".into())),
+        };
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, expected);
     }
 }

@@ -3,6 +3,13 @@ use std::fmt;
 use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
 use nom::InputLength;
 
+/// [nom::branch::alt] return the last error of the branch by default
+///
+/// With a custom error type it is possible to have
+/// [nom::branch::alt] return the error of the parser
+/// that went the farthest in the input data.
+///
+/// There is little difference between [ParseSQLError] and [nom::error::VerboseError]
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParseSQLError<I>
 where
@@ -12,7 +19,7 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-/// Error context for `VerboseError`
+/// Error context for `ParseSQLError`
 pub enum ParseSQLErrorKind {
     /// Static string added by the `context` function
     Context(&'static str),

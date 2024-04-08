@@ -7,7 +7,8 @@ use nom::IResult;
 
 use base::ParseSQLError;
 
-/// LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+/// lock_option:
+///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum LockType {
     Default,
@@ -17,12 +18,11 @@ pub enum LockType {
 }
 
 impl LockType {
-    /// lock_option:
-    ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+    /// parse `LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
     pub fn parse(i: &str) -> IResult<&str, LockType, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("LOCK "),
+                tag_no_case("LOCK"),
                 multispace0,
                 opt(tag("=")),
                 multispace0,
@@ -36,5 +36,33 @@ impl LockType {
             )),
             |x| x.4,
         )(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::lock_type::LockType;
+
+    #[test]
+    fn parse_lock_type() {
+        let str1 = "LOCK EXCLUSIVE";
+        let res1 = LockType::parse(str1);
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, LockType::Exclusive);
+
+        let str2 = "lock=DEFAULT";
+        let res2 = LockType::parse(str2);
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, LockType::Default);
+
+        let str3 = "LOCK= NONE";
+        let res3 = LockType::parse(str3);
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, LockType::None);
+
+        let str4 = "lock =SHARED";
+        let res4 = LockType::parse(str4);
+        assert!(res4.is_ok());
+        assert_eq!(res4.unwrap().1, LockType::Shared);
     }
 }

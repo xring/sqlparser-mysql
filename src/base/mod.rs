@@ -1,13 +1,15 @@
 pub use self::case::{CaseWhenExpression, ColumnOrLiteral};
+pub use self::column::Column;
 pub use self::common_parser::CommonParser;
 pub use self::compression_type::CompressionType;
 pub use self::data_type::DataType;
 pub use self::default_or_zero_or_one::DefaultOrZeroOrOne;
 pub use self::display_util::DisplayUtil;
-pub use self::error::ParseSQLError;
+pub use self::error::*;
 pub use self::field::{FieldDefinitionExpression, FieldValueExpression};
 pub use self::insert_method_type::InsertMethodType;
 pub use self::item_placeholder::ItemPlaceholder;
+pub use self::join::JoinClause;
 pub use self::join::{JoinConstraint, JoinOperator, JoinRightSide};
 pub use self::key_part::{KeyPart, KeyPartType};
 pub use self::literal::{Literal, LiteralExpression, Real};
@@ -18,8 +20,10 @@ pub use self::order::OrderType;
 pub use self::partition_definition::PartitionDefinition;
 pub use self::reference_definition::ReferenceDefinition;
 pub use self::row_format_type::RowFormatType;
-pub use self::table_key::TableKey;
+pub use self::table::Table;
+pub use self::table_option::CheckConstraintDefinition;
 pub use self::tablespace_type::TablespaceType;
+pub use self::trigger::Trigger;
 
 pub mod column;
 pub mod table;
@@ -27,7 +31,6 @@ pub mod table;
 pub mod trigger;
 
 pub mod algorithm_type;
-pub mod check_constraint;
 pub mod common_parser;
 pub mod compression_type;
 pub mod data_type;
@@ -45,7 +48,6 @@ pub mod match_type;
 pub mod operator;
 pub mod reference_type;
 pub mod row_format_type;
-pub mod table_key;
 pub mod tablespace_type;
 pub mod visible_type;
 

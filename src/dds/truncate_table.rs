@@ -12,14 +12,13 @@ use base::error::ParseSQLError;
 use base::table::Table;
 use base::CommonParser;
 
-/// TRUNCATE \[TABLE] tbl_name
+/// parse `TRUNCATE [TABLE] tbl_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct TruncateTableStatement {
     pub table: Table,
 }
 
 impl TruncateTableStatement {
-    /// TRUNCATE \[TABLE] tbl_name
     pub fn parse(i: &str) -> IResult<&str, TruncateTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("TRUNCATE "),
@@ -93,9 +92,8 @@ mod tests {
             "DROP DATABASE IFEXISTS db_name;",
         ];
 
-        for i in 0..bad_sqls.len() {
-            println!("{} / {}", i + 1, bad_sqls.len());
-            assert!(TruncateTableStatement::parse(bad_sqls[i]).is_err())
+        for sql in bad_sqls {
+            assert!(TruncateTableStatement::parse(sql).is_err())
         }
     }
 }

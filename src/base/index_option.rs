@@ -17,8 +17,8 @@ use base::CommonParser;
 ///   | WITH PARSER parser_name
 ///   | COMMENT 'string'
 ///   | {VISIBLE | INVISIBLE}
-///   | ENGINE_ATTRIBUTE [=] 'string' > FROM create table
-///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string' > FROM create table
+///   | ENGINE_ATTRIBUTE [=] 'string' >>> create table only
+///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string' >>> create table only
 /// }
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexOption {
@@ -32,13 +32,6 @@ pub enum IndexOption {
 }
 
 impl IndexOption {
-    /// index_option: {
-    ///     KEY_BLOCK_SIZE [=] value
-    ///   | index_type
-    ///   | WITH PARSER parser_name
-    ///   | COMMENT 'string'
-    ///   | {VISIBLE | INVISIBLE}
-    /// }
     pub fn parse(i: &str) -> IResult<&str, IndexOption, ParseSQLError<&str>> {
         alt((
             map(Self::key_block_size, IndexOption::KeyBlockSize),
@@ -103,7 +96,7 @@ impl IndexOption {
     fn engine_attribute(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("ENGINE_ATTRIBUTE "),
+                tag_no_case("ENGINE_ATTRIBUTE"),
                 multispace0,
                 opt(tag("=")),
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
@@ -119,7 +112,7 @@ impl IndexOption {
     fn secondary_engine_attribute(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
         map(
             tuple((
-                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE "),
+                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE"),
                 multispace0,
                 opt(tag("=")),
                 map(delimited(tag("'"), take_until("'"), tag("'")), |x| {

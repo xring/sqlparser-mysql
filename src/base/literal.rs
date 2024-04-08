@@ -275,7 +275,9 @@ mod tests {
             let quoted = &[quote, &all_escaped[..], quote].concat();
             let res = Literal::string_literal(quoted);
             let expected = Literal::String("\0\'\"\x7F\n\r\t\x1a\\%_".to_string());
-            assert_eq!(res, Ok(("", expected)));
+
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, expected);
         }
     }
 
@@ -283,13 +285,17 @@ mod tests {
     fn literal_string_single_quote() {
         let res = Literal::string_literal("'a''b'");
         let expected = Literal::String("a'b".to_string());
-        assert_eq!(res, Ok(("", expected)));
+
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().1, expected);
     }
 
     #[test]
     fn literal_string_double_quote() {
         let res = Literal::string_literal(r#""a""b""#);
         let expected = Literal::String(r#"a"b"#.to_string());
-        assert_eq!(res, Ok(("", expected)));
+
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().1, expected);
     }
 }

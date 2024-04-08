@@ -12,6 +12,32 @@ use base::lock_type::LockType;
 use base::table::Table;
 use base::{CommonParser, KeyPart};
 
+/// `CREATE [UNIQUE | FULLTEXT | SPATIAL] INDEX index_name
+///     [index_type]
+///     ON tbl_name (key_part,...)
+///     [index_option]
+///     [algorithm_option | lock_option] ...`
+///
+/// `key_part: {col_name [(length)] | (expr)} [ASC | DESC]`
+///
+/// `index_option: {
+///     KEY_BLOCK_SIZE [=] value
+///   | index_type
+///   | WITH PARSER parser_name
+///   | COMMENT 'string'
+///   | {VISIBLE | INVISIBLE}
+///   | ENGINE_ATTRIBUTE [=] 'string'
+///   | SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
+/// }`
+///
+/// `index_type:
+///     USING {BTREE | HASH}`
+///
+/// `algorithm_option:
+///     ALGORITHM [=] {DEFAULT | INPLACE | COPY}`
+///
+/// `lock_option:
+///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateIndexStatement {
     pub index_name: String,
@@ -24,32 +50,6 @@ pub struct CreateIndexStatement {
 }
 
 impl CreateIndexStatement {
-    /// CREATE \[UNIQUE | FULLTEXT | SPATIAL] INDEX index_name
-    ///     \[index_type]
-    ///     ON tbl_name (key_part,...)
-    ///     \[index_option]
-    ///     \[algorithm_option | lock_option] ...
-    ///
-    /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
-    ///
-    /// index_option: {
-    ///     KEY_BLOCK_SIZE \[=] value
-    ///   | index_type
-    ///   | WITH PARSER parser_name
-    ///   | COMMENT 'string'
-    ///   | {VISIBLE | INVISIBLE}
-    ///   | ENGINE_ATTRIBUTE \[=] 'string'
-    ///   | SECONDARY_ENGINE_ATTRIBUTE \[=] 'string'
-    /// }
-    ///
-    /// index_type:
-    ///     USING {BTREE | HASH}
-    ///
-    /// algorithm_option:
-    ///     ALGORITHM \[=] {DEFAULT | INPLACE | COPY}
-    ///
-    /// lock_option:
-    ///     LOCK \[=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
     pub fn parse(i: &str) -> IResult<&str, CreateIndexStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -62,7 +62,7 @@ impl CreateIndexStatement {
                 opt(terminated(Index::parse, multispace1)),
                 terminated(tag_no_case("ON"), multispace1),
                 terminated(Table::without_alias, multispace1), // tbl_name
-                KeyPart::key_part_list,                        // (key_part,...)
+                KeyPart::parse,                                // (key_part,...)
                 IndexOption::opt_index_option,
                 multispace0, // [index_option]
                 opt(terminated(AlgorithmType::parse, multispace0)),
@@ -96,6 +96,7 @@ impl CreateIndexStatement {
     }
 }
 
+/// `[UNIQUE | FULLTEXT | SPATIAL]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Index {
     Unique,
@@ -104,7 +105,6 @@ pub enum Index {
 }
 
 impl Index {
-    /// \[UNIQUE | FULLTEXT | SPATIAL]
     fn parse(i: &str) -> IResult<&str, Index, ParseSQLError<&str>> {
         alt((
             map(tag_no_case("UNIQUE"), |_| Index::Unique),

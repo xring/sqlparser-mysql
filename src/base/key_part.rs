@@ -9,16 +9,38 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::{CommonParser, OrderType};
 
-/// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
+/// parse `key_part: {col_name [(length)] | (expr)} [ASC | DESC]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct KeyPart {
-    r#type: KeyPartType,
-    order: Option<OrderType>,
+    pub r#type: KeyPartType,
+    pub order: Option<OrderType>,
 }
 
 impl KeyPart {
-    /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
-    fn parse(i: &str) -> IResult<&str, KeyPart, ParseSQLError<&str>> {
+    ///parse list of key_part `(key_part,...)`
+    pub fn parse(i: &str) -> IResult<&str, Vec<KeyPart>, ParseSQLError<&str>> {
+        map(
+            tuple((
+                multispace0,
+                delimited(
+                    tag("("),
+                    delimited(
+                        multispace0,
+                        many1(map(
+                            terminated(Self::parse_item, opt(CommonParser::ws_sep_comma)),
+                            |e| e,
+                        )),
+                        multispace0,
+                    ),
+                    tag(")"),
+                ),
+            )),
+            |(_, val)| val,
+        )(i)
+    }
+
+    /// parse `key_part: {col_name [(length)] | (expr)} [ASC | DESC]`
+    fn parse_item(i: &str) -> IResult<&str, KeyPart, ParseSQLError<&str>> {
         map(
             tuple((
                 KeyPartType::parse,
@@ -30,32 +52,9 @@ impl KeyPart {
             |(r#type, order)| KeyPart { r#type, order },
         )(i)
     }
-
-    /// (key_part,...)
-    /// key_part: {col_name \[(length)] | (expr)} \[ASC | DESC]
-    pub fn key_part_list(i: &str) -> IResult<&str, Vec<KeyPart>, ParseSQLError<&str>> {
-        map(
-            tuple((
-                multispace0,
-                delimited(
-                    tag("("),
-                    delimited(
-                        multispace0,
-                        many1(map(
-                            terminated(Self::parse, opt(CommonParser::ws_sep_comma)),
-                            |e| e,
-                        )),
-                        multispace0,
-                    ),
-                    tag(")"),
-                ),
-            )),
-            |(_, val)| val,
-        )(i)
-    }
 }
 
-/// {col_name \[(length)] | (expr)}
+/// parse `{col_name [(length)] | (expr)}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum KeyPartType {
     ColumnNameWithLength {
@@ -68,11 +67,9 @@ pub enum KeyPartType {
 }
 
 impl KeyPartType {
-    /// {col_name \[(length)] | (expr)}
     fn parse(i: &str) -> IResult<&str, KeyPartType, ParseSQLError<&str>> {
         // {col_name [(length)]
         let col_name_with_length = tuple((
-            multispace0,
             CommonParser::sql_identifier,
             multispace0,
             opt(delimited(
@@ -85,12 +82,12 @@ impl KeyPartType {
         ));
 
         let expr = preceded(
-            multispace1,
+            multispace0,
             delimited(tag("("), recognize(many1(anychar)), tag(")")),
         );
 
         alt((
-            map(col_name_with_length, |(_, col_name, _, length)| {
+            map(col_name_with_length, |(col_name, _, length)| {
                 KeyPartType::ColumnNameWithLength {
                     col_name: String::from(col_name),
                     length,
@@ -100,5 +97,39 @@ impl KeyPartType {
                 expr: String::from(expr),
             }),
         ))(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::{KeyPart, KeyPartType};
+
+    #[test]
+    fn parse_key_part_type() {
+        let str1 = "column_name(10)";
+        let res1 = KeyPartType::parse(str1);
+        let exp = KeyPartType::ColumnNameWithLength {
+            col_name: "column_name".to_string(),
+            length: Some(10),
+        };
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, exp);
+    }
+
+    #[test]
+    fn parse_key_part() {
+        let str1 = "(column_name(10))";
+        let res1 = KeyPart::parse(str1);
+
+        let key_part = KeyPartType::ColumnNameWithLength {
+            col_name: "column_name".to_string(),
+            length: Some(10),
+        };
+        let exp = vec![KeyPart {
+            r#type: key_part,
+            order: None,
+        }];
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, exp);
     }
 }
