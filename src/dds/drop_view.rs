@@ -13,9 +13,9 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP VIEW [IF EXISTS]
+/// parse `DROP VIEW [IF EXISTS]
 ///     view_name [, view_name] ...
-///     [RESTRICT | CASCADE]
+///     [RESTRICT | CASCADE]`
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropViewStatement {
     pub if_exists: bool,
@@ -89,7 +89,7 @@ mod tests {
     use dds::drop_view::DropViewStatement;
 
     #[test]
-    fn test_drop_view() {
+    fn parse_drop_view() {
         let sqls = [
             "DROP VIEW view_name;",
             "DROP VIEW IF EXISTS view_name;",
@@ -98,9 +98,43 @@ mod tests {
             "DROP VIEW  view_name1, view_name2 RESTRICT;",
         ];
 
-        for sql in sqls {
-            let res = DropViewStatement::parse(sql);
+        let exp_statements = [
+            DropViewStatement {
+                if_exists: false,
+                views: vec!["view_name".to_string()],
+                if_restrict: false,
+                if_cascade: false,
+            },
+            DropViewStatement {
+                if_exists: true,
+                views: vec!["view_name".to_string()],
+                if_restrict: false,
+                if_cascade: false,
+            },
+            DropViewStatement {
+                if_exists: false,
+                views: vec!["view_name".to_string()],
+                if_restrict: false,
+                if_cascade: true,
+            },
+            DropViewStatement {
+                if_exists: false,
+                views: vec!["view_name1".to_string(), "view_name2".to_string()],
+                if_restrict: false,
+                if_cascade: false,
+            },
+            DropViewStatement {
+                if_exists: false,
+                views: vec!["view_name1".to_string(), "view_name2".to_string()],
+                if_restrict: true,
+                if_cascade: false,
+            },
+        ];
+
+        for i in 0..sqls.len() {
+            let res = DropViewStatement::parse(sqls[i]);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

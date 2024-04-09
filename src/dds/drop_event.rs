@@ -10,7 +10,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP EVENT [IF EXISTS] event_name
+/// parse `DROP EVENT [IF EXISTS] event_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropEventStatement {
     pub if_exists: bool,
@@ -18,7 +18,6 @@ pub struct DropEventStatement {
 }
 
 impl DropEventStatement {
-    /// DROP EVENT [IF EXISTS] event_name
     pub fn parse(i: &str) -> IResult<&str, DropEventStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -53,13 +52,23 @@ mod tests {
     use dds::drop_event::DropEventStatement;
 
     #[test]
-    fn test_drop_event() {
+    fn parse_drop_event() {
         let sqls = ["DROP EVENT event_name;", "DROP EVENT IF EXISTS event_name;"];
+        let exp_statements = [
+            DropEventStatement {
+                if_exists: false,
+                event_name: "event_name".to_string(),
+            },
+            DropEventStatement {
+                if_exists: true,
+                event_name: "event_name".to_string(),
+            },
+        ];
+
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropEventStatement::parse(sqls[i]);
             assert!(res.is_ok());
-            println!("{:?}", res);
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

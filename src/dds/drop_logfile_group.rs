@@ -12,8 +12,8 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP LOGFILE GROUP logfile_group
-///     ENGINE [=] engine_name
+/// parse `DROP LOGFILE GROUP logfile_group
+///     ENGINE [=] engine_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropLogfileGroupStatement {
     pub logfile_group: String,
@@ -21,28 +21,25 @@ pub struct DropLogfileGroupStatement {
 }
 
 impl DropLogfileGroupStatement {
-    /// DROP LOGFILE GROUP logfile_group
-    ///     ENGINE [=] engine_name
     pub fn parse(i: &str) -> IResult<&str, DropLogfileGroupStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
-            tag_no_case("DROP "),
-            multispace0,
-            tag_no_case("LOGFILE "),
-            multispace0,
+            tag_no_case("DROP"),
+            multispace1,
+            tag_no_case("LOGFILE"),
+            multispace1,
             tag_no_case("GROUP"),
-            multispace0,
+            multispace1,
             map(CommonParser::sql_identifier, String::from),
-            multispace0,
+            multispace1,
             map(
                 tuple((
                     tag_no_case("ENGINE"),
-                    multispace1,
+                    multispace0,
                     opt(tag("=")),
                     multispace0,
                     CommonParser::sql_identifier,
-                    multispace0,
                 )),
-                |(_, _, _, _, engine, _)| String::from(engine),
+                |(_, _, _, _, engine)| String::from(engine),
             ),
             multispace0,
             CommonParser::statement_terminator,
@@ -73,14 +70,17 @@ mod tests {
     use dds::drop_logfile_group::DropLogfileGroupStatement;
 
     #[test]
-    fn test_drop_logfile_group_parser() {
+    fn parse_drop_logfile_group_parser() {
         let sqls = ["DROP LOGFILE GROUP logfile_group ENGINE = demo;"];
+        let exp_statements = [DropLogfileGroupStatement {
+            logfile_group: "logfile_group".to_string(),
+            engine_name: "demo".to_string(),
+        }];
 
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropLogfileGroupStatement::parse(sqls[i]);
-            println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i])
         }
     }
 }

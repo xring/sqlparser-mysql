@@ -10,7 +10,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP SERVER [ IF EXISTS ] server_name
+/// parse `DROP SERVER [ IF EXISTS ] server_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropServerStatement {
     pub if_exists: bool,

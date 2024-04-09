@@ -10,7 +10,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP PROCEDURE [IF EXISTS] sp_name
+/// parse `DROP PROCEDURE [IF EXISTS] sp_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropProcedureStatement {
     pub if_exists: bool,
@@ -18,7 +18,6 @@ pub struct DropProcedureStatement {
 }
 
 impl DropProcedureStatement {
-    /// DROP PROCEDURE [IF EXISTS] sp_name
     pub fn parse(i: &str) -> IResult<&str, DropProcedureStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -53,16 +52,25 @@ mod tests {
     use dds::drop_procedure::DropProcedureStatement;
 
     #[test]
-    fn test_drop_procedure() {
+    fn parse_drop_procedure() {
         let sqls = [
             "DROP PROCEDURE sp_name;",
             "DROP PROCEDURE IF EXISTS sp_name;",
         ];
+        let exp_statements = [
+            DropProcedureStatement {
+                if_exists: false,
+                sp_name: "sp_name".to_string(),
+            },
+            DropProcedureStatement {
+                if_exists: true,
+                sp_name: "sp_name".to_string(),
+            },
+        ];
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropProcedureStatement::parse(sqls[i]);
             assert!(res.is_ok());
-            println!("{:?}", res);
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

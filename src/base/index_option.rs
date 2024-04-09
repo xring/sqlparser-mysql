@@ -3,6 +3,7 @@ use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete;
 use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
+use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
 
@@ -57,8 +58,10 @@ impl IndexOption {
     ///   |ENGINE_ATTRIBUTE [=] 'string'
     ///   |SECONDARY_ENGINE_ATTRIBUTE [=] 'string'
     /// }
-    pub fn opt_index_option(i: &str) -> IResult<&str, Option<IndexOption>, ParseSQLError<&str>> {
-        opt(map(preceded(multispace1, IndexOption::parse), |x| x))(i)
+    pub fn opt_index_option(
+        i: &str,
+    ) -> IResult<&str, Option<Vec<IndexOption>>, ParseSQLError<&str>> {
+        opt(many1(map(preceded(multispace0, IndexOption::parse), |x| x)))(i)
     }
 
     /// KEY_BLOCK_SIZE [=] value
@@ -122,5 +125,39 @@ impl IndexOption {
             )),
             |(_, _, _, engine, _)| engine,
         )(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base::index_option::IndexOption;
+    use base::visible_type::VisibleType::Invisible;
+
+    #[test]
+    fn parse_index_option_item() {
+        let parts = ["INVISIBLE", "KEY_BLOCK_SIZE 333"];
+        let exps = [
+            IndexOption::VisibleType(Invisible),
+            IndexOption::KeyBlockSize(333),
+        ];
+        for i in 0..parts.len() {
+            let res = IndexOption::parse(parts[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
+        }
+    }
+
+    #[test]
+    fn parse_index_option() {
+        let parts = ["INVISIBLE KEY_BLOCK_SIZE 333"];
+        let exps = [vec![
+            IndexOption::VisibleType(Invisible),
+            IndexOption::KeyBlockSize(333),
+        ]];
+        for i in 0..parts.len() {
+            let res = IndexOption::opt_index_option(parts[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1.unwrap(), exps[i]);
+        }
     }
 }

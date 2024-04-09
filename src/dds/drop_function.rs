@@ -10,7 +10,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP FUNCTION [IF EXISTS] sp_name
+/// parse `DROP FUNCTION [IF EXISTS] sp_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropFunctionStatement {
     pub if_exists: bool,
@@ -18,7 +18,6 @@ pub struct DropFunctionStatement {
 }
 
 impl DropFunctionStatement {
-    /// DROP FUNCTION [IF EXISTS] sp_name
     pub fn parse(i: &str) -> IResult<&str, DropFunctionStatement, ParseSQLError<&str>> {
         map(
             tuple((
@@ -53,13 +52,23 @@ mod tests {
     use dds::drop_function::DropFunctionStatement;
 
     #[test]
-    fn test_drop_function() {
+    fn parse_drop_function() {
         let sqls = ["DROP FUNCTION sp_name;", "DROP FUNCTION IF EXISTS sp_name;"];
+        let exp_statements = [
+            DropFunctionStatement {
+                if_exists: false,
+                sp_name: "sp_name".to_string(),
+            },
+            DropFunctionStatement {
+                if_exists: true,
+                sp_name: "sp_name".to_string(),
+            },
+        ];
+
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropFunctionStatement::parse(sqls[i]);
             assert!(res.is_ok());
-            println!("{:?}", res);
+            assert_eq!(res.unwrap().1, exp_statements[i])
         }
     }
 }

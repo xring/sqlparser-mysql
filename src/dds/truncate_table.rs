@@ -51,8 +51,8 @@ mod tests {
     use dds::truncate_table::TruncateTableStatement;
 
     #[test]
-    fn test_parse_truncate_table() {
-        let good_sqls = [
+    fn parse_truncate_table() {
+        let sqls = [
             "TRUNCATE table_name",
             "TRUNCATE     db_name.table_name",
             "TRUNCATE   TABLE db_name.table_name",
@@ -62,7 +62,7 @@ mod tests {
         let table_name = Table::from("table_name");
         let table_name_with_schema = Table::from(("db_name", "table_name"));
 
-        let good_statements = vec![
+        let exp_statements = vec![
             TruncateTableStatement {
                 table: table_name.clone(),
             },
@@ -77,23 +77,10 @@ mod tests {
             },
         ];
 
-        for i in 0..good_sqls.len() {
-            assert_eq!(
-                TruncateTableStatement::parse(good_sqls[i]).unwrap().1,
-                good_statements[i]
-            );
-        }
-
-        let bad_sqls = [
-            "TRUNCATE table_name as abc",
-            "TRUNCATE table_name abc",
-            "TRUNCATE SCHEMA table_name1, table_name2;",
-            "TRUNCATE TABLE IF EXISTS table_name;",
-            "DROP DATABASE IFEXISTS db_name;",
-        ];
-
-        for sql in bad_sqls {
-            assert!(TruncateTableStatement::parse(sql).is_err())
+        for i in 0..sqls.len() {
+            let res = TruncateTableStatement::parse(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

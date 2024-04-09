@@ -15,11 +15,11 @@ use base::{CommonParser, KeyPart, MatchType};
 ///       [ON UPDATE reference_option]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReferenceDefinition {
-    tbl_name: String,
-    key_part: Vec<KeyPart>,
-    match_type: Option<MatchType>,
-    on_delete: Option<ReferenceType>,
-    on_update: Option<ReferenceType>,
+    pub tbl_name: String,
+    pub key_part: Vec<KeyPart>,
+    pub match_type: Option<MatchType>,
+    pub on_delete: Option<ReferenceType>,
+    pub on_update: Option<ReferenceType>,
 }
 
 impl ReferenceDefinition {

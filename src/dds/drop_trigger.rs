@@ -11,7 +11,7 @@ use base::error::ParseSQLError;
 use base::trigger::Trigger;
 use base::CommonParser;
 
-/// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
+/// parse `DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropTriggerStatement {
     pub if_exists: bool,
@@ -19,7 +19,6 @@ pub struct DropTriggerStatement {
 }
 
 impl DropTriggerStatement {
-    /// DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
     pub fn parse(i: &str) -> IResult<&str, DropTriggerStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("DROP "),
@@ -56,6 +55,7 @@ impl fmt::Display for DropTriggerStatement {
 
 #[cfg(test)]
 mod tests {
+    use base::Trigger;
     use dds::drop_trigger::DropTriggerStatement;
 
     #[test]
@@ -67,10 +67,41 @@ mod tests {
             "DROP TRIGGER IF EXISTS db_name.trigger_name;",
         ];
 
-        for sql in sqls {
-            let res = DropTriggerStatement::parse(sql);
-            println!("{:?}", res);
+        let exp_statements = [
+            DropTriggerStatement {
+                if_exists: false,
+                trigger_name: Trigger {
+                    name: "trigger_name".to_string(),
+                    schema: None,
+                },
+            },
+            DropTriggerStatement {
+                if_exists: false,
+                trigger_name: Trigger {
+                    name: "trigger_name".to_string(),
+                    schema: Some("db_name".to_string()),
+                },
+            },
+            DropTriggerStatement {
+                if_exists: true,
+                trigger_name: Trigger {
+                    name: "trigger_name".to_string(),
+                    schema: None,
+                },
+            },
+            DropTriggerStatement {
+                if_exists: true,
+                trigger_name: Trigger {
+                    name: "trigger_name".to_string(),
+                    schema: Some("db_name".to_string()),
+                },
+            },
+        ];
+
+        for i in 0..sqls.len() {
+            let res = DropTriggerStatement::parse(sqls[i]);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i])
         }
     }
 }

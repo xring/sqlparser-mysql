@@ -12,7 +12,7 @@ use base::lock_type::LockType;
 use base::table::Table;
 use base::{CommonParser, KeyPart};
 
-/// `CREATE [UNIQUE | FULLTEXT | SPATIAL] INDEX index_name
+/// parse `CREATE [UNIQUE | FULLTEXT | SPATIAL] INDEX index_name
 ///     [index_type]
 ///     ON tbl_name (key_part,...)
 ///     [index_option]
@@ -44,7 +44,7 @@ pub struct CreateIndexStatement {
     pub index_type: Option<Index>,
     pub table: Table,
     pub key_part: Vec<KeyPart>,
-    pub index_option: Option<IndexOption>,
+    pub index_option: Option<Vec<IndexOption>>,
     pub algorithm_option: Option<AlgorithmType>,
     pub lock_option: Option<LockType>,
 }
@@ -116,21 +116,61 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
+    use base::{KeyPart, KeyPartType};
     use dds::create_index::CreateIndexStatement;
 
     #[test]
-    fn test_create_index() {
+    fn parse_create_index() {
         let sqls = [
-            "create index poster_order_employee_id_index on poster_order (employee_id);",
-            "create index branch_id on poster_source (branch_id);",
-            "create index poster_order_employee_id_index on poster_order (employee_id)",
+            "create index idx_1 on tbl_foo (age);",
+            "create index idx_2 on tbl_bar (name, age);",
+        ];
+        let exp_statements = [
+            CreateIndexStatement {
+                index_name: "idx_1".to_string(),
+                index_type: None,
+                table: "tbl_foo".into(),
+                key_part: vec![KeyPart {
+                    r#type: KeyPartType::ColumnNameWithLength {
+                        col_name: "age".to_string(),
+                        length: None,
+                    },
+                    order: None,
+                }],
+                index_option: None,
+                algorithm_option: None,
+                lock_option: None,
+            },
+            CreateIndexStatement {
+                index_name: "idx_2".to_string(),
+                index_type: None,
+                table: "tbl_bar".into(),
+                key_part: vec![
+                    KeyPart {
+                        r#type: KeyPartType::ColumnNameWithLength {
+                            col_name: "name".to_string(),
+                            length: None,
+                        },
+                        order: None,
+                    },
+                    KeyPart {
+                        r#type: KeyPartType::ColumnNameWithLength {
+                            col_name: "age".to_string(),
+                            length: None,
+                        },
+                        order: None,
+                    },
+                ],
+                index_option: None,
+                algorithm_option: None,
+                lock_option: None,
+            },
         ];
 
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = CreateIndexStatement::parse(sqls[i]);
-            println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

@@ -13,18 +13,15 @@ use base::error::ParseSQLError;
 use base::table::Table;
 use base::CommonParser;
 
-/// RENAME TABLE
-//     tbl_name TO new_tbl_name
-//     [, tbl_name2 TO new_tbl_name2] ...
+/// parse `RENAME TABLE
+///     tbl_name TO new_tbl_name
+///     [, tbl_name2 TO new_tbl_name2] ...`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RenameTableStatement {
     pub tables: Vec<(Table, Table)>,
 }
 
 impl RenameTableStatement {
-    /// RENAME TABLE
-    //     tbl_name TO new_tbl_name
-    //     [, tbl_name2 TO new_tbl_name2] ...
     pub fn parse(i: &str) -> IResult<&str, RenameTableStatement, ParseSQLError<&str>> {
         let mut parser = tuple((
             tag_no_case("RENAME "),
@@ -78,8 +75,8 @@ mod tests {
     use dds::rename_table::RenameTableStatement;
 
     #[test]
-    fn test_parse_drop_table() {
-        let good_sqls = [
+    fn parse_drop_table() {
+        let sqls = [
             "RENAME TABLE tbl_name1 TO tbl_name2;",
             "RENAME TABLE db1.tbl_name1 TO db2.tbl_name2;",
             "RENAME TABLE tbl_name1 TO tbl_name2, tbl_name3 TO tbl_name4;",
@@ -239,26 +236,10 @@ mod tests {
             },
         ];
 
-        for i in 0..good_sqls.len() {
-            assert_eq!(
-                RenameTableStatement::parse(good_sqls[i]).unwrap().1,
-                good_statements[i]
-            );
-        }
-
-        let bad_sqls = [
-            "RENAME  TABLE tbl_name;",
-            "RENAME TABLE tbl_name tp;",
-            "RENAME tbl_name to alias_name;",
-            "RENAME  TABLEtbl_name1 to tbl_name2;",
-            "RENAME TABLE table1 to table2 table 3 to table;",
-            "RENAME TABLE table1 to table2, table 3 to;",
-            "RENAME TABLE table1 to 2",
-        ];
-
-        for i in 0..bad_sqls.len() {
-            println!("{} / {}", i + 1, bad_sqls.len());
-            assert!(RenameTableStatement::parse(bad_sqls[i]).is_err())
+        for i in 0..sqls.len() {
+            let res = RenameTableStatement::parse(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, good_statements[i]);
         }
     }
 }

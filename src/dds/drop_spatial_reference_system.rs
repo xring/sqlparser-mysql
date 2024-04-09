@@ -11,11 +11,11 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// DROP SPATIAL REFERENCE SYSTEM
+/// parse `DROP SPATIAL REFERENCE SYSTEM
 ///     [IF EXISTS]
-///     srid
+///     srid`
 ///
-/// srid: 32-bit unsigned integer
+/// `srid: 32-bit unsigned integer`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropSpatialReferenceSystemStatement {
     pub if_exists: bool,
@@ -23,11 +23,6 @@ pub struct DropSpatialReferenceSystemStatement {
 }
 
 impl DropSpatialReferenceSystemStatement {
-    /// DROP SPATIAL REFERENCE SYSTEM
-    ///     [IF EXISTS]
-    ///     srid
-    ///
-    /// srid: 32-bit unsigned integer
     pub fn parse(
         i: &str,
     ) -> IResult<&str, DropSpatialReferenceSystemStatement, ParseSQLError<&str>> {
@@ -66,16 +61,25 @@ mod tests {
     use dds::drop_spatial_reference_system::DropSpatialReferenceSystemStatement;
 
     #[test]
-    fn test_drop_spatial_reference_system() {
+    fn parse_drop_spatial_reference_system() {
         let sqls = [
             "DROP SPATIAL REFERENCE SYSTEM 4120;",
             "DROP SPATIAL REFERENCE SYSTEM IF EXISTS 4120;",
         ];
+        let exp_statements = [
+            DropSpatialReferenceSystemStatement {
+                if_exists: false,
+                srid: 4120,
+            },
+            DropSpatialReferenceSystemStatement {
+                if_exists: true,
+                srid: 4120,
+            },
+        ];
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropSpatialReferenceSystemStatement::parse(sqls[i]);
             assert!(res.is_ok());
-            println!("{:?}", res);
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

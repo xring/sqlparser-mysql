@@ -12,7 +12,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::{CommonParser, DefaultOrZeroOrOne};
 
-/// `ALTER {DATABASE | SCHEMA} [db_name]
+/// parse `ALTER {DATABASE | SCHEMA} [db_name]
 ///     alter_option ...`
 ///
 /// `alter_option: {
@@ -169,22 +169,26 @@ impl fmt::Display for AlterDatabaseOption {
 
 #[cfg(test)]
 mod tests {
-    use dds::alter_database::AlterDatabaseStatement;
+    use base::DefaultOrZeroOrOne;
+    use dds::alter_database::{AlterDatabaseOption, AlterDatabaseStatement};
 
     #[test]
     fn test_alter_database() {
-        let sqls = [
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE = utf8mb4_unicode_ci;",
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci DEFAULT ENCRYPTION = 'Y' READ ONLY = 1;",
-            "ALTER DATABASE test_db DEFAULT CHARACTER SET utf8mb4",
-            "ALTER DATABASE test_db DEFAULT COLLATE = utf8mb4_unicode_ci;",
-            "ALTER DATABASE test_db DEFAULT ENCRYPTION = 'Y';",
-            "ALTER DATABASE test_db READ ONLY = 1;",
-        ];
+        let sqls = ["ALTER DATABASE test_db DEFAULT CHARACTER SET = utf8mb4 \
+            DEFAULT COLLATE utf8mb4_unicode_ci DEFAULT ENCRYPTION = 'Y' READ ONLY = 1;"];
+        let exp_statements = [AlterDatabaseStatement {
+            db_name: "test_db".to_string(),
+            alter_options: vec![
+                AlterDatabaseOption::CharacterSet("utf8mb4".to_string()),
+                AlterDatabaseOption::Collate("utf8mb4_unicode_ci".to_string()),
+                AlterDatabaseOption::Encryption(true),
+                AlterDatabaseOption::ReadOnly(DefaultOrZeroOrOne::One),
+            ],
+        }];
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = AlterDatabaseStatement::parse(sqls[i]);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

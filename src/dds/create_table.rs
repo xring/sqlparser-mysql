@@ -311,7 +311,7 @@ pub enum CreateDefinition {
         opt_index_name: Option<String>,        // [index_name]
         opt_index_type: Option<IndexType>,     // [index_type]
         key_part: Vec<KeyPart>,                // (key_part,...)
-        opt_index_option: Option<IndexOption>, // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `{FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
@@ -320,7 +320,7 @@ pub enum CreateDefinition {
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
         index_name: Option<String>,                 // [index_name]
         key_part: Vec<KeyPart>,                     // (key_part,...)
-        opt_index_option: Option<IndexOption>,      // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>,      // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
@@ -328,7 +328,7 @@ pub enum CreateDefinition {
         opt_symbol: Option<String>,            // [symbol]
         opt_index_type: Option<IndexType>,     // [index_type]
         key_part: Vec<KeyPart>,                // (key_part,...)
-        opt_index_option: Option<IndexOption>, // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...`
@@ -338,7 +338,7 @@ pub enum CreateDefinition {
         opt_index_name: Option<String>,           // [index_name]
         opt_index_type: Option<IndexType>,        // [index_type]
         key_part: Vec<KeyPart>,                   // (key_part,...)
-        opt_index_option: Option<IndexOption>,    // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>,    // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition`
@@ -636,61 +636,211 @@ impl CreatePartitionOption {
 
 #[cfg(test)]
 mod tests {
-    use dds::create_table::{CreateDefinition, CreateTableStatement};
+    use base::column::{ColumnConstraint, ColumnSpecification};
+    use base::table_option::TableOption;
+    use base::{
+        Column, DataType, FieldDefinitionExpression, KeyPart, KeyPartType, Literal,
+        ReferenceDefinition,
+    };
+    use dds::create_table::{
+        CreateDefinition, CreatePartitionOption, CreateTableStatement, CreateTableType,
+    };
+    use dms::SelectStatement;
 
     #[test]
-    fn test_create_table() {
-        let create_sqls = vec![
-            r###"CREATE TABLE `process_type` (`last_update_tm` timestamp(0))"###,
-            r###"CREATE TABLE `process_type` (`last_update_tm` timestamp(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0))"###,
-            "CREATE TABLE foo.order_items (order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product (id))",
-            "CREATE TABLE employee (id INT, name VARCHAR(100), department_id INT, PRIMARY KEY(id), FOREIGN KEY (department_id) REFERENCES department(id))",
-            "CREATE TABLE my_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT)",
-            "CREATE TEMPORARY TABLE temp_table (id INT, score DECIMAL(5, 2))",
-            "CREATE TABLE IF NOT EXISTS my_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT)",
-            "CREATE TABLE department (id INT AUTO_INCREMENT, name VARCHAR(100), PRIMARY KEY(id))",
-            "CREATE TABLE product (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category_id INT, INDEX(category_id))",
-            "CREATE TABLE my_table_copy LIKE my_table",
-            "CREATE TABLE IF NOT EXISTS my_table_copy LIKE my_table",
-            "CREATE TEMPORARY TABLE temp_table_copy LIKE temp_table;",
-            "CREATE TABLE department_copy LIKE department",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_table_copy LIKE my_table",
-            "CREATE TABLE IF NOT EXISTS bar.employee_archives LIKE foo.employee",
-            "CREATE TABLE product (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category_id INT, INDEX(category_id))",
-            "CREATE TABLE my_table_filtered AS SELECT * FROM my_table WHERE age < 30;",
-            "CREATE TABLE employee_dept_10 AS SELECT * FROM employee WHERE department_id = 10",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_dept_20 AS SELECT * FROM department WHERE id = 20",
-            "CREATE TABLE active_products AS SELECT * FROM product WHERE price > 0",
-            "CREATE TABLE sales_by_product AS SELECT product_id, SUM(quantity) AS total_sales FROM order_items GROUP BY product_id",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_order_summary AS SELECT order_id, SUM(quantity) AS total_items FROM order_items GROUP BY order_id",
-            "CREATE TABLE employee_names AS SELECT name FROM employee",
-            "CREATE TABLE new_table AS SELECT name, age FROM my_table WHERE age > 18",
-            "CREATE TABLE unique_names IGNORE AS SELECT DISTINCT name FROM my_table",
-            "CREATE TABLE employee_summary AS SELECT department_id, COUNT(*) AS employee_count FROM employee GROUP BY department_id",
-            "CREATE TEMPORARY TABLE temp_employee AS SELECT * FROM employee WHERE department_id = 3",
-            "CREATE TABLE IF NOT EXISTS employee_backup AS SELECT * FROM employee",
-            "CREATE TABLE product_prices AS SELECT name, price FROM product WHERE price BETWEEN 10 AND 100",
-            "CREATE TABLE author ( a_id int not null, a_fname varchar(20), a_lname varchar(20), a_mname varchar(20), a_dob date, a_bio int, PRIMARY KEY(a_id))",
-            "CREATE TABLE customer ( c_id int not null, c_uname varchar(20), c_passwd varchar(20), c_fname varchar(17), c_lname varchar(17), c_addr_id int, c_phone varchar(18), c_email varchar(50), c_since date, c_last_login date, c_login timestamp, c_expiration timestamp, c_discount real, c_balance double, c_ytd_pmt double, c_birthdate date, c_data int, PRIMARY KEY(c_id))",
-            "CREATE TABLE item ( i_id int not null, i_title varchar(60), i_a_id int, i_pub_date date, i_publisher varchar(60), i_subject varchar(60), i_desc text, i_related1 int, i_related2 int, i_related3 int, i_related4 int, i_related5 int, i_thumbnail varchar(40), i_image varchar(40), i_srp double, i_cost double, i_avail date, i_stock int, i_isbn char(13), i_page int, i_backing varchar(15), i_dimensions varchar(25), PRIMARY KEY(i_id))",
-            "CREATE TABLE user (user_id int(5) unsigned NOT NULL auto_increment,user_name varchar(255) binary NOT NULL default '',user_rights tinyblob NOT NULL default '',user_password tinyblob NOT NULL default '',user_newpassword tinyblob NOT NULL default '',user_email tinytext NOT NULL default '',user_options blob NOT NULL default '',user_touched char(14) binary NOT NULL default '',UNIQUE KEY user_id (user_id)) ENGINE=MyISAM PACK_KEYS=1;",
-            "CREATE TABLE `admin_assert` (`assert_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Assert ID',`assert_type` varchar(20) DEFAULT NULL COMMENT 'Assert Type',`assert_data` text COMMENT 'Assert Data',PRIMARY KEY (`assert_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
-            "CREATE TABLE `admin_role` (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',`parent_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'Parent Role ID',`tree_level` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Tree Level',`sort_order` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'Role Sort Order',`role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',`user_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'User ID',`role_name` varchar(50) DEFAULT NULL COMMENT 'Role Name',PRIMARY KEY (`role_id`),KEY `IDX_ADMIN_ROLE_PARENT_ID_SORT_ORDER` (`parent_id`,`sort_order`),KEY `IDX_ADMIN_ROLE_TREE_LEVEL` (`tree_level`)) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';",
-            "CREATE TABLE `postcode_city` (`id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Id',`country_code` varchar(5) NOT NULL COMMENT 'Country Code',`postcode` varchar(20) NOT NULL COMMENT 'Postcode',`city` text NOT NULL COMMENT 'City',PRIMARY KEY (`id`)) ENGINE=InnoDB Auto_Increment=52142 DEFAULT CHARSET=utf8 COMMENT='Postcode -> City';",
+    fn parse_create_simple() {
+        let sqls = vec![
+            "create table admin_role \
+            (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',\
+            `role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',\
+            PRIMARY KEY (`role_id`))\
+            ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';",
+        ];
+        let exp = [
+            CreateTableStatement {
+                temporary: false,
+                if_not_exists: false,
+                table: "admin_role".into(),
+                create_type: CreateTableType::Simple {
+                    create_definition: vec![
+                        CreateDefinition::ColumnDefinition {
+                            column_definition: ColumnSpecification {
+                                column: "role_id".into(),
+                                data_type: DataType::UnsignedInt(10),
+                                constraints: vec![
+                                    ColumnConstraint::NotNull,
+                                    ColumnConstraint::AutoIncrement,
+                                ],
+                                comment: Some("Role ID".to_string()),
+                                position: None,
+                            },
+                        },
+                        CreateDefinition::ColumnDefinition {
+                            column_definition: ColumnSpecification {
+                                column: "role_type".into(),
+                                data_type: DataType::Varchar(1),
+                                constraints: vec![
+                                    ColumnConstraint::NotNull,
+                                    ColumnConstraint::DefaultValue(Literal::String(
+                                        "0".to_string(),
+                                    )),
+                                ],
+                                comment: Some("Role Type".to_string()),
+                                position: None,
+                            },
+                        },
+                        CreateDefinition::PrimaryKey {
+                            opt_symbol: None,
+                            opt_index_type: None,
+                            key_part: vec![KeyPart {
+                                r#type: KeyPartType::ColumnNameWithLength {
+                                    col_name: "role_id".to_string(),
+                                    length: None,
+                                },
+                                order: None,
+                            }],
+                            opt_index_option: None,
+                        },
+                    ],
+                    table_options: Some(vec![
+                        TableOption::Engine("InnoDB".to_string()),
+                        TableOption::DefaultCharset("utf8".to_string()),
+                        TableOption::Comment("Admin Role Table".to_string()),
+                    ]),
+                    partition_options: Some(CreatePartitionOption::None),
+                },
+            },
+            CreateTableStatement {
+                temporary: false,
+                if_not_exists: false,
+                table: "tbl_name".into(),
+                create_type: CreateTableType::LikeOldTable {
+                    table: "old_tbl_name".into(),
+                },
+            },
         ];
 
-        for i in 0..create_sqls.len() {
-            println!("{}/{}", i + 1, create_sqls.len());
-            let res = CreateTableStatement::parse(create_sqls[i]);
-            println!("{:?}", res);
+        for i in 0..sqls.len() {
+            let res = CreateTableType::create_simple(sqls[i]);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp[i]);
         }
     }
 
     #[test]
-    fn test_create_definition_list() {
-        let part = "(order_id INT, product_id INT, quantity INT, PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))";
+    fn parse_create_as_query() {
+        let sqls = ["CREATE TABLE tbl_name AS SELECT * from other_tbl_name"];
+        let exp = [CreateTableStatement {
+            temporary: false,
+            if_not_exists: false,
+            table: "tbl_name".into(),
+            create_type: CreateTableType::AsQuery {
+                create_definition: None,
+                table_options: None,
+                partition_options: Some(CreatePartitionOption::None),
+                opt_ignore_or_replace: None,
+                query_expression: SelectStatement {
+                    tables: vec!["other_tbl_name".into()],
+                    distinct: false,
+                    fields: vec![FieldDefinitionExpression::All],
+                    join: vec![],
+                    where_clause: None,
+                    group_by: None,
+                    order: None,
+                    limit: None,
+                },
+            },
+        }];
+        for i in 0..sqls.len() {
+            let res = CreateTableType::create_as_query(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp[i]);
+        }
+    }
+
+    #[test]
+    fn parse_create_like_old() {
+        let sqls = ["CREATE TABLE tbl_name LIKE old_tbl_name"];
+        let exp = [CreateTableStatement {
+            temporary: false,
+            if_not_exists: false,
+            table: "tbl_name".into(),
+            create_type: CreateTableType::LikeOldTable {
+                table: "old_tbl_name".into(),
+            },
+        }];
+        for i in 0..sqls.len() {
+            let res = CreateTableType::create_like_old_table(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp[i]);
+        }
+    }
+
+    #[test]
+    fn parse_create_definition_list() {
+        let part = "(order_id INT not null, product_id INT DEFAULT 10,\
+         PRIMARY KEY(order_id, product_id), FOREIGN KEY (product_id) REFERENCES product(id))";
+        let exp = vec![
+            CreateDefinition::ColumnDefinition {
+                column_definition: ColumnSpecification {
+                    column: "order_id".into(),
+                    data_type: DataType::Int(32),
+                    constraints: vec![ColumnConstraint::NotNull],
+                    comment: None,
+                    position: None,
+                },
+            },
+            CreateDefinition::ColumnDefinition {
+                column_definition: ColumnSpecification {
+                    column: "product_id".into(),
+                    data_type: DataType::Int(32),
+                    constraints: vec![ColumnConstraint::DefaultValue(Literal::Integer(10))],
+                    comment: None,
+                    position: None,
+                },
+            },
+            CreateDefinition::PrimaryKey {
+                opt_symbol: None,
+                opt_index_type: None,
+                key_part: vec![
+                    KeyPart {
+                        r#type: KeyPartType::ColumnNameWithLength {
+                            col_name: "order_id".to_string(),
+                            length: None,
+                        },
+                        order: None,
+                    },
+                    KeyPart {
+                        r#type: KeyPartType::ColumnNameWithLength {
+                            col_name: "product_id".to_string(),
+                            length: None,
+                        },
+                        order: None,
+                    },
+                ],
+                opt_index_option: None,
+            },
+            CreateDefinition::ForeignKey {
+                opt_symbol: None,
+                opt_index_name: None,
+                columns: vec!["product_id".to_string()],
+                reference_definition: ReferenceDefinition {
+                    tbl_name: "product".to_string(),
+                    key_part: vec![KeyPart {
+                        r#type: KeyPartType::ColumnNameWithLength {
+                            col_name: "id".to_string(),
+                            length: None,
+                        },
+                        order: None,
+                    }],
+                    match_type: None,
+                    on_delete: None,
+                    on_update: None,
+                },
+            },
+        ];
         let res = CreateDefinition::create_definition_list(part);
         assert!(res.is_ok());
+        assert_eq!(res.unwrap().1, exp);
     }
 }

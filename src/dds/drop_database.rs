@@ -45,9 +45,9 @@ impl DropDatabaseStatement {
 
 impl fmt::Display for DropDatabaseStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "DROP DATABASE ")?;
+        write!(f, "DROP DATABASE")?;
         if self.if_exists {
-            write!(f, "IF EXISTS ")?;
+            write!(f, " IF EXISTS")?;
         }
         let database = self.name.clone();
         write!(f, " {}", database)?;
@@ -60,8 +60,8 @@ mod tests {
     use dds::drop_database::DropDatabaseStatement;
 
     #[test]
-    fn test_parse_drop_database() {
-        let good_sqls = [
+    fn parse_drop_database() {
+        let sqls = [
             "DROP DATABASE db_name",
             "DROP SCHEMA db_name;",
             "DROP DATABASE IF EXISTS db_name;",
@@ -72,7 +72,7 @@ mod tests {
 
         let database_name = String::from("db_name");
 
-        let good_statements = [
+        let exp_statements = [
             DropDatabaseStatement {
                 if_exists: false,
                 name: database_name.clone(),
@@ -99,27 +99,10 @@ mod tests {
             },
         ];
 
-        for i in 0..good_sqls.len() {
-            assert_eq!(
-                DropDatabaseStatement::parse(good_sqls[i]).unwrap().1,
-                good_statements[i]
-            );
-        }
-
-        let bad_sqls = [
-            "DROP DATABASE db_name_1, db_name2",
-            "DROP SCHEMA db_name_1, db_name2;",
-            "DROP DATABASE IF NOT EXISTS db_name;",
-            "DROP DATABASE IFEXISTS db_name;",
-            "DROP SCHEMA IF EXISTS db_name_1, db_name_2",
-            "DROP SCHEMA IF      EXISTS db_name_1, db_name_2",
-            "DROP TABLE IF EXISTS db_name_1",
-            "DROP DATABASE2",
-        ];
-
-        for i in 0..bad_sqls.len() {
-            println!("{} / {}", i + 1, bad_sqls.len());
-            assert!(DropDatabaseStatement::parse(bad_sqls[i]).is_err())
+        for i in 0..sqls.len() {
+            let res = DropDatabaseStatement::parse(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

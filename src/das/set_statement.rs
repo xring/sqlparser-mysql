@@ -8,9 +8,9 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::{CommonParser, Literal};
 
-/// SET variable = expr [, variable = expr] ...
+/// parse `SET variable = expr [, variable = expr] ...`
 ///
-/// variable: {
+/// `variable: {
 ///     user_var_name
 ///   | param_name
 ///   | local_var_name
@@ -18,7 +18,7 @@ use base::{CommonParser, Literal};
 ///   | {PERSIST | @@PERSIST.} system_var_name
 ///   | {PERSIST_ONLY | @@PERSIST_ONLY.} system_var_name
 ///   | [SESSION | @@SESSION. | @@] system_var_name
-/// }
+/// }`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct SetStatement {
     pub variable: String,
@@ -58,26 +58,22 @@ mod tests {
     fn simple_set() {
         let str = "SET SQL_AUTO_IS_NULL = 0;";
         let res = SetStatement::parse(str);
-        assert_eq!(
-            res.unwrap().1,
-            SetStatement {
-                variable: "SQL_AUTO_IS_NULL".to_owned(),
-                value: 0.into(),
-            }
-        );
+        let exp = SetStatement {
+            variable: "SQL_AUTO_IS_NULL".to_owned(),
+            value: 0.into(),
+        };
+        assert_eq!(res.unwrap().1, exp);
     }
 
     #[test]
     fn user_defined_vars() {
         let str = "SET @var = 123;";
         let res = SetStatement::parse(str);
-        assert_eq!(
-            res.unwrap().1,
-            SetStatement {
-                variable: "@var".to_owned(),
-                value: 123.into(),
-            }
-        );
+        let exp = SetStatement {
+            variable: "@var".to_owned(),
+            value: 123.into(),
+        };
+        assert_eq!(res.unwrap().1, exp);
     }
 
     #[test]

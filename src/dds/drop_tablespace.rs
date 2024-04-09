@@ -37,7 +37,7 @@ impl DropTablespaceStatement {
             opt(map(
                 tuple((
                     tag_no_case("ENGINE"),
-                    multispace1,
+                    multispace0,
                     opt(tag("=")),
                     multispace0,
                     CommonParser::sql_identifier,
@@ -82,7 +82,7 @@ mod tests {
     use dds::drop_tablespace::DropTablespaceStatement;
 
     #[test]
-    fn test_drop_tablespace_parser() {
+    fn parse_drop_tablespace() {
         let sqls = [
             "DROP TABLESPACE tablespace_name;",
             "DROP UNDO TABLESPACE tablespace_name;",
@@ -90,11 +90,33 @@ mod tests {
             "DROP UNDO TABLESPACE tablespace_name ENGINE = demo;",
         ];
 
+        let exp_statements = [
+            DropTablespaceStatement {
+                undo: false,
+                tablespace_name: "tablespace_name".to_string(),
+                engine_name: None,
+            },
+            DropTablespaceStatement {
+                undo: true,
+                tablespace_name: "tablespace_name".to_string(),
+                engine_name: None,
+            },
+            DropTablespaceStatement {
+                undo: false,
+                tablespace_name: "tablespace_name".to_string(),
+                engine_name: Some("demo".to_string()),
+            },
+            DropTablespaceStatement {
+                undo: true,
+                tablespace_name: "tablespace_name".to_string(),
+                engine_name: Some("demo".to_string()),
+            },
+        ];
+
         for i in 0..sqls.len() {
-            println!("{}/{}", i + 1, sqls.len());
             let res = DropTablespaceStatement::parse(sqls[i]);
-            println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i])
         }
     }
 }

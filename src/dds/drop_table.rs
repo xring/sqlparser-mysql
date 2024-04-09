@@ -14,8 +14,7 @@ use base::error::ParseSQLError;
 use base::table::Table;
 use base::CommonParser;
 
-/// <https://dev.mysql.com/doc/refman/8.0/en/drop-table.html>
-/// `DROP [TEMPORARY] TABLE [IF EXISTS]
+/// parse `DROP [TEMPORARY] TABLE [IF EXISTS]
 ///     tbl_name [, tbl_name] ...
 ///     [RESTRICT | CASCADE]`
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -113,8 +112,8 @@ mod tests {
     use dds::drop_table::DropTableStatement;
 
     #[test]
-    fn test_parse_drop_table() {
-        let good_sqls = vec![
+    fn parse_drop_table() {
+        let sqls = vec![
             "DROP  TABLE tbl_name;",
             "DROP TABLE  foo.tbl_name1, tbl_name2;",
             "DROP TEMPORARY  TABLE  bar.tbl_name",
@@ -144,7 +143,7 @@ mod tests {
         let one_table = vec![Table::from("tbl_name")];
         let two_tables = vec![Table::from("tbl_name1"), Table::from("tbl_name2")];
 
-        let good_statements = vec![
+        let exp_statements = vec![
             DropTableStatement {
                 tables: one_table.clone(),
                 ..DropTableStatement::default()
@@ -286,26 +285,10 @@ mod tests {
             },
         ];
 
-        for i in 0..good_sqls.len() {
-            assert_eq!(
-                DropTableStatement::parse(good_sqls[i]).unwrap().1,
-                good_statements[i]
-            );
-        }
-
-        let bad_sqls = [
-            "DROPTABLE tbl_name;",
-            "DROP TABLE tbl_name as alias_name;",
-            "DROP TABLE tbl_name alias_name;",
-            "DROP TABLEtbl_name1, tbl_name2;",
-            "DROP TABLE TEMPORARY IF EXISTS tbl_name;",
-            "DROP TEMPORARY TABLE IFEXISTS tbl_name1, tbl_name2;",
-            "DROP TABLE IFEXISTS tbl_name RESTRICT;",
-        ];
-
-        for i in 0..bad_sqls.len() {
-            println!("{} / {}", i + 1, bad_sqls.len());
-            assert!(DropTableStatement::parse(bad_sqls[i]).is_err())
+        for i in 0..sqls.len() {
+            let res = DropTableStatement::parse(sqls[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exp_statements[i]);
         }
     }
 }

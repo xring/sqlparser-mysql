@@ -118,11 +118,11 @@ pub enum AlterTableOption {
 
     /// `ADD {INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     AddIndexOrKey {
-        index_or_key: IndexOrKeyType,          // {INDEX | KEY}
-        opt_index_name: Option<String>,        // [index_name]
-        opt_index_type: Option<IndexType>,     // [index_type]
-        key_part: Vec<KeyPart>,                // (key_part,...)
-        opt_index_option: Option<IndexOption>, // [index_option]
+        index_or_key: IndexOrKeyType,               // {INDEX | KEY}
+        opt_index_name: Option<String>,             // [index_name]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
@@ -131,26 +131,26 @@ pub enum AlterTableOption {
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
         opt_index_name: Option<String>,             // [index_name]
         key_part: Vec<KeyPart>,                     // (key_part,...)
-        opt_index_option: Option<IndexOption>,      // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `ADD [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     AddPrimaryKey {
-        opt_symbol: Option<String>,            // [symbol]
-        opt_index_type: Option<IndexType>,     // [index_type]
-        key_part: Vec<KeyPart>,                // (key_part,...)
-        opt_index_option: Option<IndexOption>, // [index_option]
+        opt_symbol: Option<String>,                 // [symbol]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `ADD [CONSTRAINT [symbol]] UNIQUE [INDEX | KEY]
     ///     [index_name] [index_type] (key_part,...) [index_option] ...`
     AddUnique {
-        opt_symbol: Option<String>,               // [symbol]
-        opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
-        opt_index_name: Option<String>,           // [index_name]
-        opt_index_type: Option<IndexType>,        // [index_type]
-        key_part: Vec<KeyPart>,                   // (key_part,...)
-        opt_index_option: Option<IndexOption>,    // [index_option]
+        opt_symbol: Option<String>,                 // [symbol]
+        opt_index_or_key: Option<IndexOrKeyType>,   // [INDEX | KEY]
+        opt_index_name: Option<String>,             // [index_name]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `ADD [CONSTRAINT [symbol]] FOREIGN KEY
@@ -1140,73 +1140,68 @@ impl AlterPartitionOption {
 #[cfg(test)]
 mod tests {
     use base::column::{ColumnConstraint, ColumnPosition, ColumnSpecification};
+    use base::fulltext_or_spatial_type::FulltextOrSpatialType;
     use base::index_option::IndexOption;
-    use base::Literal;
+    use base::index_or_key_type::IndexOrKeyType;
+    use base::visible_type::VisibleType;
+    use base::{CheckConstraintDefinition, DataType, KeyPart, KeyPartType, Literal};
     use dds::alter_table::{AlterTableOption, AlterTableStatement};
 
     #[test]
-    fn test_add_column() {
+    fn parse_add_column() {
         let parts = [
-            r###"ADD COLUMN filter   TINYINT(4) DEFAULT 0 COMMENT '统计过滤(1=启用过滤；0=禁用过滤)'"###,
-            r###"ADD COLUMN filter_name VARCHAR(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '统计筛选字段名称';"###,
-            r###"ADD replace_approver varchar(512) NOT NULL DEFAULT "0" COMMENT '指定代审员工'"###,
-            "ADD template_admin_approver json NULL DEFAULT NULL COMMENT '模板管理员'",
-            "ADD COLUMN (new_column8 INT, new_column9 VARCHAR(100));",
-            "ADD COLUMN column1 VARCHAR(255)",
-            "ADD column2 INT DEFAULT 10",
-            "ADD COLUMN column3 DATE NOT NULL",
-            "ADD COLUMN column4 TEXT UNIQUE;",
-            "ADD column4 TEXT UNIQUE;",
-            "ADD COLUMN column5 DECIMAL(10, 2)",
-            "ADD column7 ENUM('small', 'medium', 'large')",
-            "ADD COLUMN column7 ENUM('small', 'medium', 'large')",
-            "ADD column8 BLOB",
-            "ADD column9 VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            "ADD COLUMN new_column2 VARCHAR(255) FIRST;",
-            "ADD COLUMN new_column3 DATE AFTER existing_column;",
-            "ADD COLUMN new_column5 TEXT COMMENT 'This is a comment';",
-            "ADD new_column6 DECIMAL(10,2) NOT NULL;",
-            "ADD COLUMN new_column8 INT",
-            "ADD COLUMN new_column9 VARCHAR(100)",
-            "ADD new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "ADD COLUMN new_column11 VARCHAR(50) NOT NULL UNIQUE;",
-            "ADD (new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP, new_column11 VARCHAR(50) NOT NULL UNIQUE);",
+            "ADD COLUMN column7 ENUM('small', 'medium', 'large') FIRST",
+            "ADD COLUMN new_column5 TEXT COMMENT 'This is a comment' AFTER existing_column;",
             "ADD column6 TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;",
-            "ADD new_column4 BOOLEAN DEFAULT FALSE;",
-            "ADD new_column7 UUID UNIQUE;",
+        ];
+        let exps = [
+            AlterTableOption::AddColumn {
+                opt_column: true,
+                columns: vec![ColumnSpecification {
+                    column: "column7".into(),
+                    data_type: DataType::Enum(vec![
+                        Literal::String("small".to_string()),
+                        Literal::String("medium".to_string()),
+                        Literal::String("large".to_string()),
+                    ]),
+                    constraints: vec![],
+                    comment: None,
+                    position: Some(ColumnPosition::First),
+                }],
+            },
+            AlterTableOption::AddColumn {
+                opt_column: true,
+                columns: vec![ColumnSpecification {
+                    column: "new_column5".into(),
+                    data_type: DataType::Text,
+                    constraints: vec![],
+                    comment: Some("This is a comment".to_string()),
+                    position: Some(ColumnPosition::After("existing_column".into())),
+                }],
+            },
+            AlterTableOption::AddColumn {
+                opt_column: false,
+                columns: vec![ColumnSpecification {
+                    column: "column6".into(),
+                    data_type: DataType::Timestamp,
+                    constraints: vec![
+                        ColumnConstraint::DefaultValue(Literal::CurrentTimestamp),
+                        ColumnConstraint::OnUpdate(Literal::CurrentTimestamp),
+                    ],
+                    comment: None,
+                    position: None,
+                }],
+            },
         ];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_column(parts[i]);
-            // // res.unwrap();
-            println!("{:?}", res);
             assert!(res.is_ok());
-        }
-
-        let sql = "ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age";
-        let res = AlterTableOption::add_column(sql);
-        assert!(res.is_ok());
-        if let (
-            _,
-            AlterTableOption::AddColumn {
-                opt_column: bl,
-                columns: cols,
-            },
-        ) = res.unwrap()
-        {
-            assert_eq!(cols.len(), 1);
-            assert_eq!(
-                cols[0].constraints,
-                vec![
-                    ColumnConstraint::Null,
-                    ColumnConstraint::DefaultValue(Literal::Null)
-                ]
-            );
+            assert_eq!(res.unwrap().1, exps[i])
         }
     }
 
     #[test]
-    fn test_position() {
+    fn parse_column_position() {
         let parts = [
             "FIRST",
             " FIRST",
@@ -1224,13 +1219,14 @@ mod tests {
             ColumnPosition::After("foo".into()),
         ];
         for i in 0..parts.len() {
-            let (r, res) = ColumnPosition::parse(parts[i]).unwrap();
-            assert_eq!(res, positions[i])
+            let res = ColumnPosition::parse(parts[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, positions[i])
         }
     }
 
     #[test]
-    fn test_column_definition() {
+    fn parse_column_definition() {
         let parts = [
             "column1 VARCHAR(255)",
             "column2 INT DEFAULT 10",
@@ -1281,167 +1277,166 @@ mod tests {
     }
 
     #[test]
-    fn test_add_fulltext_or_spatial() {
+    fn parse_add_fulltext_or_spatial() {
         let parts = [
             "ADD FULLTEXT INDEX ft_index_name (column_name);",
-            "ADD FULLTEXT INDEX ft_index_name (column_name) KEY_BLOCK_SIZE=1024 COMMENT 'Fulltext index on column_name' WITH PARSER ngram VISIBLE;",
-            "ADD SPATIAL INDEX sp_index_name (column_name);",
-            "ADD FULLTEXT INDEX sp_index_name (column_name);",
+            "ADD FULLTEXT INDEX ft_index_name (column_name) \
+            KEY_BLOCK_SIZE=1024 COMMENT 'Fulltext index on column_name' WITH PARSER ngram VISIBLE;",
+        ];
+        let exps = [
+            AlterTableOption::AddFulltextOrSpatial {
+                fulltext_or_spatial: FulltextOrSpatialType::Fulltext,
+                index_or_key: Some(IndexOrKeyType::Index),
+                opt_index_name: Some("ft_index_name".to_string()),
+                key_part: vec![KeyPart {
+                    r#type: KeyPartType::ColumnNameWithLength {
+                        col_name: "column_name".to_string(),
+                        length: None,
+                    },
+                    order: None,
+                }],
+                opt_index_option: None,
+            },
+            AlterTableOption::AddFulltextOrSpatial {
+                fulltext_or_spatial: FulltextOrSpatialType::Fulltext,
+                index_or_key: Some(IndexOrKeyType::Index),
+                opt_index_name: Some("ft_index_name".to_string()),
+                key_part: vec![KeyPart {
+                    r#type: KeyPartType::ColumnNameWithLength {
+                        col_name: "column_name".to_string(),
+                        length: None,
+                    },
+                    order: None,
+                }],
+                opt_index_option: Some(vec![
+                    IndexOption::KeyBlockSize(1024),
+                    IndexOption::Comment("Fulltext index on column_name".to_string()),
+                    IndexOption::WithParser("ngram".to_string()),
+                    IndexOption::VisibleType(VisibleType::Visible),
+                ]),
+            },
         ];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_fulltext_or_spatial(parts[i]);
             assert!(res.is_ok());
-            println!("{:?}", res.unwrap().1)
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_index_option() {
+    fn parse_index_option() {
         let parts = [
             "KEY_BLOCK_SIZE=1024",
             "COMMENT 'This is an index comment'",
             "INVISIBLE",
-            "KEY_BLOCK_SIZE=1024 COMMENT 'Fulltext index on column_name' WITH PARSER ngram VISIBLE",
-            "USING BTREE",
+            "WITH PARSER ngram",
+        ];
+        let exps = [
+            IndexOption::KeyBlockSize(1024),
+            IndexOption::Comment("This is an index comment".to_string()),
+            IndexOption::VisibleType(VisibleType::Invisible),
+            IndexOption::WithParser("ngram".to_string()),
         ];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = IndexOption::parse(parts[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_add_unique() {
+    fn parse_add_unique() {
         let parts = ["ADD CONSTRAINT UNIQUE (col_19)"];
+        let exps = [AlterTableOption::AddUnique {
+            opt_symbol: None,
+            opt_index_or_key: None,
+            opt_index_name: None,
+            opt_index_type: None,
+            key_part: vec![KeyPart {
+                r#type: KeyPartType::ColumnNameWithLength {
+                    col_name: "col_19".to_string(),
+                    length: None,
+                },
+                order: None,
+            }],
+            opt_index_option: None,
+        }];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_unique(parts[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_convert_to_character_set() {
+    fn parse_convert_to_character_set() {
         let parts = ["CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"];
+        let exps = [AlterTableOption::ConvertToCharacterSet {
+            charset_name: "utf8mb4".to_string(),
+            collation_name: Some("utf8mb4_unicode_ci".to_string()),
+        }];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::convert_to_character_set(parts[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_add_primary_key() {
+    fn parse_add_primary_key() {
         let parts = ["ADD PRIMARY KEY (new_column)"];
+        let exps = [AlterTableOption::AddPrimaryKey {
+            opt_symbol: None,
+            opt_index_option: None,
+            key_part: vec![KeyPart {
+                r#type: KeyPartType::ColumnNameWithLength {
+                    col_name: "new_column".to_string(),
+                    length: None,
+                },
+                order: None,
+            }],
+            opt_index_type: None,
+        }];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_primary_key(parts[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_add_check() {
+    fn parse_add_check() {
         let parts = ["ADD CONSTRAINT chk_column CHECK (new_column > 0) NOT ENFORCED;"];
+        let exps = [AlterTableOption::AddCheck {
+            check_constraint: CheckConstraintDefinition {
+                symbol: Some("chk_column".to_string()),
+                expr: "new_column > 0".to_string(),
+                enforced: false,
+            },
+        }];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_check(parts[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 
     #[test]
-    fn test_modify_column() {
+    fn parse_modify_column() {
         let parts = ["MODIFY COLUMN another_column VARCHAR(255) FIRST;"];
+        let exps = [AlterTableOption::ModifyColumn {
+            column_definition: ColumnSpecification {
+                column: "another_column".into(),
+                data_type: DataType::Varchar(255),
+                constraints: vec![],
+                comment: None,
+                position: Some(ColumnPosition::First),
+            },
+        }];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::modify_column(parts[i]);
-            // res.unwrap();
             assert!(res.is_ok());
-            println!("{:?}", res);
-        }
-    }
-
-    #[test]
-    fn test_alter_table() {
-        let alter_sqls = vec![
-            r###"ALTER TABLE common_stats.event_event_attr_link ADD COLUMN filter   TINYINT(4) DEFAULT 0 COMMENT '统计过滤(1=启用过滤；0=禁用过滤)', ADD COLUMN filter_name VARCHAR(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '统计筛选字段名称';"###,
-            "ALTER TABLE tbl_order DISABLE KEYS",
-            "ALTER TABLE tbl_order ORDER BY col_3",
-            "ALTER TABLE tbl_customer ENABLE KEYS",
-            "ALTER TABLE tbl_order DROP COLUMN col_6",
-            "ALTER TABLE tbl_order RENAME TO tbl_customer_31",
-            "ALTER TABLE tbl_order ADD INDEX idx_34 (col_14)",
-            "ALTER TABLE tbl_customer ADD COLUMN col_74 VARCHAR(255)",
-            "ALTER TABLE tbl_customer RENAME COLUMN col_20 TO col_30",
-            "ALTER TABLE tbl_product CHANGE COLUMN col_1 col_21 DATE",
-            "ALTER TABLE tbl_inventory ADD CONSTRAINT UNIQUE (col_19)",
-            "ALTER TABLE tbl_order ADD FULLTEXT INDEX ft_idx_87 (col_1)",
-            "ALTER TABLE tbl_product CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
-            "ALTER TABLE test_table ADD COLUMN new_column INT;",
-            "ALTER TABLE test_table ADD COLUMN another_column VARCHAR(255) AFTER new_column;",
-            "ALTER TABLE test_table ADD INDEX (new_column);",
-            "ALTER TABLE test_table ADD FULLTEXT INDEX (another_column);",
-            "ALTER TABLE test_table ADD SPATIAL INDEX (another_column);",
-            "ALTER TABLE test_table ADD CONSTRAINT fk_example FOREIGN KEY (new_column) REFERENCES other_table(other_column);",
-            "ALTER TABLE test_table ADD CONSTRAINT chk_column CHECK (new_column > 0) NOT ENFORCED;",
-            "ALTER TABLE test_table DROP CHECK chk_column;",
-            "ALTER TABLE test_table ALTER CHECK chk_column NOT ENFORCED;",
-            "ALTER TABLE test_table ENGINE = InnoDB;",
-            "ALTER TABLE test_table MODIFY COLUMN new_column BIGINT NOT NULL;",
-            "ALTER TABLE test_table ALTER COLUMN new_column SET DEFAULT 10;",
-            "ALTER TABLE test_table ALTER COLUMN new_column DROP DEFAULT;",
-            "ALTER TABLE test_table MODIFY COLUMN another_column VARCHAR(255) FIRST;",
-            "ALTER TABLE test_table RENAME COLUMN another_column TO renamed_column;",
-            "ALTER TABLE test_table DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            "ALTER TABLE test_table CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            "ALTER TABLE test_table DISABLE KEYS;",
-            "ALTER TABLE test_table ENABLE KEYS;",
-            "ALTER TABLE test_table DISCARD TABLESPACE;",
-            "ALTER TABLE test_table IMPORT TABLESPACE;",
-            "ALTER TABLE test_table DROP COLUMN renamed_column;",
-            "ALTER TABLE test_table DROP INDEX unique_index_name;",
-            "ALTER TABLE test_table DROP PRIMARY KEY;",
-            "ALTER TABLE test_table DROP FOREIGN KEY fk_example;",
-            "ALTER TABLE test_table FORCE;",
-            "ALTER TABLE test_table ALTER INDEX index_name VISIBLE;",
-            "ALTER TABLE test_table ALTER INDEX index_name INVISIBLE;",
-            "ALTER TABLE test_table ADD PRIMARY KEY (new_column);",
-            "ALTER TABLE test_table ADD UNIQUE INDEX unique_index_name (another_column);",
-            "ALTER TABLE tbl_product ADD COLUMN col_name160 VARCHAR(255) NOT NULL",
-            "ALTER TABLE tbl_customer DROP COLUMN col_name91",
-            "ALTER TABLE tbl_inventory MODIFY COLUMN col_name73 TEXT",
-            "ALTER TABLE tbl_product CHANGE COLUMN col_name28 col_name217 DATETIME",
-            "ALTER TABLE tbl_inventory ADD INDEX idx_name145 (col_name51)",
-            "ALTER TABLE tbl_order DROP INDEX idx_name23",
-            "ALTER TABLE tbl_product RENAME TO tbl_product_new",
-            "ALTER TABLE tbl_order ADD PRIMARY KEY (col_name49)",
-            "ALTER TABLE tbl_order DROP PRIMARY KEY",
-            "ALTER TABLE tbl_customer ADD FOREIGN KEY (col_name74) REFERENCES tbl_order(order_id)",
-            "ALTER TABLE tbl_inventory DROP FOREIGN KEY fk_name46",
-            "ALTER TABLE demo ADD name VARCHAR(128) NULL DEFAULT NULL AFTER age",
-            "ALTER TABLE `process_template_config` ADD template_admin_approver json NULL DEFAULT NULL COMMENT '模板管理员';"
-        ];
-
-        for i in 0..alter_sqls.len() {
-            println!("{}/{}", i + 1, alter_sqls.len());
-            let res = AlterTableStatement::parse(alter_sqls[i]);
-            // res.unwrap();
-            // println!("{:?}", res);
-            println!("{:?}", res);
-            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 }
