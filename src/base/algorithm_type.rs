@@ -4,6 +4,7 @@ use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{write, Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -35,6 +36,17 @@ impl AlgorithmType {
             )),
             |x| x.4,
         )(i)
+    }
+}
+
+impl Display for AlgorithmType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            AlgorithmType::Instant => write!(f, "ALGORITHM INSTANT"),
+            AlgorithmType::Default => write!(f, "ALGORITHM DEFAULT"),
+            AlgorithmType::Inplace => write!(f, "ALGORITHM INPLACE"),
+            AlgorithmType::Copy => write!(f, "ALGORITHM COPY"),
+        }
     }
 }
 

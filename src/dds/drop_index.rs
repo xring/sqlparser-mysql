@@ -3,6 +3,7 @@ use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::algorithm_type::AlgorithmType;
 use base::error::ParseSQLError;
@@ -21,6 +22,19 @@ pub struct DropIndexStatement {
     pub table: Table,
     pub algorithm_option: Option<AlgorithmType>,
     pub lock_option: Option<LockType>,
+}
+
+impl Display for DropIndexStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DROP INDEX {} ON {}", &self.index_name, &self.table);
+        if let Some(algorithm_option) = &self.algorithm_option {
+            write!(f, " {}", algorithm_option);
+        }
+        if let Some(lock_option) = &self.lock_option {
+            write!(f, " {}", lock_option);
+        }
+        Ok(())
+    }
 }
 
 impl DropIndexStatement {

@@ -252,12 +252,6 @@ mod tests {
 
     use super::*;
 
-    fn columns(cols: &[&str]) -> Vec<FieldDefinitionExpression> {
-        cols.iter()
-            .map(|c| FieldDefinitionExpression::Col(Column::from(*c)))
-            .collect()
-    }
-
     #[test]
     fn between_and() {
         let str = "age between 10 and 20";
@@ -274,7 +268,7 @@ mod tests {
             res.unwrap().1,
             SelectStatement {
                 tables: vec![Table::from("users")],
-                fields: columns(&["id", "name"]),
+                fields: FieldDefinitionExpression::from_column_str(&["id", "name"]),
                 ..Default::default()
             }
         );
@@ -289,7 +283,7 @@ mod tests {
             res.unwrap().1,
             SelectStatement {
                 tables: vec![Table::from("users")],
-                fields: columns(&["users.id", "users.name"]),
+                fields: FieldDefinitionExpression::from_column_str(&["users.id", "users.name"]),
                 ..Default::default()
             }
         );
@@ -366,7 +360,7 @@ mod tests {
             res.unwrap().1,
             SelectStatement {
                 tables: vec![Table::from("users")],
-                fields: columns(&["id", "name"]),
+                fields: FieldDefinitionExpression::from_column_str(&["id", "name"]),
                 ..Default::default()
             }
         );
@@ -591,7 +585,7 @@ mod tests {
             SelectStatement {
                 tables: vec![Table::from("PaperTag")],
                 distinct: true,
-                fields: columns(&["tag"]),
+                fields: FieldDefinitionExpression::from_column_str(&["tag"]),
                 where_clause: expected_where_cond,
                 ..Default::default()
             }
@@ -629,7 +623,7 @@ mod tests {
             res.unwrap().1,
             SelectStatement {
                 tables: vec![Table::from("PaperStorage")],
-                fields: columns(&["infoJson"]),
+                fields: FieldDefinitionExpression::from_column_str(&["infoJson"]),
                 where_clause: expected_where_cond,
                 ..Default::default()
             }
@@ -1004,7 +998,7 @@ mod tests {
         let res = SelectStatement::parse(str);
         let expected_stmt = SelectStatement {
             tables: vec![Table::from("PaperConflict")],
-            fields: columns(&["paperId"]),
+            fields: FieldDefinitionExpression::from_column_str(&["paperId"]),
             join: vec![JoinClause {
                 operator: JoinOperator::Join,
                 right: JoinRightSide::Table(Table::from("PCMember")),
@@ -1036,7 +1030,7 @@ mod tests {
         let join_cond = ConditionExpression::ComparisonOp(ct);
         let expected = SelectStatement {
             tables: vec![Table::from("PCMember")],
-            fields: columns(&["PCMember.contactId"]),
+            fields: FieldDefinitionExpression::from_column_str(&["PCMember.contactId"]),
             join: vec![JoinClause {
                 operator: JoinOperator::Join,
                 right: JoinRightSide::Table(Table::from("PaperReview")),
@@ -1096,7 +1090,7 @@ mod tests {
             res.unwrap().1,
             SelectStatement {
                 tables: vec![Table::from("ContactInfo")],
-                fields: columns(&[
+                fields: FieldDefinitionExpression::from_column_str(&[
                     "PCMember.contactId",
                     "ChairAssistant.contactId",
                     "Chair.contactId"
@@ -1131,7 +1125,7 @@ mod tests {
 
         let inner_select = SelectStatement {
             tables: vec![Table::from("orders"), Table::from("order_line")],
-            fields: columns(&["o_c_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["o_c_id"]),
             where_clause: Some(inner_where_clause),
             ..Default::default()
         };
@@ -1144,7 +1138,7 @@ mod tests {
 
         let outer_select = SelectStatement {
             tables: vec![Table::from("orders"), Table::from("order_line")],
-            fields: columns(&["ol_i_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["ol_i_id"]),
             where_clause: Some(outer_where_clause),
             ..Default::default()
         };
@@ -1197,7 +1191,7 @@ mod tests {
 
         let inner_select = SelectStatement {
             tables: vec![Table::from("orders"), Table::from("order_line")],
-            fields: columns(&["o_c_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["o_c_id"]),
             where_clause: Some(inner_where_clause),
             ..Default::default()
         };
@@ -1210,7 +1204,7 @@ mod tests {
 
         let outer_select = SelectStatement {
             tables: vec![Table::from("orders"), Table::from("order_line")],
-            fields: columns(&["ol_i_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["ol_i_id"]),
             where_clause: Some(outer_where_clause),
             ..Default::default()
         };
@@ -1240,13 +1234,13 @@ mod tests {
         // N.B.: Don't alias the inner select to `inner`, which is, well, a SQL keyword!
         let inner_select = SelectStatement {
             tables: vec![Table::from("order_line")],
-            fields: columns(&["ol_i_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["ol_i_id"]),
             ..Default::default()
         };
 
         let outer_select = SelectStatement {
             tables: vec![Table::from("orders")],
-            fields: columns(&["o_id", "ol_i_id"]),
+            fields: FieldDefinitionExpression::from_column_str(&["o_id", "ol_i_id"]),
             join: vec![JoinClause {
                 operator: JoinOperator::Join,
                 right: JoinRightSide::NestedSelect(Box::new(inner_select), Some("ids".into())),

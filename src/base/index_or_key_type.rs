@@ -2,6 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -10,6 +11,15 @@ use base::ParseSQLError;
 pub enum IndexOrKeyType {
     Index,
     Key,
+}
+
+impl Display for IndexOrKeyType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            IndexOrKeyType::Index => write!(f, "INDEX"),
+            IndexOrKeyType::Key => write!(f, "KEY"),
+        }
+    }
 }
 
 impl IndexOrKeyType {

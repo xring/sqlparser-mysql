@@ -2,6 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
 use nom::IResult;
+use std::fmt::{write, Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -10,6 +11,15 @@ use base::ParseSQLError;
 pub enum VisibleType {
     Visible,
     Invisible,
+}
+
+impl Display for VisibleType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            VisibleType::Visible => write!(f, "VISIBLE"),
+            VisibleType::Invisible => write!(f, "INVISIBLE"),
+        }
+    }
 }
 
 impl VisibleType {

@@ -5,6 +5,7 @@ use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::streaming::tag;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -14,6 +15,16 @@ pub enum InsertMethodType {
     No,
     First,
     Last,
+}
+
+impl Display for InsertMethodType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            InsertMethodType::No => write!(f, "INSERT_METHOD NO"),
+            InsertMethodType::First => write!(f, "INSERT_METHOD FIRST"),
+            InsertMethodType::Last => write!(f, "INSERT_METHOD LAST"),
+        }
+    }
 }
 
 impl InsertMethodType {

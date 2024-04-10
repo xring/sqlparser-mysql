@@ -4,6 +4,7 @@ use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -13,6 +14,16 @@ pub enum CompressionType {
     ZLIB,
     LZ4,
     NONE,
+}
+
+impl Display for CompressionType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            CompressionType::ZLIB => write!(f, "COMPRESSION 'ZLIB'"),
+            CompressionType::LZ4 => write!(f, "COMPRESSION 'LZ4'"),
+            CompressionType::NONE => write!(f, "COMPRESSION 'NONE'"),
+        }
+    }
 }
 
 impl CompressionType {

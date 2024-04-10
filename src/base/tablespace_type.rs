@@ -4,6 +4,7 @@ use nom::character::complete::multispace0;
 use nom::combinator::map;
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{write, Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -12,6 +13,15 @@ use base::ParseSQLError;
 pub enum TablespaceType {
     StorageDisk,
     StorageMemory,
+}
+
+impl Display for TablespaceType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            TablespaceType::StorageDisk => write!(f, "STORAGE DISK"),
+            TablespaceType::StorageMemory => write!(f, "STORAGE MEMORY"),
+        }
+    }
 }
 
 impl TablespaceType {

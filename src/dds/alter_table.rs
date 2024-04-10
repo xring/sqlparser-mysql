@@ -1,5 +1,5 @@
 use core::fmt;
-use std::fmt::Formatter;
+use std::fmt::{write, Display, Formatter};
 use std::str::FromStr;
 
 use nom::branch::alt;
@@ -32,6 +32,23 @@ pub struct AlterTableStatement {
     pub table: Table,
     pub alter_options: Option<Vec<AlterTableOption>>,
     pub partition_options: Option<Vec<AlterPartitionOption>>,
+}
+
+impl Display for AlterTableStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ALTER TABLE {}", &self.table);
+        if let Some(alter_options) = &self.alter_options {
+            write!(f, " {}", AlterTableOption::format_list(alter_options));
+        }
+        if let Some(partition_options) = &self.partition_options {
+            write!(
+                f,
+                " {}",
+                AlterPartitionOption::format_list(partition_options)
+            );
+        }
+        Ok(())
+    }
 }
 
 impl AlterTableStatement {
@@ -72,17 +89,6 @@ impl AlterTableStatement {
         ))
     }
 }
-
-impl fmt::Display for AlterTableStatement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let table_name = match &self.table.schema {
-            Some(schema) => format!("{}.{}", schema, self.table.name),
-            None => format!(" {}", self.table.name),
-        };
-        write!(f, "ALTER TABLE {} ", table_name)?;
-        Ok(())
-    }
-}
 /////// Alter Table Option
 
 /// {CHECK | CONSTRAINT}
@@ -90,6 +96,15 @@ impl fmt::Display for AlterTableStatement {
 pub enum CheckOrConstraintType {
     Check,
     Constraint,
+}
+
+impl Display for CheckOrConstraintType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            CheckOrConstraintType::Check => write!(f, "CHECK"),
+            CheckOrConstraintType::Constraint => write!(f, "CONSTRAINT"),
+        }
+    }
 }
 
 impl CheckOrConstraintType {
@@ -128,7 +143,7 @@ pub enum AlterTableOption {
     /// `ADD {FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     AddFulltextOrSpatial {
         fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
-        index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
+        opt_index_or_key: Option<IndexOrKeyType>,   // {INDEX | KEY}
         opt_index_name: Option<String>,             // [index_name]
         key_part: Vec<KeyPart>,                     // (key_part,...)
         opt_index_option: Option<Vec<IndexOption>>, // [index_option]
@@ -275,6 +290,274 @@ pub enum AlterTableOption {
     Validation { with_validation: bool },
 }
 
+impl Display for AlterTableOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            AlterTableOption::TableOptions { ref table_options } => {
+                write!(f, " {}", TableOption::format_list(table_options))
+            }
+            AlterTableOption::AddColumn {
+                ref opt_column,
+                ref columns,
+            } => {
+                if *opt_column {
+                    write!(f, " ADD COLUMN");
+                }
+                let columns = columns
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                write!(f, " ({})", columns);
+                Ok(())
+            }
+            AlterTableOption::AddIndexOrKey {
+                ref index_or_key,
+                ref opt_index_name,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, " ADD {}", index_or_key);
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            AlterTableOption::AddFulltextOrSpatial {
+                ref fulltext_or_spatial,
+                ref opt_index_or_key,
+                ref opt_index_name,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, " ADD {}", fulltext_or_spatial);
+                if let Some(opt_index_or_key) = opt_index_or_key {
+                    write!(f, " {}", opt_index_or_key);
+                }
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            AlterTableOption::AddPrimaryKey {
+                ref opt_symbol,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, "ADD");
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " PRIMARY KEY");
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            AlterTableOption::AddUnique {
+                ref opt_symbol,
+                ref opt_index_or_key,
+                ref opt_index_name,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, "ADD");
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " UNIQUE");
+                if let Some(opt_index_or_key) = opt_index_or_key {
+                    write!(f, " {}", opt_index_or_key);
+                }
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            AlterTableOption::AddForeignKey {
+                ref opt_symbol,
+                ref opt_index_name,
+                ref columns,
+                ref reference_definition,
+            } => {
+                write!(f, "ADD");
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " FOREIGN KEY");
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                write!(f, " ({})", columns.join(", "));
+                write!(f, " {}", reference_definition);
+                Ok(())
+            }
+            AlterTableOption::AddCheck {
+                ref check_constraint,
+            } => {
+                write!(f, " ADD {}", check_constraint)
+            }
+            AlterTableOption::DropCheckOrConstraint {
+                ref check_or_constraint,
+                ref symbol,
+            } => {
+                write!(f, "DROP {} {}", &check_or_constraint, &symbol)
+            }
+            AlterTableOption::AlterCheckOrConstraintEnforced {
+                ref check_or_constraint,
+                ref symbol,
+                ref enforced,
+            } => {
+                write!(f, "DROP {} {}", &check_or_constraint, &symbol);
+                if !*enforced {
+                    write!(f, " NOT");
+                }
+                write!(f, " ENFORCED");
+                Ok(())
+            }
+            AlterTableOption::Algorithm { ref algorithm } => {
+                write!(f, " {}", algorithm)
+            }
+            AlterTableOption::AlterColumn {
+                ref col_name,
+                ref alter_column_operation,
+            } => {
+                write!(f, " ALTER {} {}", col_name, alter_column_operation)
+            }
+            AlterTableOption::AlterIndexVisibility {
+                ref index_name,
+                ref visible,
+            } => {
+                write!(f, " ALTER INDEX {} {}", index_name, visible)
+            }
+            AlterTableOption::ChangeColumn {
+                ref old_col_name,
+                ref column_definition,
+            } => {
+                write!(f, " CHANGE {} {}", old_col_name, column_definition)
+            }
+            AlterTableOption::DefaultCharacterSet {
+                ref charset_name,
+                ref collation_name,
+            } => {
+                write!(f, " CHARACTER SET {}", charset_name);
+                if let Some(collation_name) = collation_name {
+                    write!(f, " COLLATE {}", collation_name);
+                }
+                Ok(())
+            }
+            AlterTableOption::ConvertToCharacterSet {
+                ref charset_name,
+                ref collation_name,
+            } => {
+                write!(f, " CONVERT TO CHARACTER SET {}", charset_name);
+                if let Some(collation_name) = collation_name {
+                    write!(f, " COLLATE {}", collation_name);
+                }
+                Ok(())
+            }
+            AlterTableOption::DisableKeys => {
+                write!(f, " DISABLE KEYS")
+            }
+            AlterTableOption::EnableKeys => {
+                write!(f, " ENABLE KEYS")
+            }
+            AlterTableOption::DiscardTablespace => {
+                write!(f, " DISCARD TABLESPACE")
+            }
+            AlterTableOption::ImportTablespace => {
+                write!(f, " IMPORT TABLESPACE")
+            }
+            AlterTableOption::DropColumn { ref col_name } => {
+                write!(f, " DROP {}", col_name)
+            }
+            AlterTableOption::DropIndexOrKey {
+                ref index_or_key,
+                ref index_name,
+            } => {
+                write!(f, " DROP {} {}", index_or_key, index_name)
+            }
+            AlterTableOption::DropPrimaryKey => {
+                write!(f, " DROP PRIMARY KEY")
+            }
+            AlterTableOption::DropForeignKey { ref fk_symbol } => {
+                write!(f, " DROP FOREIGN KEY {}", fk_symbol)
+            }
+            AlterTableOption::Force => {
+                write!(f, " FORCE")
+            }
+            AlterTableOption::Lock { ref lock_type } => {
+                write!(f, " LOCK {}", lock_type)
+            }
+            AlterTableOption::ModifyColumn {
+                ref column_definition,
+            } => {
+                write!(f, " MODIFY {}", column_definition)
+            }
+            AlterTableOption::OrderBy { ref columns } => {
+                let columns = columns.join(", ");
+                write!(f, " ORDER BY {}", columns)
+            }
+            AlterTableOption::RenameColumn {
+                ref old_col_name,
+                ref new_col_name,
+            } => {
+                write!(f, " RENAME COLUMN {} {}", old_col_name, new_col_name)
+            }
+            AlterTableOption::RenameIndexOrKey {
+                ref index_or_key,
+                ref old_index_name,
+                ref new_index_name,
+            } => {
+                write!(
+                    f,
+                    " RENAME {} {} TO {}",
+                    index_or_key, old_index_name, new_index_name
+                )
+            }
+            AlterTableOption::RenameTable { ref new_tbl_name } => {
+                write!(f, " RENAME TO {}", new_tbl_name)
+            }
+            AlterTableOption::Validation {
+                ref with_validation,
+            } => {
+                if *with_validation {
+                    write!(f, " WITH");
+                } else {
+                    write!(f, " WITHOUT");
+                }
+                write!(f, " VALIDATION");
+                Ok(())
+            }
+        }
+    }
+}
+
 impl AlterTableOption {
     fn parse(i: &str) -> IResult<&str, AlterTableOption, ParseSQLError<&str>> {
         let mut parser = alt((
@@ -284,6 +567,13 @@ impl AlterTableOption {
         ));
         let (remaining_input, res) = parser(i)?;
         Ok((remaining_input, res))
+    }
+
+    pub fn format_list(list: &[AlterTableOption]) -> String {
+        list.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
     }
 
     /// `table_options:
@@ -456,7 +746,7 @@ impl AlterTableOption {
             |(_, fulltext_or_spatial, index_or_key, opt_index_name, key_part, opt_index_option)| {
                 AlterTableOption::AddFulltextOrSpatial {
                     fulltext_or_spatial,
-                    index_or_key,
+                    opt_index_or_key: index_or_key,
                     opt_index_name,
                     key_part,
                     opt_index_option,
@@ -608,7 +898,7 @@ impl AlterTableOption {
                         tag_no_case("ENFORCED"),
                         multispace0,
                     ))),
-                    |x| x.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none()),
+                    |x| x.map_or(true, |(_, opt_not, _, _, _)| opt_not.is_none()),
                 ),
             )),
             |(symbol, _, expr, enforced)| AlterTableOption::AddCheck {
@@ -1065,6 +1355,17 @@ pub enum AlertColumnOperation {
     DropDefault,
 }
 
+impl Display for AlertColumnOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            AlertColumnOperation::SetDefaultLiteral(ref val) => write!(f, "SET DEFAULT {}", val),
+            AlertColumnOperation::SetDefaultExpr(ref val) => write!(f, "SET DEFAULT ({})", val),
+            AlertColumnOperation::SetVisible(ref val) => write!(f, "SET {}", val),
+            AlertColumnOperation::DropDefault => write!(f, "DROP DEFAULT"),
+        }
+    }
+}
+
 impl AlertColumnOperation {
     fn parse(i: &str) -> IResult<&str, AlertColumnOperation, ParseSQLError<&str>> {
         alt((
@@ -1128,6 +1429,21 @@ pub enum AlterPartitionOption {
     RebuildPartition,
     RepairPartition,
     RemovePartitioning,
+}
+
+impl AlterPartitionOption {
+    fn format_list(list: &[AlterPartitionOption]) -> String {
+        list.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join("")
+    }
+}
+
+impl Display for AlterPartitionOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
+    }
 }
 
 impl AlterPartitionOption {
@@ -1254,7 +1570,7 @@ mod tests {
         let exps = [
             AlterTableOption::AddFulltextOrSpatial {
                 fulltext_or_spatial: FulltextOrSpatialType::Fulltext,
-                index_or_key: Some(IndexOrKeyType::Index),
+                opt_index_or_key: Some(IndexOrKeyType::Index),
                 opt_index_name: Some("ft_index_name".to_string()),
                 key_part: vec![KeyPart {
                     r#type: KeyPartType::ColumnNameWithLength {
@@ -1267,7 +1583,7 @@ mod tests {
             },
             AlterTableOption::AddFulltextOrSpatial {
                 fulltext_or_spatial: FulltextOrSpatialType::Fulltext,
-                index_or_key: Some(IndexOrKeyType::Index),
+                opt_index_or_key: Some(IndexOrKeyType::Index),
                 opt_index_name: Some("ft_index_name".to_string()),
                 key_part: vec![KeyPart {
                     r#type: KeyPartType::ColumnNameWithLength {
@@ -1286,27 +1602,6 @@ mod tests {
         ];
         for i in 0..parts.len() {
             let res = AlterTableOption::add_fulltext_or_spatial(parts[i]);
-            assert!(res.is_ok());
-            assert_eq!(res.unwrap().1, exps[i]);
-        }
-    }
-
-    #[test]
-    fn parse_index_option() {
-        let parts = [
-            "KEY_BLOCK_SIZE=1024",
-            "COMMENT 'This is an index comment'",
-            "INVISIBLE",
-            "WITH PARSER ngram",
-        ];
-        let exps = [
-            IndexOption::KeyBlockSize(1024),
-            IndexOption::Comment("This is an index comment".to_string()),
-            IndexOption::VisibleType(VisibleType::Invisible),
-            IndexOption::WithParser("ngram".to_string()),
-        ];
-        for i in 0..parts.len() {
-            let res = IndexOption::parse(parts[i]);
             assert!(res.is_ok());
             assert_eq!(res.unwrap().1, exps[i]);
         }

@@ -4,6 +4,7 @@ use nom::character::complete::multispace1;
 use nom::combinator::map;
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -16,6 +17,18 @@ pub enum ReferenceType {
     SetNull,
     NoAction,
     SetDefault,
+}
+
+impl Display for ReferenceType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            ReferenceType::Restrict => write!(f, "RESTRICT"),
+            ReferenceType::Cascade => write!(f, "CASCADE"),
+            ReferenceType::SetNull => write!(f, "SET NULL"),
+            ReferenceType::NoAction => write!(f, "NO ACTION"),
+            ReferenceType::SetDefault => write!(f, "SET DEFAULT"),
+        }
+    }
 }
 
 impl ReferenceType {

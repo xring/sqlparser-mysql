@@ -4,6 +4,7 @@ use nom::character::complete::multispace1;
 use nom::combinator::map;
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -13,6 +14,16 @@ pub enum MatchType {
     Full,
     Partial,
     Simple,
+}
+
+impl Display for MatchType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            MatchType::Full => write!(f, "MATCH FULL"),
+            MatchType::Partial => write!(f, "MATCH PARTIAL"),
+            MatchType::Simple => write!(f, "MATCH SIMPLE"),
+        }
+    }
 }
 
 impl MatchType {

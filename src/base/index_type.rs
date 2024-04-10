@@ -45,8 +45,8 @@ impl IndexType {
 impl fmt::Display for IndexType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            IndexType::Btree => write!(f, " USING BTREE")?,
-            IndexType::Hash => write!(f, " USING HASH")?,
+            IndexType::Btree => write!(f, "USING BTREE")?,
+            IndexType::Hash => write!(f, "USING HASH")?,
         };
         Ok(())
     }

@@ -68,11 +68,11 @@ impl fmt::Display for DropViewStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP VIEW")?;
         if self.if_exists {
-            write!(f, " IF EXISTS ")?;
+            write!(f, " IF EXISTS")?;
         }
 
         let view_name = self.views.join(", ");
-        write!(f, "{}", view_name)?;
+        write!(f, " {}", view_name)?;
 
         if self.if_restrict {
             write!(f, " RESTRICT")?;

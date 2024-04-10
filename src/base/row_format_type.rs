@@ -4,6 +4,7 @@ use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -16,6 +17,19 @@ pub enum RowFormatType {
     Compressed,
     Redundant,
     Compact,
+}
+
+impl Display for RowFormatType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            RowFormatType::Default => write!(f, "ROW_FORMAT DEFAULT"),
+            RowFormatType::Dynamic => write!(f, "ROW_FORMAT DYNAMIC"),
+            RowFormatType::Fixed => write!(f, "ROW_FORMAT FIXED"),
+            RowFormatType::Compressed => write!(f, "ROW_FORMAT COMPRESSED"),
+            RowFormatType::Redundant => write!(f, "ROW_FORMAT REDUNDANT"),
+            RowFormatType::Compact => write!(f, "ROW_FORMAT COMPACT"),
+        }
+    }
 }
 
 impl RowFormatType {

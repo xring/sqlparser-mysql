@@ -1,5 +1,5 @@
 use core::fmt;
-use std::fmt::Formatter;
+use std::fmt::{write, Display, Formatter};
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
@@ -56,6 +56,18 @@ pub struct CreateTableStatement {
     pub create_type: CreateTableType,
 }
 
+impl Display for CreateTableStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CREATE");
+        if self.temporary {
+            write!(f, " TEMPORARY");
+        }
+        write!(f, " TABLE {}", &self.table);
+        write!(f, " {}", &self.create_type);
+        Ok(())
+    }
+}
+
 impl CreateTableStatement {
     pub fn parse(i: &str) -> IResult<&str, CreateTableStatement, ParseSQLError<&str>> {
         alt((
@@ -66,21 +78,19 @@ impl CreateTableStatement {
     }
 }
 
-impl fmt::Display for CreateTableStatement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let table_name = match &self.table.schema {
-            Some(schema) => format!("{}.{}", schema, self.table.name),
-            None => format!(" {}", self.table.name),
-        };
-        write!(f, "CREATE TABLE {} ", table_name)?;
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum IgnoreOrReplaceType {
     Ignore,
     Replace,
+}
+
+impl Display for IgnoreOrReplaceType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            IgnoreOrReplaceType::Ignore => write!(f, "IGNORE"),
+            IgnoreOrReplaceType::Replace => write!(f, "REPLACE"),
+        }
+    }
 }
 
 impl IgnoreOrReplaceType {
@@ -130,6 +140,50 @@ pub enum CreateTableType {
     ///     { LIKE old_tbl_name | (LIKE old_tbl_name) }
     /// ```
     LikeOldTable { table: Table },
+}
+
+impl Display for CreateTableType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            CreateTableType::Simple {
+                ref create_definition,
+                ref table_options,
+                ref partition_options,
+            } => {
+                write!(f, " {}", CreateDefinition::format_list(create_definition));
+                if let Some(table_options) = table_options {
+                    write!(f, " {}", TableOption::format_list(table_options));
+                };
+                if let Some(partition_options) = partition_options {
+                    write!(f, " {}", partition_options);
+                };
+                Ok(())
+            }
+            CreateTableType::AsQuery {
+                ref create_definition,
+                ref table_options,
+                ref partition_options,
+                ref opt_ignore_or_replace,
+                ref query_expression,
+            } => {
+                if let Some(create_definition) = create_definition {
+                    write!(f, " {}", CreateDefinition::format_list(create_definition));
+                }
+                if let Some(table_options) = table_options {
+                    write!(f, " {}", TableOption::format_list(table_options));
+                };
+                if let Some(partition_options) = partition_options {
+                    write!(f, " {}", partition_options);
+                };
+                if let Some(opt_ignore_or_replace) = opt_ignore_or_replace {
+                    write!(f, " {}", opt_ignore_or_replace);
+                };
+                write!(f, " {}", query_expression);
+                Ok(())
+            }
+            CreateTableType::LikeOldTable { ref table } => write!(f, "LIKE {}", table),
+        }
+    }
 }
 
 impl CreateTableType {
@@ -317,8 +371,8 @@ pub enum CreateDefinition {
     /// `{FULLTEXT | SPATIAL} [INDEX | KEY] [index_name] (key_part,...) [index_option] ...`
     FulltextOrSpatial {
         fulltext_or_spatial: FulltextOrSpatialType, // {FULLTEXT | SPATIAL}
-        index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
-        index_name: Option<String>,                 // [index_name]
+        opt_index_or_key: Option<IndexOrKeyType>,   // {INDEX | KEY}
+        opt_index_name: Option<String>,             // [index_name]
         key_part: Vec<KeyPart>,                     // (key_part,...)
         opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
@@ -355,6 +409,122 @@ pub enum CreateDefinition {
     },
 }
 
+impl Display for CreateDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            CreateDefinition::ColumnDefinition {
+                ref column_definition,
+            } => write!(f, " {}", column_definition),
+            CreateDefinition::IndexOrKey {
+                ref index_or_key,
+                ref opt_index_name,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, " {}", index_or_key);
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            CreateDefinition::FulltextOrSpatial {
+                ref fulltext_or_spatial,
+                ref opt_index_or_key,
+                ref opt_index_name,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                write!(f, " {}", fulltext_or_spatial);
+                if let Some(opt_index_or_key) = opt_index_or_key {
+                    write!(f, " {}", opt_index_or_key);
+                }
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            CreateDefinition::PrimaryKey {
+                ref opt_symbol,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " PRIMARY KEY");
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            CreateDefinition::Unique {
+                ref opt_symbol,
+                ref opt_index_or_key,
+                ref opt_index_name,
+                ref opt_index_type,
+                ref key_part,
+                ref opt_index_option,
+            } => {
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " UNIQUE");
+                if let Some(opt_index_or_key) = opt_index_or_key {
+                    write!(f, " {}", opt_index_or_key);
+                }
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                if let Some(opt_index_type) = opt_index_type {
+                    write!(f, " {}", opt_index_type);
+                }
+                write!(f, " {}", KeyPart::format_list(key_part));
+                if let Some(opt_index_option) = opt_index_option {
+                    write!(f, " {}", IndexOption::format_list(opt_index_option));
+                }
+                Ok(())
+            }
+            CreateDefinition::ForeignKey {
+                ref opt_symbol,
+                ref opt_index_name,
+                ref columns,
+                ref reference_definition,
+            } => {
+                if let Some(opt_symbol) = opt_symbol {
+                    write!(f, " CONSTRAINT {}", opt_symbol);
+                }
+                write!(f, " FOREIGN KEY");
+                if let Some(opt_index_name) = opt_index_name {
+                    write!(f, " {}", opt_index_name);
+                }
+                write!(f, " ({})", columns.join(", "));
+                write!(f, " {}", reference_definition);
+                Ok(())
+            }
+            CreateDefinition::Check {
+                ref check_constraint_definition,
+            } => write!(f, " {}", check_constraint_definition),
+        }
+    }
+}
+
 impl CreateDefinition {
     /// `create_definition: {
     ///     col_name column_definition
@@ -387,6 +557,13 @@ impl CreateDefinition {
             CreateDefinition::foreign_key,
             CreateDefinition::check_constraint_definition,
         ))(i)
+    }
+
+    pub fn format_list(list: &[CreateDefinition]) -> String {
+        list.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
     }
 
     fn create_definition_list(
@@ -453,8 +630,8 @@ impl CreateDefinition {
             |(fulltext_or_spatial, index_or_key, index_name, key_part, opt_index_option)| {
                 CreateDefinition::FulltextOrSpatial {
                     fulltext_or_spatial,
-                    index_or_key,
-                    index_name,
+                    opt_index_or_key: index_or_key,
+                    opt_index_name: index_name,
                     key_part,
                     opt_index_option,
                 }
@@ -595,7 +772,7 @@ impl CreateDefinition {
             |(symbol, _, expr, opt_whether_enforced)| {
                 let expr = String::from(expr);
                 let enforced =
-                    opt_whether_enforced.map_or(false, |(_, opt_not, _, _, _)| opt_not.is_none());
+                    opt_whether_enforced.map_or(true, |(_, opt_not, _, _, _)| opt_not.is_none());
                 CreateDefinition::Check {
                     check_constraint_definition: CheckConstraintDefinition {
                         symbol,
@@ -625,6 +802,12 @@ impl CreateDefinition {
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum CreatePartitionOption {
     None,
+}
+
+impl Display for CreatePartitionOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
+    }
 }
 
 impl CreatePartitionOption {

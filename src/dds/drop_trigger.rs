@@ -46,9 +46,9 @@ impl fmt::Display for DropTriggerStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "DROP TRIGGER")?;
         if self.if_exists {
-            write!(f, " IF EXISTS ")?;
+            write!(f, " IF EXISTS")?;
         }
-        write!(f, "{}", self.trigger_name)?;
+        write!(f, " {}", self.trigger_name)?;
         Ok(())
     }
 }

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str;
 
 use nom::branch::alt;
@@ -78,8 +79,8 @@ impl OrderType {
     }
 }
 
-impl std::fmt::Display for OrderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl Display for OrderType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
             OrderType::Asc => write!(f, "ASC"),
             OrderType::Desc => write!(f, "DESC"),

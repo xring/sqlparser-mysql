@@ -80,7 +80,7 @@ impl fmt::Display for ArithmeticBase {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ArithmeticBase::Column(ref col) => write!(f, "{}", col),
-            ArithmeticBase::Scalar(ref lit) => write!(f, "{}", lit.to_string()),
+            ArithmeticBase::Scalar(ref lit) => write!(f, "{}", lit),
             ArithmeticBase::Bracketed(ref ari) => write!(f, "({})", ari),
         }
     }

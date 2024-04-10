@@ -79,13 +79,13 @@ impl DropTableStatement {
 
 impl fmt::Display for DropTableStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "DROP ")?;
+        write!(f, "DROP")?;
         if self.if_temporary {
             write!(f, "TEMPORARY ")?;
         }
-        write!(f, "TABLE ")?;
+        write!(f, " TABLE")?;
         if self.if_exists {
-            write!(f, "IF EXISTS ")?;
+            write!(f, " IF EXISTS")?;
         }
 
         let table_name = self
@@ -94,7 +94,7 @@ impl fmt::Display for DropTableStatement {
             .map(|x| x.name.clone())
             .collect::<Vec<String>>()
             .join(", ");
-        write!(f, "{}", table_name)?;
+        write!(f, " {}", table_name)?;
 
         if self.if_restrict {
             write!(f, " RESTRICT")?;

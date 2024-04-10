@@ -527,7 +527,7 @@ impl fmt::Display for ColumnConstraint {
             ColumnConstraint::CharacterSet(ref charset) => write!(f, "CHARACTER SET {}", charset),
             ColumnConstraint::Collation(ref collation) => write!(f, "COLLATE {}", collation),
             ColumnConstraint::DefaultValue(ref literal) => {
-                write!(f, "DEFAULT {}", literal.to_string())
+                write!(f, "DEFAULT {}", literal)
             }
             ColumnConstraint::AutoIncrement => write!(f, "AutoIncrement"),
             ColumnConstraint::PrimaryKey => write!(f, "PRIMARY KEY"),
@@ -632,30 +632,7 @@ impl ColumnSpecification {
             Err(err) => Err(err),
         }
     }
-}
 
-impl fmt::Display for ColumnSpecification {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            DisplayUtil::escape_if_keyword(&self.column.name),
-            self.data_type
-        )?;
-        for constraint in self.constraints.iter() {
-            write!(f, " {}", constraint)?;
-        }
-        if let Some(ref comment) = self.comment {
-            write!(f, " COMMENT '{}'", comment)?;
-        }
-        if let Some(ref position) = self.position {
-            write!(f, " {}", position)?;
-        }
-        Ok(())
-    }
-}
-
-impl ColumnSpecification {
     pub fn new(column: Column, sql_type: DataType) -> ColumnSpecification {
         ColumnSpecification {
             column,
@@ -678,6 +655,27 @@ impl ColumnSpecification {
             comment: None,
             position: None,
         }
+    }
+}
+
+impl fmt::Display for ColumnSpecification {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {}",
+            DisplayUtil::escape_if_keyword(&self.column.name),
+            self.data_type
+        )?;
+        for constraint in self.constraints.iter() {
+            write!(f, " {}", constraint)?;
+        }
+        if let Some(ref comment) = self.comment {
+            write!(f, " COMMENT '{}'", comment)?;
+        }
+        if let Some(ref position) = self.position {
+            write!(f, " {}", position)?;
+        }
+        Ok(())
     }
 }
 

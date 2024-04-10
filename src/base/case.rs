@@ -80,7 +80,7 @@ impl fmt::Display for ColumnOrLiteral {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ColumnOrLiteral::Column(ref c) => write!(f, "{}", c)?,
-            ColumnOrLiteral::Literal(ref l) => write!(f, "{}", l.to_string())?,
+            ColumnOrLiteral::Literal(ref l) => write!(f, "{}", l)?,
         }
         Ok(())
     }

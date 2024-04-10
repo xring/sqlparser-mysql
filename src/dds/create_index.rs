@@ -4,10 +4,12 @@ use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::{terminated, tuple};
 use nom::IResult;
+use std::fmt::{write, Display, Formatter};
 
 use base::algorithm_type::AlgorithmType;
 use base::error::ParseSQLError;
 use base::index_option::IndexOption;
+use base::index_type::IndexType;
 use base::lock_type::LockType;
 use base::table::Table;
 use base::{CommonParser, KeyPart};
@@ -40,13 +42,39 @@ use base::{CommonParser, KeyPart};
 ///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CreateIndexStatement {
+    pub opt_index: Option<Index>,
     pub index_name: String,
-    pub index_type: Option<Index>,
+    pub index_type: Option<IndexType>,
     pub table: Table,
     pub key_part: Vec<KeyPart>,
     pub index_option: Option<Vec<IndexOption>>,
     pub algorithm_option: Option<AlgorithmType>,
     pub lock_option: Option<LockType>,
+}
+
+impl Display for CreateIndexStatement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CREATE");
+        if let Some(opt_index) = &self.opt_index {
+            write!(f, " {}", opt_index);
+        }
+        write!(f, " INDEX {}", self.index_name);
+        if let Some(index_type) = &self.index_type {
+            write!(f, " {}", index_type);
+        }
+        write!(f, " ON {}", self.table);
+        write!(f, " {}", KeyPart::format_list(&self.key_part));
+        if let Some(index_option) = &self.index_option {
+            write!(f, " {}", IndexOption::format_list(index_option));
+        }
+        if let Some(algorithm_option) = &self.algorithm_option {
+            write!(f, " {}", algorithm_option);
+        }
+        if let Some(lock_option) = &self.lock_option {
+            write!(f, " {}", lock_option);
+        }
+        Ok(())
+    }
 }
 
 impl CreateIndexStatement {
@@ -59,7 +87,7 @@ impl CreateIndexStatement {
                 map(tuple((CommonParser::sql_identifier, multispace1)), |x| {
                     String::from(x.0)
                 }),
-                opt(terminated(Index::parse, multispace1)),
+                opt(terminated(IndexType::parse, multispace1)),
                 terminated(tag_no_case("ON"), multispace1),
                 terminated(Table::without_alias, multispace1), // tbl_name
                 KeyPart::parse,                                // (key_part,...)
@@ -71,7 +99,7 @@ impl CreateIndexStatement {
             )),
             |(
                 _,
-                _,
+                opt_index,
                 _,
                 index_name,
                 index_type,
@@ -84,6 +112,7 @@ impl CreateIndexStatement {
                 lock_option,
                 _,
             )| CreateIndexStatement {
+                opt_index,
                 index_name,
                 index_type,
                 table,
@@ -102,6 +131,16 @@ pub enum Index {
     Unique,
     Fulltext,
     Spatial,
+}
+
+impl Display for Index {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Index::Unique => write!(f, "UNIQUE"),
+            Index::Fulltext => write!(f, "FULLTEXT"),
+            Index::Spatial => write!(f, "SPATIAL"),
+        }
+    }
 }
 
 impl Index {
@@ -127,6 +166,7 @@ mod tests {
         ];
         let exp_statements = [
             CreateIndexStatement {
+                opt_index: None,
                 index_name: "idx_1".to_string(),
                 index_type: None,
                 table: "tbl_foo".into(),
@@ -142,6 +182,7 @@ mod tests {
                 lock_option: None,
             },
             CreateIndexStatement {
+                opt_index: None,
                 index_name: "idx_2".to_string(),
                 index_type: None,
                 table: "tbl_bar".into(),

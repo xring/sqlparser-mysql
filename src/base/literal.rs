@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use nom::branch::alt;
@@ -189,31 +190,34 @@ impl<'a> From<&'a str> for Literal {
     }
 }
 
-impl ToString for Literal {
-    fn to_string(&self) -> String {
+impl Display for Literal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Literal::Null => "NULL".to_string(),
+            Literal::Null => write!(f, "NULL"),
             Literal::Bool(ref value) => {
                 if *value {
-                    "TRUE".to_string()
+                    write!(f, "TRUE")
                 } else {
-                    "FALSE".to_string()
+                    write!(f, "FALSE")
                 }
             }
-            Literal::Integer(ref i) => format!("{}", i),
-            Literal::UnsignedInteger(ref i) => format!("{}", i),
-            Literal::FixedPoint(ref f) => format!("{}.{}", f.integral, f.fractional),
-            Literal::String(ref s) => format!("'{}'", s.replace('\'', "''")),
-            Literal::Blob(ref bv) => bv
-                .iter()
-                .map(|v| format!("{:x}", v))
-                .collect::<Vec<String>>()
-                .join(" ")
-                .to_string(),
-            Literal::CurrentTime => "CURRENT_TIME".to_string(),
-            Literal::CurrentDate => "CURRENT_DATE".to_string(),
-            Literal::CurrentTimestamp => "CURRENT_TIMESTAMP".to_string(),
-            Literal::Placeholder(ref item) => item.to_string(),
+            Literal::Integer(ref i) => write!(f, "{}", i),
+            Literal::UnsignedInteger(ref i) => write!(f, "{}", i),
+            Literal::FixedPoint(ref fp) => write!(f, "{}.{}", fp.integral, fp.fractional),
+            Literal::String(ref s) => write!(f, "'{}'", s.replace('\'', "''")),
+            Literal::Blob(ref bv) => {
+                let val = bv
+                    .iter()
+                    .map(|v| format!("{:x}", v))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+                    .to_string();
+                write!(f, "{}", val)
+            }
+            Literal::CurrentTime => write!(f, "CURRENT_TIME"),
+            Literal::CurrentDate => write!(f, "CURRENT_DATE"),
+            Literal::CurrentTimestamp => write!(f, "CURRENT_TIMESTAMP"),
+            Literal::Placeholder(ref item) => write!(f, "{}", item),
         }
     }
 }
@@ -251,8 +255,8 @@ impl From<Literal> for LiteralExpression {
 impl fmt::Display for LiteralExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.alias {
-            Some(ref alias) => write!(f, "{} AS {}", self.value.to_string(), alias),
-            None => write!(f, "{}", self.value.to_string()),
+            Some(ref alias) => write!(f, "{} AS {}", self.value, alias),
+            None => write!(f, "{}", self.value),
         }
     }
 }
@@ -261,6 +265,12 @@ impl fmt::Display for LiteralExpression {
 pub struct Real {
     pub integral: i32,
     pub fractional: i32,
+}
+
+impl Display for Real {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}", self.integral, self.fractional)
+    }
 }
 
 #[cfg(test)]

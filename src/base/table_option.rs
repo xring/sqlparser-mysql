@@ -4,6 +4,7 @@ use nom::character::complete::{digit1, multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::{delimited, tuple};
 use nom::{IResult, Parser};
+use std::fmt::{write, Display, Formatter};
 
 use base::column::Column;
 use base::error::ParseSQLError;
@@ -75,9 +76,64 @@ pub enum TableOption {
     Union(Vec<String>),
 }
 
+impl Display for TableOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            TableOption::AutoextendSize(ref val) => write!(f, "AUTOEXTEND_SIZE {}", val),
+            TableOption::AutoIncrement(ref val) => write!(f, "AUTO_INCREMENT {}", val),
+            TableOption::AvgRowLength(ref val) => write!(f, "AVG_ROW_LENGTH {}", val),
+            TableOption::DefaultCharacterSet(ref val) => write!(f, "CHARACTER SET {}", val),
+            TableOption::DefaultCharset(ref val) => write!(f, "CHARSET {}", val),
+            TableOption::Checksum(ref val) => write!(f, "CHECKSUM {}", val),
+            TableOption::DefaultCollate(ref val) => write!(f, "COLLATE {}", val),
+            TableOption::Comment(ref val) => write!(f, "COMMENT '{}'", val),
+            TableOption::Compression(ref val) => write!(f, "COMPRESSION {}", val),
+            TableOption::Connection(ref val) => write!(f, "CONNECTION {}", val),
+            TableOption::DataDirectory(ref val) => write!(f, "DATA DIRECTORY '{}'", val),
+            TableOption::IndexDirectory(ref val) => write!(f, "INDEX DIRECTORY '{}'", val),
+            TableOption::DelayKeyWrite(ref val) => write!(f, "DELAY_KEY_WRITE {}", val),
+            TableOption::Encryption(ref val) => write!(f, "ENCRYPTION '{}'", val),
+            TableOption::Engine(ref val) => write!(f, "ENGINE {}", val),
+            TableOption::EngineAttribute(ref val) => write!(f, "ENGINE_ATTRIBUTE {}", val),
+            TableOption::InsertMethod(ref val) => write!(f, "INSERT_METHOD {}", val),
+            TableOption::KeyBlockSize(ref val) => write!(f, "KEY_BLOCK_SIZE {}", val),
+            TableOption::MaxRows(ref val) => write!(f, "MAX_ROWS {}", val),
+            TableOption::MinRows(ref val) => write!(f, "MIN_ROWS {}", val),
+            TableOption::PackKeys(ref val) => write!(f, "PACK_KEYS {}", val),
+            TableOption::Password(ref val) => write!(f, "PASSWORD '{}'", val),
+            TableOption::RowFormat(ref val) => write!(f, "ROW_FORMAT {}", val),
+            TableOption::StartTransaction => write!(f, "START TRANSACTION"),
+            TableOption::SecondaryEngineAttribute(ref val) => {
+                write!(f, "SECONDARY_ENGINE_ATTRIBUTE '{}'", val)
+            }
+            TableOption::StatsAutoRecalc(ref val) => write!(f, "STATS_AUTO_RECALC {}", val),
+            TableOption::StatsPersistent(ref val) => write!(f, "STATS_PERSISTENT {}", val),
+            TableOption::StatsSamplePages(ref val) => write!(f, "STATS_SAMPLE_PAGES {}", val),
+            TableOption::Tablespace(ref tablespace_name, ref tbl_space_type) => {
+                write!(f, "TABLESPACE {}", tablespace_name);
+                if let Some(tbl_space_type) = tbl_space_type {
+                    write!(f, " {}", tbl_space_type);
+                }
+                Ok(())
+            }
+            TableOption::Union(ref tbl_names) => {
+                let tbl_names = tbl_names.join(",");
+                write!(f, "UNION ({})", tbl_names)
+            }
+        }
+    }
+}
+
 impl TableOption {
     pub fn parse(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         alt((Self::table_option_part_1, Self::table_option_part_2))(i)
+    }
+
+    pub fn format_list(list: &[TableOption]) -> String {
+        list.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
     }
 
     fn table_option_part_1(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
@@ -581,6 +637,20 @@ pub struct CheckConstraintDefinition {
     pub symbol: Option<String>,
     pub expr: String,
     pub enforced: bool,
+}
+
+impl Display for CheckConstraintDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CONSTRAINT");
+        if let Some(symbol) = &self.symbol {
+            write!(f, " {}", symbol);
+        }
+        write!(f, " CHECK {}", &self.expr);
+        if !&self.enforced {
+            write!(f, " NOT ENFORCED");
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

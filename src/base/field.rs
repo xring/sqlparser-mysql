@@ -45,6 +45,12 @@ impl FieldDefinitionExpression {
             opt(CommonParser::ws_sep_comma),
         ))(i)
     }
+
+    pub fn from_column_str(cols: &[&str]) -> Vec<FieldDefinitionExpression> {
+        cols.iter()
+            .map(|c| FieldDefinitionExpression::Col(Column::from(*c)))
+            .collect()
+    }
 }
 
 impl Display for FieldDefinitionExpression {

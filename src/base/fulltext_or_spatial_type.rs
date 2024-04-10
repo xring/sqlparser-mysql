@@ -2,6 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
@@ -10,6 +11,15 @@ use base::ParseSQLError;
 pub enum FulltextOrSpatialType {
     Fulltext,
     Spatial,
+}
+
+impl Display for FulltextOrSpatialType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            FulltextOrSpatialType::Fulltext => write!(f, "FULLTEXT"),
+            FulltextOrSpatialType::Spatial => write!(f, "SPATIAL"),
+        }
+    }
 }
 
 impl FulltextOrSpatialType {

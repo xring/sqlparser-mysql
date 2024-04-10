@@ -6,6 +6,7 @@ use nom::combinator::{map, opt};
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, tuple};
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::error::ParseSQLError;
 use base::index_type::IndexType;
@@ -32,6 +33,25 @@ pub enum IndexOption {
     SecondaryEngineAttribute(String), // create table only
 }
 
+impl Display for IndexOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            IndexOption::KeyBlockSize(ref val) => write!(f, "KEY_BLOCK_SIZE {}", val),
+            IndexOption::IndexType(ref val) => write!(f, "{}", val),
+            IndexOption::WithParser(ref val) => write!(f, "WITH PARSER {}", val),
+            IndexOption::Comment(ref val) => write!(f, "COMMENT '{}'", val),
+            IndexOption::VisibleType(ref val) => match *val {
+                VisibleType::Visible => write!(f, "VISIBLE"),
+                VisibleType::Invisible => write!(f, "INVISIBLE"),
+            },
+            IndexOption::EngineAttribute(ref val) => write!(f, "ENGINE_ATTRIBUTE {}", val),
+            IndexOption::SecondaryEngineAttribute(ref val) => {
+                write!(f, "SECONDARY_ENGINE_ATTRIBUTE {}", val)
+            }
+        }
+    }
+}
+
 impl IndexOption {
     pub fn parse(i: &str) -> IResult<&str, IndexOption, ParseSQLError<&str>> {
         alt((
@@ -46,6 +66,13 @@ impl IndexOption {
                 IndexOption::SecondaryEngineAttribute,
             ),
         ))(i)
+    }
+
+    pub fn format_list(list: &[IndexOption]) -> String {
+        list.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
     }
 
     /// `[index_option]`
@@ -131,14 +158,22 @@ impl IndexOption {
 #[cfg(test)]
 mod tests {
     use base::index_option::IndexOption;
+    use base::visible_type::VisibleType;
     use base::visible_type::VisibleType::Invisible;
 
     #[test]
     fn parse_index_option_item() {
-        let parts = ["INVISIBLE", "KEY_BLOCK_SIZE 333"];
+        let parts = [
+            "KEY_BLOCK_SIZE=1024",
+            "COMMENT 'This is an index comment'",
+            "INVISIBLE",
+            "WITH PARSER ngram",
+        ];
         let exps = [
-            IndexOption::VisibleType(Invisible),
-            IndexOption::KeyBlockSize(333),
+            IndexOption::KeyBlockSize(1024),
+            IndexOption::Comment("This is an index comment".to_string()),
+            IndexOption::VisibleType(VisibleType::Invisible),
+            IndexOption::WithParser("ngram".to_string()),
         ];
         for i in 0..parts.len() {
             let res = IndexOption::parse(parts[i]);

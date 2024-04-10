@@ -4,11 +4,12 @@ use nom::character::complete::multispace0;
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::ParseSQLError;
 
 /// lock_option:
-///     LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}
+///     parse `LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum LockType {
     Default,
@@ -17,8 +18,18 @@ pub enum LockType {
     Exclusive,
 }
 
+impl Display for LockType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            LockType::Default => write!(f, "LOCK DEFAULT"),
+            LockType::None => write!(f, "LOCK NONE"),
+            LockType::Shared => write!(f, "LOCK SHARED"),
+            LockType::Exclusive => write!(f, "LOCK EXCLUSIVE"),
+        }
+    }
+}
+
 impl LockType {
-    /// parse `LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE}`
     pub fn parse(i: &str) -> IResult<&str, LockType, ParseSQLError<&str>> {
         map(
             tuple((

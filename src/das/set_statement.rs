@@ -45,7 +45,7 @@ impl SetStatement {
 impl fmt::Display for SetStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "SET ")?;
-        write!(f, "{} = {}", self.variable, self.value.to_string())?;
+        write!(f, "{} = {}", self.variable, self.value)?;
         Ok(())
     }
 }

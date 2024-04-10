@@ -3,6 +3,7 @@ use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
+use std::fmt::{Display, Formatter};
 
 use base::error::ParseSQLError;
 use base::reference_type::ReferenceType;
@@ -20,6 +21,29 @@ pub struct ReferenceDefinition {
     pub match_type: Option<MatchType>,
     pub on_delete: Option<ReferenceType>,
     pub on_update: Option<ReferenceType>,
+}
+
+impl Display for ReferenceDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let key_part = self
+            .key_part
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(" ");
+        write!(f, "REFERENCES {} ({})", self.tbl_name, key_part);
+        if let Some(match_type) = &self.match_type {
+            write!(f, " {}", match_type);
+        }
+        if let Some(on_delete) = &self.on_delete {
+            write!(f, " {}", on_delete);
+        }
+        if let Some(on_update) = &self.on_update {
+            write!(f, " {}", on_update);
+        }
+
+        Ok(())
+    }
 }
 
 impl ReferenceDefinition {

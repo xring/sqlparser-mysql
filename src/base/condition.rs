@@ -27,7 +27,7 @@ impl fmt::Display for ConditionBase {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ConditionBase::Field(ref col) => write!(f, "{}", col),
-            ConditionBase::Literal(ref literal) => write!(f, "{}", literal.to_string()),
+            ConditionBase::Literal(ref literal) => write!(f, "{}", literal),
             ConditionBase::LiteralList(ref ll) => write!(
                 f,
                 "({})",
@@ -379,12 +379,6 @@ mod tests {
     use base::{FieldDefinitionExpression, ItemPlaceholder};
 
     use super::*;
-
-    fn columns(cols: &[&str]) -> Vec<FieldDefinitionExpression> {
-        cols.iter()
-            .map(|c| FieldDefinitionExpression::Col(Column::from(*c)))
-            .collect()
-    }
 
     fn flat_condition_tree(
         op: Operator,
@@ -757,7 +751,7 @@ mod tests {
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
-            fields: columns(&["col"]),
+            fields: FieldDefinitionExpression::from_column_str(&["col"]),
             ..Default::default()
         });
 
@@ -781,7 +775,7 @@ mod tests {
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
-            fields: columns(&["col"]),
+            fields: FieldDefinitionExpression::from_column_str(&["col"]),
             ..Default::default()
         });
 
@@ -801,7 +795,7 @@ mod tests {
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("foo")],
-            fields: columns(&["col"]),
+            fields: FieldDefinitionExpression::from_column_str(&["col"]),
             ..Default::default()
         });
 
@@ -822,7 +816,7 @@ mod tests {
 
         let nested_select = Box::new(SelectStatement {
             tables: vec![Table::from("PaperConflict")],
-            fields: columns(&["paperId"]),
+            fields: FieldDefinitionExpression::from_column_str(&["paperId"]),
             ..Default::default()
         });
 

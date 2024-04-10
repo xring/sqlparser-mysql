@@ -5,6 +5,7 @@ use nom::combinator::{map, opt, recognize};
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
+use std::fmt::{write, Display, Formatter};
 
 use base::error::ParseSQLError;
 use base::{CommonParser, OrderType};
@@ -14,6 +15,16 @@ use base::{CommonParser, OrderType};
 pub struct KeyPart {
     pub r#type: KeyPartType,
     pub order: Option<OrderType>,
+}
+
+impl Display for KeyPart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.r#type);
+        if let Some(order) = &self.order {
+            write!(f, " {}", order);
+        }
+        Ok(())
+    }
 }
 
 impl KeyPart {
@@ -52,6 +63,15 @@ impl KeyPart {
             |(r#type, order)| KeyPart { r#type, order },
         )(i)
     }
+
+    pub fn format_list(key_parts: &[KeyPart]) -> String {
+        let key_parts = key_parts
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("({})", key_parts)
+    }
 }
 
 /// parse `{col_name [(length)] | (expr)}`
@@ -64,6 +84,24 @@ pub enum KeyPartType {
     Expr {
         expr: String,
     },
+}
+
+impl Display for KeyPartType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            KeyPartType::ColumnNameWithLength {
+                ref col_name,
+                ref length,
+            } => {
+                if let Some(length) = length {
+                    write!(f, "{}({})", col_name, length)
+                } else {
+                    write!(f, "{}", col_name)
+                }
+            }
+            KeyPartType::Expr { ref expr } => write!(f, "({})", expr),
+        }
+    }
 }
 
 impl KeyPartType {
