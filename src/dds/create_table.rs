@@ -649,13 +649,11 @@ mod tests {
 
     #[test]
     fn parse_create_simple() {
-        let sqls = [
-            "create table admin_role \
+        let sqls = ["create table admin_role \
             (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',\
             `role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',\
             PRIMARY KEY (`role_id`))\
-            ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';",
-        ];
+            ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Admin Role Table';"];
         let exp = [
             CreateTableStatement {
                 temporary: false,
