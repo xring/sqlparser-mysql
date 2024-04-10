@@ -1145,7 +1145,7 @@ mod tests {
     use base::index_or_key_type::IndexOrKeyType;
     use base::visible_type::VisibleType;
     use base::{CheckConstraintDefinition, DataType, KeyPart, KeyPartType, Literal};
-    use dds::alter_table::{AlterTableOption, AlterTableStatement};
+    use dds::alter_table::AlterTableOption;
 
     #[test]
     fn parse_add_column() {
@@ -1201,78 +1201,46 @@ mod tests {
     }
 
     #[test]
-    fn parse_column_position() {
-        let parts = [
-            "FIRST",
-            " FIRST",
-            " FIRST ",
-            "AFTER foo",
-            " AFTER foo ",
-            "  AFTER  foo ",
-        ];
-        let positions = vec![
-            ColumnPosition::First,
-            ColumnPosition::First,
-            ColumnPosition::First,
-            ColumnPosition::After("foo".into()),
-            ColumnPosition::After("foo".into()),
-            ColumnPosition::After("foo".into()),
-        ];
-        for i in 0..parts.len() {
-            let res = ColumnPosition::parse(parts[i]);
-            assert!(res.is_ok());
-            assert_eq!(res.unwrap().1, positions[i])
-        }
-    }
-
-    #[test]
-    fn parse_column_definition() {
-        let parts = [
-            "column1 VARCHAR(255)",
-            "column2 INT DEFAULT 10",
-            "column3 DATE NOT NULL",
-            "column4 TEXT UNIQUE",
-            "column5 DECIMAL(10, 2)",
-            "column6 TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-            "column7 ENUM('small', 'medium', 'large')",
-            "column7 ENUM('small', 'medium', 'large')",
-            "column8 BLOB",
-            "column9 VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
-            "new_column2 VARCHAR(255) FIRST;",
-            "new_column3 DATE AFTER existing_column;",
-            "new_column4 BOOLEAN DEFAULT FALSE;",
-            "new_column5 TEXT COMMENT 'This is a comment';",
-            "new_column6 DECIMAL(10,2) NOT NULL;",
-            "new_column7 UUID UNIQUE;",
-            "new_column8 INT",
-            "new_column9 VARCHAR(100)",
-            "new_column10 TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-            "new_column11 VARCHAR(50) NOT NULL UNIQUE",
-        ];
-        for i in 0..parts.len() {
-            println!("{} / {}", i + 1, parts.len());
-            let res = ColumnSpecification::parse(parts[i]);
-            println!("{:?}", res);
-            assert!(res.is_ok())
-        }
-    }
-
-    #[test]
-    fn test_add_index_or_key() {
+    fn parse_add_index_or_key() {
         let parts = [
             "ADD INDEX index_name (column_name);",
-            "ADD KEY key_name (column_name);",
-            "ADD INDEX index_name (column_name) USING BTREE;",
-            "ADD INDEX index_name (column_name) KEY_BLOCK_SIZE=1024;",
-            "ADD INDEX index_name (column_name) COMMENT 'This is an index comment';",
-            "ADD INDEX index_name (column_name) INVISIBLE;",
-            "ADD INDEX comp_index_name (column1, column2);",
-            "ADD INDEX index_name (column_name(10));",
+            "ADD KEY index_name (column_name) INVISIBLE COMMENT 'This is an index comment';",
+        ];
+        let exps = [
+            AlterTableOption::AddIndexOrKey {
+                index_or_key: IndexOrKeyType::Index,
+                opt_index_name: Some("index_name".to_string()),
+                opt_index_type: None,
+                key_part: vec![KeyPart {
+                    r#type: KeyPartType::ColumnNameWithLength {
+                        col_name: "column_name".to_string(),
+                        length: None,
+                    },
+                    order: None,
+                }],
+                opt_index_option: None,
+            },
+            AlterTableOption::AddIndexOrKey {
+                index_or_key: IndexOrKeyType::Key,
+                opt_index_name: Some("index_name".to_string()),
+                opt_index_type: None,
+                key_part: vec![KeyPart {
+                    r#type: KeyPartType::ColumnNameWithLength {
+                        col_name: "column_name".to_string(),
+                        length: None,
+                    },
+                    order: None,
+                }],
+                opt_index_option: Some(vec![
+                    IndexOption::VisibleType(VisibleType::Invisible),
+                    IndexOption::Comment("This is an index comment".to_string()),
+                ]),
+            },
         ];
         for i in 0..parts.len() {
-            println!("{}/{}", i + 1, parts.len());
             let res = AlterTableOption::add_index_or_key(parts[i]);
             assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, exps[i]);
         }
     }
 

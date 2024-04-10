@@ -307,10 +307,10 @@ pub enum CreateDefinition {
 
     /// `{INDEX | KEY} [index_name] [index_type] (key_part,...) [index_option] ...`
     IndexOrKey {
-        index_or_key: IndexOrKeyType,          // {INDEX | KEY}
-        opt_index_name: Option<String>,        // [index_name]
-        opt_index_type: Option<IndexType>,     // [index_type]
-        key_part: Vec<KeyPart>,                // (key_part,...)
+        index_or_key: IndexOrKeyType,               // {INDEX | KEY}
+        opt_index_name: Option<String>,             // [index_name]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
         opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
@@ -320,25 +320,25 @@ pub enum CreateDefinition {
         index_or_key: Option<IndexOrKeyType>,       // {INDEX | KEY}
         index_name: Option<String>,                 // [index_name]
         key_part: Vec<KeyPart>,                     // (key_part,...)
-        opt_index_option: Option<Vec<IndexOption>>,      // [index_option]
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] PRIMARY KEY [index_type] (key_part,...) [index_option] ...`
     PrimaryKey {
-        opt_symbol: Option<String>,            // [symbol]
-        opt_index_type: Option<IndexType>,     // [index_type]
-        key_part: Vec<KeyPart>,                // (key_part,...)
+        opt_symbol: Option<String>,                 // [symbol]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
         opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] UNIQUE [INDEX | KEY] [index_name] [index_type] (key_part,...) [index_option] ...`
     Unique {
-        opt_symbol: Option<String>,               // [symbol]
-        opt_index_or_key: Option<IndexOrKeyType>, // [INDEX | KEY]
-        opt_index_name: Option<String>,           // [index_name]
-        opt_index_type: Option<IndexType>,        // [index_type]
-        key_part: Vec<KeyPart>,                   // (key_part,...)
-        opt_index_option: Option<Vec<IndexOption>>,    // [index_option]
+        opt_symbol: Option<String>,                 // [symbol]
+        opt_index_or_key: Option<IndexOrKeyType>,   // [INDEX | KEY]
+        opt_index_name: Option<String>,             // [index_name]
+        opt_index_type: Option<IndexType>,          // [index_type]
+        key_part: Vec<KeyPart>,                     // (key_part,...)
+        opt_index_option: Option<Vec<IndexOption>>, // [index_option]
     },
 
     /// `[CONSTRAINT [symbol]] FOREIGN KEY [index_name] (col_name,...) reference_definition`
@@ -649,7 +649,7 @@ mod tests {
 
     #[test]
     fn parse_create_simple() {
-        let sqls = vec![
+        let sqls = [
             "create table admin_role \
             (`role_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Role ID',\
             `role_type` varchar(1) NOT NULL DEFAULT '0' COMMENT 'Role Type',\

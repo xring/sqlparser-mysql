@@ -794,6 +794,31 @@ mod tests {
     }
 
     #[test]
+    fn parse_column_position() {
+        let parts = [
+            "FIRST",
+            " FIRST",
+            " FIRST ",
+            "AFTER foo",
+            " AFTER foo ",
+            "  AFTER  foo ",
+        ];
+        let positions = vec![
+            ColumnPosition::First,
+            ColumnPosition::First,
+            ColumnPosition::First,
+            ColumnPosition::After("foo".into()),
+            ColumnPosition::After("foo".into()),
+            ColumnPosition::After("foo".into()),
+        ];
+        for i in 0..parts.len() {
+            let res = ColumnPosition::parse(parts[i]);
+            assert!(res.is_ok());
+            assert_eq!(res.unwrap().1, positions[i])
+        }
+    }
+
+    #[test]
     fn parse_column() {
         let str1 = "some_column VARCHAR(255) FIRST;";
         let res1 = ColumnSpecification::parse(str1);
