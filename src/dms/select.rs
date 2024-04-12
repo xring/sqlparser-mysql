@@ -251,6 +251,4 @@ mod tests {
     use base::{Literal, OrderType};
 
     use super::*;
-
-
 }
