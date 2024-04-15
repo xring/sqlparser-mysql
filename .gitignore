@@ -4,6 +4,7 @@ HEADER
 /target
 
 coverage/
+statements/
 
 dist/
 
