@@ -2,6 +2,17 @@
 
 > A SQL parser for MySQL with nom. Written in Rust.
 
+## Project Status
+Please note that this repository is currently under active development. As such, it is subject to potentially disruptive changes without prior notice. We are working hard to improve the project and make it more robust. However, during this phase, we might introduce significant modifications to the codebase, features, and functionality.
+
+We encourage users and contributors to keep this in mind when using, forking, or contributing to this project. Your understanding and patience are greatly appreciated as we continue to evolve this project.
+
+Stay tuned for updates, and feel free to reach out or contribute to the development process!
+
+## Disclaimer
+
+This project is in a pre-release state. It may contain incomplete features, bugs, and unexpected behaviors. Use it at your own risk.
+
 ## Quick Start
 
 ### Example parsing SQL

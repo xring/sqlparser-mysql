@@ -3,8 +3,6 @@ HEADER
 
 /target
 
-/examples
-
 dist/
 
 .env
