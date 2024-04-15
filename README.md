@@ -1,4 +1,4 @@
-# sqlparser-mysql
+# sqlparser-mysql [![Rust](https://github.com/xring/sqlparser-mysql/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/xring/sqlparser-mysql/actions/workflows/rust.yml)
 
 > A SQL parser for MySQL with nom. Written in Rust.
 
