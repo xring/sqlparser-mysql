@@ -3,6 +3,8 @@ HEADER
 
 /target
 
+coverage/
+
 dist/
 
 .env
