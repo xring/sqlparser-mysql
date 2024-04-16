@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::multispace0;
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -21,21 +21,31 @@ impl AlgorithmType {
     /// algorithm_option:
     ///     ALGORITHM [=] {DEFAULT | INSTANT | INPLACE | COPY}
     pub fn parse(i: &str) -> IResult<&str, AlgorithmType, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("ALGORITHM"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((
-                    map(tag_no_case("DEFAULT"), |_| AlgorithmType::Default),
-                    map(tag_no_case("INSTANT"), |_| AlgorithmType::Instant),
-                    map(tag_no_case("INPLACE"), |_| AlgorithmType::Inplace),
-                    map(tag_no_case("COPY"), |_| AlgorithmType::Copy),
+        alt((
+            map(
+                tuple((tag_no_case("ALGORITHM"), multispace1, Self::parse_algorithm)),
+                |(_, _, algorithm)| algorithm,
+            ),
+            map(
+                tuple((
+                    tag_no_case("ALGORITHM"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::parse_algorithm,
                 )),
-            )),
-            |x| x.4,
-        )(i)
+                |(_, _, _, _, algorithm)| algorithm,
+            ),
+        ))(i)
+    }
+
+    fn parse_algorithm(i: &str) -> IResult<&str, AlgorithmType, ParseSQLError<&str>> {
+        alt((
+            map(tag_no_case("DEFAULT"), |_| AlgorithmType::Default),
+            map(tag_no_case("INSTANT"), |_| AlgorithmType::Instant),
+            map(tag_no_case("INPLACE"), |_| AlgorithmType::Inplace),
+            map(tag_no_case("COPY"), |_| AlgorithmType::Copy),
+        ))(i)
     }
 }
 
@@ -80,5 +90,9 @@ mod tests {
         let res5 = AlgorithmType::parse(str5);
         assert!(res5.is_ok());
         assert_eq!(res5.unwrap().1, AlgorithmType::Default);
+
+        let str6 = "ALGORITHMDEFAULT";
+        let res6 = AlgorithmType::parse(str6);
+        assert!(res6.is_err());
     }
 }

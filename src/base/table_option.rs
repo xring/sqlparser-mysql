@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_until};
 use nom::character::complete::{digit1, multispace0, multispace1};
-use nom::combinator::{map, opt};
+use nom::combinator::{map, opt, value};
 use nom::sequence::{delimited, tuple};
 use nom::{IResult, Parser};
 use std::fmt::{write, Display, Formatter};
@@ -133,7 +133,7 @@ impl TableOption {
         list.iter()
             .map(|x| x.to_string())
             .collect::<Vec<String>>()
-            .join(", ")
+            .join(" ")
     }
 
     fn table_option_part_1(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
@@ -178,120 +178,103 @@ impl TableOption {
     /// parse `AUTOEXTEND_SIZE [=] value`
     fn autoextend_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("AUTOEXTEND_SIZE "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::AutoextendSize(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "AUTOEXTEND_SIZE".to_string()),
+            |value| TableOption::AutoextendSize(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `AUTO_INCREMENT [=] value`
     fn auto_increment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("AUTO_INCREMENT"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::AutoIncrement(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_digit_value_with_key(x, "AUTO_INCREMENT".to_string()),
+            |value| TableOption::AutoIncrement(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `AVG_ROW_LENGTH [=] value`
     fn avg_row_length(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("AVG_ROW_LENGTH "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::AvgRowLength(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "AVG_ROW_LENGTH".to_string()),
+            |value| TableOption::AvgRowLength(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `[DEFAULT] CHARACTER SET [=] charset_name`
     fn default_character_set(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                opt(tag_no_case("DEFAULT ")),
-                multispace0,
+        alt((
+            map(
                 tuple((
-                    tag_no_case("CHARACTER"),
-                    multispace1,
-                    tag_no_case("SET"),
+                    opt(tag_no_case("DEFAULT ")),
                     multispace0,
-                    opt(tag("=")),
-                    multispace0,
+                    tuple((
+                        tag_no_case("CHARACTER"),
+                        multispace1,
+                        tag_no_case("SET"),
+                        multispace1,
+                    )),
+                    map(CommonParser::sql_identifier, String::from),
                 )),
-                map(CommonParser::sql_identifier, String::from),
-            )),
-            |(_, _, _, charset_name)| TableOption::DefaultCharacterSet(charset_name),
-        )(i)
+                |(_, _, _, charset_name)| TableOption::DefaultCharacterSet(charset_name),
+            ),
+            map(
+                tuple((
+                    opt(tag_no_case("DEFAULT ")),
+                    multispace0,
+                    tuple((
+                        tag_no_case("CHARACTER"),
+                        multispace1,
+                        tag_no_case("SET"),
+                        multispace0,
+                        tag("="),
+                        multispace0,
+                    )),
+                    map(CommonParser::sql_identifier, String::from),
+                )),
+                |(_, _, _, charset_name)| TableOption::DefaultCharacterSet(charset_name),
+            ),
+        ))(i)
     }
 
     /// parse `[DEFAULT] CHARSET [=] charset_name`
     fn default_charset(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                opt(tag_no_case("DEFAULT")),
-                multispace1,
-                tuple((
-                    tag_no_case("CHARSET"),
-                    multispace0,
-                    opt(tag("=")),
-                    multispace0,
-                )),
-                map(CommonParser::sql_identifier, String::from),
-            )),
-            |(_, _, _, charset_name)| TableOption::DefaultCharset(charset_name),
+            tuple((opt(tag_no_case("DEFAULT ")), multispace0, |x| {
+                CommonParser::parse_string_value_with_key(x, "CHARSET".to_string())
+            })),
+            |(_, _, charset_name)| TableOption::DefaultCharset(charset_name),
         )(i)
     }
 
     /// parse `CHECKSUM [=] {0 | 1}`
     fn checksum(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("CHECKSUM "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
-            )),
-            |(_, _, _, _, checksum)| TableOption::Checksum(checksum),
-        )(i)
+        alt((
+            map(
+                tuple((
+                    tag_no_case("CHECKSUM "),
+                    multispace1,
+                    alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
+                )),
+                |(_, _, checksum)| TableOption::Checksum(checksum),
+            ),
+            map(
+                tuple((
+                    tag_no_case("CHECKSUM "),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
+                )),
+                |(_, _, _, _, checksum)| TableOption::Checksum(checksum),
+            ),
+        ))(i)
     }
 
     /// parse `[DEFAULT] COLLATE [=] collation_name`
     fn default_collate(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                opt(tag_no_case("DEFAULT ")),
-                multispace0,
-                map(
-                    tuple((
-                        tag_no_case("COLLATE"),
-                        multispace1,
-                        opt(tag("=")),
-                        multispace0,
-                        CommonParser::sql_identifier,
-                    )),
-                    |(_, _, _, _, collation_name)| String::from(collation_name),
-                ),
-            )),
+            tuple((opt(tag_no_case("DEFAULT ")), multispace0, |x| {
+                CommonParser::parse_string_value_with_key(x, "COLLATE".to_string())
+            })),
             |(_, _, collation_name)| TableOption::DefaultCollate(collation_name),
         )(i)
     }
@@ -299,16 +282,8 @@ impl TableOption {
     /// parse COMMENT [=] 'string'`
     fn comment(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("COMMENT"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, comment)| TableOption::Comment(comment),
+            |x| CommonParser::parse_quoted_string_value_with_key(x, "COMMENT".to_string()),
+            TableOption::Comment,
         )(i)
     }
 
@@ -320,114 +295,92 @@ impl TableOption {
     /// parse `CONNECTION [=] 'connect_string'`
     fn connection(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("CONNECTION"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, connect_string)| TableOption::Connection(connect_string),
+            |x| CommonParser::parse_string_value_with_key(x, "CONNECTION".to_string()),
+            TableOption::Connection,
         )(i)
     }
 
     /// parse `{DATA | INDEX} DIRECTORY [=] 'absolute path to directory'`
     fn data_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("DATA"),
-                multispace1,
-                tag_no_case("DIRECTORY"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(
-                    alt((
-                        delimited(tag("'"), take_until("'"), tag("'")),
-                        delimited(tag("\""), take_until("\""), tag("\"")),
-                    )),
-                    String::from,
-                ),
-            )),
-            |(_, _, _, _, _, _, path)| TableOption::DataDirectory(path),
+            tuple((tag_no_case("DATA"), multispace1, |x| {
+                CommonParser::parse_quoted_string_value_with_key(x, "DIRECTORY".to_string())
+            })),
+            |(_, _, path)| TableOption::DataDirectory(path),
         )(i)
     }
 
     /// parse `{DATA | INDEX} DIRECTORY [=] 'absolute path to directory'`
     fn index_directory(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("INDEX"),
-                multispace1,
-                tag_no_case("DIRECTORY"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, _, _, path)| TableOption::DataDirectory(path),
+            tuple((tag_no_case("INDEX"), multispace1, |x| {
+                CommonParser::parse_quoted_string_value_with_key(x, "DIRECTORY".to_string())
+            })),
+            |(_, _, path)| TableOption::DataDirectory(path),
         )(i)
     }
 
     /// parse `DELAY_KEY_WRITE [=] {0 | 1}`
     fn delay_key_write(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("DELAY_KEY_RITE"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
-            )),
-            |(_, _, _, _, delay_key_rite)| TableOption::DelayKeyWrite(delay_key_rite),
-        )(i)
+        alt((
+            map(
+                tuple((
+                    tag_no_case("DELAY_KEY_RITE"),
+                    multispace1,
+                    alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
+                )),
+                |(_, _, delay_key_rite)| TableOption::DelayKeyWrite(delay_key_rite),
+            ),
+            map(
+                tuple((
+                    tag_no_case("DELAY_KEY_RITE"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    alt((map(tag("0"), |_| 0), map(tag("1"), |_| 1))),
+                )),
+                |(_, _, _, _, delay_key_rite)| TableOption::DelayKeyWrite(delay_key_rite),
+            ),
+        ))(i)
     }
 
     /// parse `ENCRYPTION [=] {'Y' | 'N'}`
     fn encryption(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("ENCRYPTION"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
-            )),
-            |(_, _, _, _, encryption)| TableOption::Encryption(encryption),
-        )(i)
+        alt((
+            map(
+                tuple((
+                    tag_no_case("ENCRYPTION"),
+                    multispace1,
+                    alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
+                )),
+                |(_, _, encryption)| TableOption::Encryption(encryption),
+            ),
+            map(
+                tuple((
+                    tag_no_case("ENCRYPTION"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    alt((map(tag("'Y'"), |_| true), map(tag("'N'"), |_| false))),
+                )),
+                |(_, _, _, _, encryption)| TableOption::Encryption(encryption),
+            ),
+        ))(i)
     }
 
     /// parse `ENGINE [=] engine_name`
     fn engine(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("ENGINE"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                CommonParser::sql_identifier,
-            )),
-            |(_, _, _, _, engine)| TableOption::Engine(String::from(engine)),
+            |x| CommonParser::parse_string_value_with_key(x, "ENGINE".to_string()),
+            TableOption::Engine,
         )(i)
     }
 
     /// parse `ENGINE_ATTRIBUTE [=] 'string'`
     fn engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("ENGINE_ATTRIBUTE"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, attribute)| TableOption::EngineAttribute(attribute),
+            |x| CommonParser::parse_quoted_string_value_with_key(x, "ENGINE_ATTRIBUTE".to_string()),
+            TableOption::EngineAttribute,
         )(i)
     }
 
@@ -439,78 +392,40 @@ impl TableOption {
     /// parse `KEY_BLOCK_SIZE [=] value`
     fn key_block_size(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("KEY_BLOCK_SIZE"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::KeyBlockSize(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "KEY_BLOCK_SIZE".to_string()),
+            |value| TableOption::KeyBlockSize(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `MAX_ROWS [=] value`
     fn max_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("MAX_ROWS"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::MaxRows(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "MAX_ROWS".to_string()),
+            |value| TableOption::MaxRows(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `MIN_ROWS [=] value`
     fn min_rows(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("MIN_ROWS"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::MinRows(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "MIN_ROWS".to_string()),
+            |value| TableOption::MinRows(value.parse::<u64>().unwrap()),
         )(i)
     }
 
     /// parse `PACK_KEYS [=] {0 | 1 | DEFAULT}`
     fn pack_keys(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("PACK_KEYS"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                DefaultOrZeroOrOne::parse,
-            )),
-            |(_, _, _, _, value)| TableOption::PackKeys(value),
+            |x| CommonParser::parse_default_value_with_key(x, "PACK_KEYS".to_string()),
+            TableOption::PackKeys,
         )(i)
     }
 
     /// parse `PASSWORD [=] 'string'`
     fn password(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("PASSWORD"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, password)| TableOption::Password(password),
+            |x| CommonParser::parse_quoted_string_value_with_key(x, "PASSWORD".to_string()),
+            TableOption::Password,
         )(i)
     }
 
@@ -535,60 +450,37 @@ impl TableOption {
     /// parse `SECONDARY_ENGINE_ATTRIBUTE [=] 'string'`
     fn secondary_engine_attribute(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-            )),
-            |(_, _, _, _, engine)| TableOption::SecondaryEngineAttribute(engine),
+            |x| {
+                CommonParser::parse_quoted_string_value_with_key(
+                    x,
+                    "SECONDARY_ENGINE_ATTRIBUTE".to_string(),
+                )
+            },
+            TableOption::SecondaryEngineAttribute,
         )(i)
     }
 
     /// parse `STATS_AUTO_RECALC [=] {DEFAULT | 0 | 1}`
     fn stats_auto_recalc(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("STATS_AUTO_RECALC"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                DefaultOrZeroOrOne::parse,
-            )),
-            |(_, _, _, _, value)| TableOption::StatsAutoRecalc(value),
+            |x| CommonParser::parse_default_value_with_key(x, "STATS_AUTO_RECALC".to_string()),
+            TableOption::StatsAutoRecalc,
         )(i)
     }
 
     /// parse `STATS_PERSISTENT [=] {DEFAULT | 0 | 1}`
     fn stats_persistent(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("STATS_PERSISTENT"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                DefaultOrZeroOrOne::parse,
-            )),
-            |(_, _, _, _, value)| TableOption::StatsAutoRecalc(value),
+            |x| CommonParser::parse_default_value_with_key(x, "STATS_AUTO_RECALC".to_string()),
+            TableOption::StatsAutoRecalc,
         )(i)
     }
 
     /// parse `STATS_SAMPLE_PAGES [=] value`
     fn stats_sample_pages(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
         map(
-            tuple((
-                tag_no_case("STATS_SAMPLE_PAGES "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                digit1,
-            )),
-            |(_, _, _, _, value): (&str, &str, Option<&str>, &str, &str)| {
-                TableOption::StatsSamplePages(value.parse::<u64>().unwrap())
-            },
+            |x| CommonParser::parse_string_value_with_key(x, "STATS_SAMPLE_PAGES".to_string()),
+            |value| TableOption::StatsSamplePages(value.parse::<u64>().unwrap()),
         )(i)
     }
 
@@ -608,26 +500,46 @@ impl TableOption {
 
     /// parse `UNION [=] (tbl_name[,tbl_name]...)`
     fn union(i: &str) -> IResult<&str, TableOption, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("UNION "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                map(
-                    tuple((
-                        multispace0,
-                        delimited(
-                            tag("("),
-                            delimited(multispace0, Column::index_col_list, multispace0),
-                            tag(")"),
-                        ),
-                    )),
-                    |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
-                ),
-            )),
-            |(_, _, _, _, union)| TableOption::Union(union),
-        )(i)
+        alt((
+            map(
+                tuple((
+                    tag_no_case("UNION"),
+                    multispace1,
+                    map(
+                        tuple((
+                            multispace0,
+                            delimited(
+                                tag("("),
+                                delimited(multispace0, Column::index_col_list, multispace0),
+                                tag(")"),
+                            ),
+                        )),
+                        |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
+                    ),
+                )),
+                |(_, _, union)| TableOption::Union(union),
+            ),
+            map(
+                tuple((
+                    tag_no_case("UNION "),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    map(
+                        tuple((
+                            multispace0,
+                            delimited(
+                                tag("("),
+                                delimited(multispace0, Column::index_col_list, multispace0),
+                                tag(")"),
+                            ),
+                        )),
+                        |(_, value)| value.iter().map(|x| x.name.clone()).collect(),
+                    ),
+                )),
+                |(_, _, _, _, union)| TableOption::Union(union),
+            ),
+        ))(i)
     }
 }
 

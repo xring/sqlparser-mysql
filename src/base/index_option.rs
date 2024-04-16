@@ -140,18 +140,7 @@ impl IndexOption {
 
     /// SECONDARY_ENGINE_ATTRIBUTE [=] value
     fn secondary_engine_attribute(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("SECONDARY_ENGINE_ATTRIBUTE"),
-                multispace0,
-                opt(tag("=")),
-                map(delimited(tag("'"), take_until("'"), tag("'")), |x| {
-                    String::from(x)
-                }),
-                multispace0,
-            )),
-            |(_, _, _, engine, _)| engine,
-        )(i)
+        CommonParser::parse_string_value_with_key(i, "SECONDARY_ENGINE_ATTRIBUTE".to_string())
     }
 }
 

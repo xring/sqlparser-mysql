@@ -124,3 +124,63 @@ impl<'a> From<(&'a str, &'a str)> for Table {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use base::Table;
+
+    #[test]
+    fn parse_trigger() {
+        let str1 = "tbl_name";
+        let res1 = Table::table_reference(str1);
+        let exp1 = Table {
+            name: "tbl_name".to_string(),
+            alias: None,
+            schema: None,
+        };
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, exp1);
+
+        let str2 = "foo.tbl_name";
+        let res2 = Table::schema_table_reference(str2);
+        let exp2 = Table {
+            name: "tbl_name".to_string(),
+            alias: None,
+            schema: Some("foo".to_string()),
+        };
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, exp2);
+
+        let str3 = "foo.tbl_name as bar";
+        let res3 = Table::schema_table_reference(str3);
+        let exp3 = Table {
+            name: "tbl_name".to_string(),
+            alias: Some("bar".to_string()),
+            schema: Some("foo".to_string()),
+        };
+        assert!(res3.is_ok());
+        assert_eq!(res3.unwrap().1, exp3);
+    }
+
+    #[test]
+    fn from_str() {
+        let trigger1: Table = "tbl_name".into();
+        let exp1 = Table {
+            name: "tbl_name".to_string(),
+            alias: None,
+            schema: None,
+        };
+        assert_eq!(trigger1, exp1);
+    }
+
+    #[test]
+    fn from_tuple_str() {
+        let table2: Table = ("foo", "tbl_name").into();
+        let exp2 = Table {
+            name: "tbl_name".to_string(),
+            alias: None,
+            schema: Some("foo".to_string()),
+        };
+        assert_eq!(table2, exp2);
+    }
+}

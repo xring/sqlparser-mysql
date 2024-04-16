@@ -10,7 +10,7 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{IResult, InputLength, Parser};
 
 use base::column::Column;
-use base::{OrderType, ParseSQLError};
+use base::{DefaultOrZeroOrOne, OrderType, ParseSQLError};
 
 /// collection of common used parsers
 pub struct CommonParser;
@@ -358,6 +358,117 @@ impl CommonParser {
             multispace0,
             delimited(tag_no_case("IF"), multispace1, tag_no_case("EXISTS")),
             multispace0,
+        ))(i)
+    }
+
+    /// extract String quoted by `'` or `"`
+    pub fn parse_quoted_string(i: &str) -> IResult<&str, String, ParseSQLError<&str>> {
+        alt((
+            map(delimited(tag("'"), take_until("'"), tag("'")), String::from),
+            map(
+                delimited(tag("\""), take_until("\""), tag("\"")),
+                String::from,
+            ),
+        ))(i)
+    }
+
+    /// extract value from `key [=] 'value'` or `key [=] "value"`
+    pub fn parse_quoted_string_value_with_key(
+        i: &str,
+        key: String,
+    ) -> IResult<&str, String, ParseSQLError<&str>> {
+        alt((
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace1,
+                    CommonParser::parse_quoted_string,
+                )),
+                |(_, _, value)| value,
+            ),
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    CommonParser::parse_quoted_string,
+                )),
+                |(_, _, _, _, value)| value,
+            ),
+        ))(i)
+    }
+
+    /// extract value from `key [=] value`
+    pub fn parse_string_value_with_key(
+        i: &str,
+        key: String,
+    ) -> IResult<&str, String, ParseSQLError<&str>> {
+        alt((
+            map(
+                tuple((tag_no_case(key.as_str()), multispace1, Self::sql_identifier)),
+                |(_, _, value)| String::from(value),
+            ),
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::sql_identifier,
+                )),
+                |(_, _, _, _, value)| String::from(value),
+            ),
+        ))(i)
+    }
+
+    /// extract value from `key [=] value`
+    pub fn parse_digit_value_with_key(
+        i: &str,
+        key: String,
+    ) -> IResult<&str, String, ParseSQLError<&str>> {
+        alt((
+            map(
+                tuple((tag_no_case(key.as_str()), multispace1, Self::sql_identifier)),
+                |(_, _, value)| String::from(value),
+            ),
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    digit1,
+                )),
+                |(_, _, _, _, value)| String::from(value),
+            ),
+        ))(i)
+    }
+
+    /// extract value from `key [=] {DEFAULT | 0 | 1}`
+    pub fn parse_default_value_with_key(
+        i: &str,
+        key: String,
+    ) -> IResult<&str, DefaultOrZeroOrOne, ParseSQLError<&str>> {
+        alt((
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace1,
+                    DefaultOrZeroOrOne::parse,
+                )),
+                |(_, _, value)| value,
+            ),
+            map(
+                tuple((
+                    tag_no_case(key.as_str()),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    DefaultOrZeroOrOne::parse,
+                )),
+                |(_, _, _, _, value)| value,
+            ),
         ))(i)
     }
 }

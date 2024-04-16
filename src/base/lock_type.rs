@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::multispace0;
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -31,22 +31,31 @@ impl Display for LockType {
 
 impl LockType {
     pub fn parse(i: &str) -> IResult<&str, LockType, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("LOCK"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((
-                    map(tag_no_case("DEFAULT"), |_| LockType::Default),
-                    map(tag_no_case("NONE"), |_| LockType::None),
-                    map(tag_no_case("SHARED"), |_| LockType::Shared),
-                    map(tag_no_case("EXCLUSIVE"), |_| LockType::Exclusive),
+        alt((
+            map(
+                tuple((tag_no_case("LOCK"), multispace1, Self::parse_lock)),
+                |(_, _, lock)| lock,
+            ),
+            map(
+                tuple((
+                    tag_no_case("LOCK"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::parse_lock,
                 )),
-                multispace0,
-            )),
-            |x| x.4,
-        )(i)
+                |(_, _, _, _, lock)| lock,
+            ),
+        ))(i)
+    }
+
+    fn parse_lock(i: &str) -> IResult<&str, LockType, ParseSQLError<&str>> {
+        alt((
+            map(tag_no_case("DEFAULT"), |_| LockType::Default),
+            map(tag_no_case("NONE"), |_| LockType::None),
+            map(tag_no_case("SHARED"), |_| LockType::Shared),
+            map(tag_no_case("EXCLUSIVE"), |_| LockType::Exclusive),
+        ))(i)
     }
 }
 
@@ -75,5 +84,9 @@ mod tests {
         let res4 = LockType::parse(str4);
         assert!(res4.is_ok());
         assert_eq!(res4.unwrap().1, LockType::Shared);
+
+        let str5 = "lockSHARED";
+        let res5 = LockType::parse(str5);
+        assert!(res5.is_err());
     }
 }

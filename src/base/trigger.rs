@@ -57,3 +57,50 @@ impl<'a> From<(&'a str, &'a str)> for Trigger {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use base::Trigger;
+    use nom::combinator::into;
+
+    #[test]
+    fn parse_trigger() {
+        let str1 = "trigger_name";
+        let res1 = Trigger::parse(str1);
+        let exp1 = Trigger {
+            name: "trigger_name".to_string(),
+            schema: None,
+        };
+        assert!(res1.is_ok());
+        assert_eq!(res1.unwrap().1, exp1);
+
+        let str2 = "foo.trigger_name";
+        let res2 = Trigger::parse(str2);
+        let exp2 = Trigger {
+            name: "trigger_name".to_string(),
+            schema: Some("foo".to_string()),
+        };
+        assert!(res2.is_ok());
+        assert_eq!(res2.unwrap().1, exp2);
+    }
+
+    #[test]
+    fn from_str() {
+        let trigger1: Trigger = "trigger_name".into();
+        let exp1 = Trigger {
+            name: "trigger_name".to_string(),
+            schema: None,
+        };
+        assert_eq!(trigger1, exp1);
+    }
+
+    #[test]
+    fn from_tuple_str() {
+        let trigger2: Trigger = ("foo", "trigger_name").into();
+        let exp2 = Trigger {
+            name: "trigger_name".to_string(),
+            schema: Some("foo".to_string()),
+        };
+        assert_eq!(trigger2, exp2);
+    }
+}

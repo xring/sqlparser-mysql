@@ -2,6 +2,8 @@ extern crate sqlparser_mysql;
 
 use sqlparser_mysql::dds::{AlterTableStatement, CreateTableStatement};
 
+// FIXME should assert_eq(parse_result, exp)
+
 #[test]
 fn parse_create_table() {
     let create_sqls = vec![
@@ -37,13 +39,12 @@ fn parse_create_table() {
         "CREATE TABLE author ( a_id int not null, a_fname varchar(20), a_lname varchar(20), a_mname varchar(20), a_dob date, a_bio int, PRIMARY KEY(a_id))",
         "CREATE TABLE customer ( c_id int not null, c_uname varchar(20), c_passwd varchar(20), c_fname varchar(17), c_lname varchar(17), c_addr_id int, c_phone varchar(18), c_email varchar(50), c_since date, c_last_login date, c_login timestamp, c_expiration timestamp, c_discount real, c_balance double, c_ytd_pmt double, c_birthdate date, c_data int, PRIMARY KEY(c_id))",
         "CREATE TABLE item ( i_id int not null, i_title varchar(60), i_a_id int, i_pub_date date, i_publisher varchar(60), i_subject varchar(60), i_desc text, i_related1 int, i_related2 int, i_related3 int, i_related4 int, i_related5 int, i_thumbnail varchar(40), i_image varchar(40), i_srp double, i_cost double, i_avail date, i_stock int, i_isbn char(13), i_page int, i_backing varchar(15), i_dimensions varchar(25), PRIMARY KEY(i_id))",
-        "CREATE TABLE user (user_id int(5) unsigned NOT NULL auto_increment,user_name varchar(255) binary NOT NULL default '',user_rights tinyblob NOT NULL default '',user_password tinyblob NOT NULL default '',user_newpassword tinyblob NOT NULL default '',user_email tinytext NOT NULL default '',user_options blob NOT NULL default '',user_touched char(14) binary NOT NULL default '',UNIQUE KEY user_id (user_id)) ENGINE=MyISAM PACK_KEYS=1;",
         "CREATE TABLE `admin_assert` (`assert_id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Assert ID',`assert_type` varchar(20) DEFAULT NULL COMMENT 'Assert Type',`assert_data` text COMMENT 'Assert Data',PRIMARY KEY (`assert_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
-        "CREATE TABLE `postcode_city` (`id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Id',`country_code` varchar(5) NOT NULL COMMENT 'Country Code',`postcode` varchar(20) NOT NULL COMMENT 'Postcode',`city` text NOT NULL COMMENT 'City',PRIMARY KEY (`id`)) ENGINE=InnoDB Auto_Increment=52142 DEFAULT CHARSET=utf8 COMMENT='Postcode -> City';",
+        "CREATE TABLE user (user_id int(5) unsigned NOT NULL auto_increment,user_name varchar(255) binary NOT NULL default '',user_rights tinyblob NOT NULL default '',user_password tinyblob NOT NULL default '',user_newpassword tinyblob NOT NULL default '',user_email tinytext NOT NULL default '',user_options blob NOT NULL default '',user_touched char(14) binary NOT NULL default '',UNIQUE KEY user_id (user_id)) ENGINE=MyISAM PACK_KEYS=1;",
+        "CREATE TABLE `postcode_city` (`id` int(10) unsigned NOT NULL Auto_Increment COMMENT 'Id',`country_code` varchar(5) NOT NULL COMMENT 'Country Code',`postcode` varchar(20) NOT NULL COMMENT 'Postcode',`city` text NOT NULL COMMENT 'City',PRIMARY KEY (`id`)) Auto_Increment=52142 DEFAULT CHARSET=utf8 COMMENT='Postcode -> City';",
     ];
-    for i in 0..create_sqls.len() {
-        println!("{}/{}", i + 1, create_sqls.len());
-        let res = CreateTableStatement::parse(create_sqls[i]);
+    for sql in create_sqls {
+        let res = CreateTableStatement::parse(sql);
         println!("{:?}", res);
         assert!(res.is_ok());
     }
@@ -110,11 +111,8 @@ fn parse_alter_table() {
         "ALTER TABLE `process_template_config` ADD template_admin_approver json NULL DEFAULT NULL COMMENT '模板管理员';"
     ];
 
-    for i in 0..alter_sqls.len() {
-        println!("{}/{}", i + 1, alter_sqls.len());
-        let res = AlterTableStatement::parse(alter_sqls[i]);
-        // res.unwrap();
-        // println!("{:?}", res);
+    for sql in alter_sqls {
+        let res = AlterTableStatement::parse(sql);
         println!("{:?}", res);
         assert!(res.is_ok());
     }

@@ -2,9 +2,8 @@ use core::fmt;
 use std::fmt::Formatter;
 use std::str;
 
-use nom::bytes::complete::{tag, tag_no_case};
+use nom::bytes::complete::tag_no_case;
 use nom::character::complete::multispace0;
-use nom::character::complete::multispace1;
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -12,8 +11,7 @@ use nom::IResult;
 use base::error::ParseSQLError;
 use base::CommonParser;
 
-/// parse `DROP [UNDO] TABLESPACE tablespace_name
-///     [ENGINE [=] engine_name]`
+/// parse `DROP [UNDO] TABLESPACE tablespace_name [ENGINE [=] engine_name]`
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct DropTablespaceStatement {
     pub undo: bool,
@@ -30,25 +28,12 @@ impl DropTablespaceStatement {
             multispace0,
             tag_no_case("TABLESPACE "),
             multispace0,
-            map(CommonParser::sql_identifier, |tablespace_name| {
-                String::from(tablespace_name)
-            }),
+            map(CommonParser::sql_identifier, String::from),
             multispace0,
-            opt(map(
-                tuple((
-                    tag_no_case("ENGINE"),
-                    multispace0,
-                    opt(tag("=")),
-                    multispace0,
-                    CommonParser::sql_identifier,
-                    multispace0,
-                )),
-                |(_, _, _, _, engine, _)| String::from(engine),
-            )),
-            multispace0,
+            opt(|x| CommonParser::parse_string_value_with_key(x, "ENGINE".to_string())),
             CommonParser::statement_terminator,
         ));
-        let (remaining_input, (_, _, opt_undo, _, _, _, tablespace_name, _, engine_name, _, _)) =
+        let (remaining_input, (_, _, opt_undo, _, _, _, tablespace_name, _, engine_name, _)) =
             parser(i)?;
 
         Ok((

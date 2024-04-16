@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::multispace0;
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -34,23 +34,37 @@ impl Display for RowFormatType {
 
 impl RowFormatType {
     pub fn parse(i: &str) -> IResult<&str, RowFormatType, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("ROW_FORMAT"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((
-                    map(tag_no_case("DEFAULT"), |_| RowFormatType::Default),
-                    map(tag_no_case("DYNAMIC"), |_| RowFormatType::Dynamic),
-                    map(tag_no_case("FIXED"), |_| RowFormatType::Fixed),
-                    map(tag_no_case("COMPRESSED"), |_| RowFormatType::Compressed),
-                    map(tag_no_case("REDUNDANT"), |_| RowFormatType::Redundant),
-                    map(tag_no_case("COMPACT"), |_| RowFormatType::Compact),
+        alt((
+            map(
+                tuple((
+                    tag_no_case("ROW_FORMAT"),
+                    multispace1,
+                    Self::parse_row_format,
                 )),
-            )),
-            |(_, _, _, _, row_format_type)| row_format_type,
-        )(i)
+                |(_, _, row_format_type)| row_format_type,
+            ),
+            map(
+                tuple((
+                    tag_no_case("ROW_FORMAT"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::parse_row_format,
+                )),
+                |(_, _, _, _, row_format_type)| row_format_type,
+            ),
+        ))(i)
+    }
+
+    fn parse_row_format(i: &str) -> IResult<&str, RowFormatType, ParseSQLError<&str>> {
+        alt((
+            map(tag_no_case("DEFAULT"), |_| RowFormatType::Default),
+            map(tag_no_case("DYNAMIC"), |_| RowFormatType::Dynamic),
+            map(tag_no_case("FIXED"), |_| RowFormatType::Fixed),
+            map(tag_no_case("COMPRESSED"), |_| RowFormatType::Compressed),
+            map(tag_no_case("REDUNDANT"), |_| RowFormatType::Redundant),
+            map(tag_no_case("COMPACT"), |_| RowFormatType::Compact),
+        ))(i)
     }
 }
 

@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::multispace0;
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
@@ -28,28 +28,42 @@ impl Display for CompressionType {
 
 impl CompressionType {
     pub fn parse(i: &str) -> IResult<&str, CompressionType, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("COMPRESSION"),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                alt((
-                    map(
-                        alt((tag_no_case("'ZLIB'"), tag_no_case("\"ZLIB\""))),
-                        |_| CompressionType::ZLIB,
-                    ),
-                    map(alt((tag_no_case("'LZ4'"), tag_no_case("\"LZ4\""))), |_| {
-                        CompressionType::LZ4
-                    }),
-                    map(
-                        alt((tag_no_case("'NONE'"), tag_no_case("\"NONE\""))),
-                        |_| CompressionType::NONE,
-                    ),
+        alt((
+            map(
+                tuple((
+                    tag_no_case("COMPRESSION"),
+                    multispace1,
+                    Self::parse_compression,
                 )),
-            )),
-            |(_, _, _, _, compression_type)| compression_type,
-        )(i)
+                |(_, _, compression_type)| compression_type,
+            ),
+            map(
+                tuple((
+                    tag_no_case("COMPRESSION"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::parse_compression,
+                )),
+                |(_, _, _, _, compression_type)| compression_type,
+            ),
+        ))(i)
+    }
+
+    fn parse_compression(i: &str) -> IResult<&str, CompressionType, ParseSQLError<&str>> {
+        alt((
+            map(
+                alt((tag_no_case("'ZLIB'"), tag_no_case("\"ZLIB\""))),
+                |_| CompressionType::ZLIB,
+            ),
+            map(alt((tag_no_case("'LZ4'"), tag_no_case("\"LZ4\""))), |_| {
+                CompressionType::LZ4
+            }),
+            map(
+                alt((tag_no_case("'NONE'"), tag_no_case("\"NONE\""))),
+                |_| CompressionType::NONE,
+            ),
+        ))(i)
     }
 }
 

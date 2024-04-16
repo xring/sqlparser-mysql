@@ -1,9 +1,8 @@
 use nom::branch::alt;
-use nom::bytes::complete::tag_no_case;
-use nom::character::complete::multispace0;
+use nom::bytes::complete::{tag, tag_no_case};
+use nom::character::complete::{multispace0, multispace1};
 use nom::combinator::{map, opt};
 use nom::sequence::tuple;
-use nom::streaming::tag;
 use nom::IResult;
 use std::fmt::{Display, Formatter};
 
@@ -29,20 +28,34 @@ impl Display for InsertMethodType {
 
 impl InsertMethodType {
     pub fn parse(i: &str) -> IResult<&str, InsertMethodType, ParseSQLError<&str>> {
-        map(
-            tuple((
-                tag_no_case("INSERT_METHOD"),
-                multispace0,
-                opt(tag_no_case("=")),
-                multispace0,
-                alt((
-                    map(tag_no_case("NO"), |_| InsertMethodType::No),
-                    map(tag_no_case("FIRST"), |_| InsertMethodType::First),
-                    map(tag_no_case("LAST"), |_| InsertMethodType::Last),
+        alt((
+            map(
+                tuple((
+                    tag_no_case("INSERT_METHOD"),
+                    multispace1,
+                    Self::parse_method,
                 )),
-            )),
-            |(_, _, _, _, inert_method_type)| inert_method_type,
-        )(i)
+                |(_, _, inert_method_type)| inert_method_type,
+            ),
+            map(
+                tuple((
+                    tag_no_case("INSERT_METHOD"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    Self::parse_method,
+                )),
+                |(_, _, _, _, inert_method_type)| inert_method_type,
+            ),
+        ))(i)
+    }
+
+    fn parse_method(i: &str) -> IResult<&str, InsertMethodType, ParseSQLError<&str>> {
+        alt((
+            map(tag_no_case("NO"), |_| InsertMethodType::No),
+            map(tag_no_case("FIRST"), |_| InsertMethodType::First),
+            map(tag_no_case("LAST"), |_| InsertMethodType::Last),
+        ))(i)
     }
 }
 

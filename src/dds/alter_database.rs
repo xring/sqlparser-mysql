@@ -132,18 +132,30 @@ impl AlterDatabaseOption {
         );
 
         // READ ONLY [=] {DEFAULT | 0 | 1}
-        let read_only = map(
-            tuple((
-                opt(tag_no_case("READ")),
-                multispace1,
-                tag_no_case("ONLY "),
-                multispace0,
-                opt(tag("=")),
-                multispace0,
-                DefaultOrZeroOrOne::parse,
-            )),
-            |x| AlterDatabaseOption::ReadOnly(x.6),
-        );
+        let read_only = alt((
+            map(
+                tuple((
+                    opt(tag_no_case("READ")),
+                    multispace1,
+                    tag_no_case("ONLY"),
+                    multispace1,
+                    DefaultOrZeroOrOne::parse,
+                )),
+                |(_, _, _, _, value)| AlterDatabaseOption::ReadOnly(value),
+            ),
+            map(
+                tuple((
+                    opt(tag_no_case("READ")),
+                    multispace1,
+                    tag_no_case("ONLY"),
+                    multispace0,
+                    tag("="),
+                    multispace0,
+                    DefaultOrZeroOrOne::parse,
+                )),
+                |(_, _, _, _, _, _, value)| AlterDatabaseOption::ReadOnly(value),
+            ),
+        ));
 
         alt((character, collate, encryption, read_only))(i)
     }
